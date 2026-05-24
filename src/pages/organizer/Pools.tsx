@@ -8,7 +8,7 @@ import { generatePoolMatches } from '../../utils/generateMatches';
 import { generateBracket } from '../../utils/generateBracket';
 import { supabase } from '../../supabase';
 import toast from 'react-hot-toast';
-import { Play, Grid3X3, Trophy, ChevronRight } from 'lucide-react';
+import { Play, Grid3X3, Trophy, ChevronRight, Lock as LockIcon } from 'lucide-react';
 
 function getContrastColor(hexColor: string): string {
   if (!hexColor) return '#ffffff';
@@ -29,6 +29,7 @@ export default function Pools() {
   const [generating, setGenerating] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
+  const [confirmingClosePools, setConfirmingClosePools] = useState(false);
 
   React.useEffect(() => {
     if (!tournament?.id) return;
@@ -39,14 +40,23 @@ export default function Pools() {
         .eq('tournament_id', tournament.id)
         .order('name');
       if (!error && data) {
-        setCategories(data);
+        // En cas de cache obsolète ou de colonne manquante, on complète à l’aide du localStorage local
+        const localClosedRaw = localStorage.getItem(`closed_categories_${tournament.id}`);
+        const localClosed: string[] = localClosedRaw ? JSON.parse(localClosedRaw) : [];
+
+        const merged = data.map(cat => ({
+          ...cat,
+          is_closed: cat.is_closed || localClosed.includes(cat.name)
+        }));
+
+        setCategories(merged);
         // Filtrer les catégories sur la journée courante
         const currentDay = tournament.current_day || 1;
-        const catsToday = data.filter(c => (c.day_number || 1) === currentDay);
+        const catsToday = merged.filter(c => (c.day_number || 1) === currentDay);
         if (catsToday.length > 0) {
           setSelectedCategory(catsToday[0].name);
-        } else if (data.length > 0) {
-          setSelectedCategory(data[0].name);
+        } else if (merged.length > 0) {
+          setSelectedCategory(merged[0].name);
         }
       }
     };
@@ -64,6 +74,12 @@ export default function Pools() {
       return;
     }
 
+    const currentCategoryObj = categories.find(c => c.name === selectedCategory);
+    if (!currentCategoryObj?.is_closed) {
+      toast.error(`Le pointage de ce tableau n'est pas encore clôturé 🔒.\n\nVeuillez d'abord clôturer le pointage pour "${selectedCategory}" dans l'onglet "Joueurs" pour débloquer la génération des poules.`);
+      return;
+    }
+
     const categoryPlayers = players.filter(p => p.serie === selectedCategory && p.checked_in === true);
 
     if (categoryPlayers.length < 3) {
@@ -73,14 +89,15 @@ export default function Pools() {
 
     setGenerating(true);
     try {
-      const poolsData = generatePools(categoryPlayers);
+      const poolsResult = generatePools(categoryPlayers, [], tournament.players_per_pool || 3);
+      const poolsPlayers = poolsResult.map(p => p.players);
       
       // 1. Créer les poules en préfixant par le nom de la catégorie !
       const { data: createdPools, error: poolError } = await supabase
         .from('pools')
-        .insert(poolsData.map((_, i) => ({
+        .insert(poolsPlayers.map((_, i) => ({
           tournament_id: tournament.id,
-          name: `${selectedCategory} - Poule ${String.fromCharCode(65 + i)}`
+          name: `${selectedCategory} - Poule ${i + 1}`
         })))
         .select();
 
@@ -88,14 +105,14 @@ export default function Pools() {
 
       // 2. Créer les liaisons pool_players
       const poolPlayersRows = createdPools.flatMap((pool, i) =>
-        poolsData[i].map(player => ({ pool_id: pool.id, player_id: player.id }))
+        poolsPlayers[i].map(player => ({ pool_id: pool.id, player_id: player.player_id || player.id }))
       );
       const { error: ppError } = await supabase.from('pool_players').insert(poolPlayersRows);
       if (ppError) throw ppError;
 
       // 3. Générer les matchs round-robin
       const allMatches = createdPools.flatMap((pool, i) =>
-        generatePoolMatches(poolsData[i].map(p => p.id), pool.id, tournament.id)
+        generatePoolMatches(poolsPlayers[i].map(p => p.player_id || p.id), pool.id, tournament.id)
       );
       const { error: matchError } = await supabase.from('matches').insert(allMatches);
       if (matchError) throw matchError;
@@ -245,38 +262,74 @@ export default function Pools() {
         </div>
       </div>
 
-      {pools.filter(p => selectedCategory ? p.name.startsWith(`${selectedCategory} - `) : true).length === 0 ? (
-        <div className="p-8 max-w-2xl mx-auto text-center mt-12">
-          <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
-            <Grid3X3 className="w-10 h-10" />
-          </div>
-          <h1 className="text-3xl font-bold text-slate-900">Poules du Tableau {selectedCategory}</h1>
-          <p className="text-slate-500 mt-4 text-sm leading-relaxed max-w-md mx-auto">
-            Les poules pour le tableau "{selectedCategory}" de la journée en cours ne sont pas encore générées.
-            Assurez-vous que le pointage des joueurs est terminé pour cette série avant de lancer la génération.
-          </p>
-          
-          {(() => {
-            const presents = players.filter(p => p.serie === selectedCategory && p.checked_in);
-            const total = players.filter(p => p.serie === selectedCategory);
-            return (
-              <div className="my-6 inline-flex gap-6 px-6 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-500">
-                <span>Inscrits : <strong className="text-slate-800">{total.length}</strong></span>
-                <span>Presents : <strong className="text-indigo-600">{presents.length}</strong></span>
-              </div>
-            );
-          })()}
+      {pools.filter(p => selectedCategory ? p.name.startsWith(`${selectedCategory} - `) : true).length === 0 ? (() => {
+        const currentCategoryObj = categories.find(c => c.name === selectedCategory);
+        const isClosed = currentCategoryObj?.is_closed;
+        const presents = players.filter(p => p.serie === selectedCategory && p.checked_in);
+        const total = players.filter(p => p.serie === selectedCategory);
+        const hasEnoughPlayers = presents.length >= 3;
 
-          <button
-            onClick={handleGeneratePools}
-            disabled={generating || players.filter(p => p.serie === selectedCategory && p.checked_in).length < 3}
-            className="inline-flex items-center gap-3 px-8 py-4 bg-indigo-600 text-white rounded-2xl font-bold text-lg hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-200 disabled:opacity-50 disabled:shadow-none active:scale-95"
-          >
-            {generating ? 'Génération en cours...' : 'Générer les Poules de cette Série'}
-            <ChevronRight className="w-6 h-6" />
-          </button>
-        </div>
-      ) : (
+        return (
+          <div className="p-8 max-w-2xl mx-auto text-center mt-12">
+            <div className={`w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 transition-all ${
+              isClosed ? 'bg-indigo-50 text-indigo-600' : 'bg-rose-50 text-rose-600'
+            }`}>
+              {isClosed ? <Grid3X3 className="w-10 h-10 animate-pulse" /> : <LockIcon className="w-10 h-10" />}
+            </div>
+            <h1 className="text-3xl font-bold text-slate-900 flex items-center justify-center gap-2">
+              Poules du Tableau {selectedCategory}
+              {isClosed ? (
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-600 text-white leading-none">
+                  Prêt 🔒
+                </span>
+              ) : (
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-rose-600 text-white leading-none">
+                  Pointage en cours 🔓
+                </span>
+              )}
+            </h1>
+
+            {!isClosed ? (
+              <div className="bg-rose-50/50 border border-rose-100 text-rose-950 p-4 rounded-2xl text-xs sm:text-sm my-6 leading-relaxed font-bold max-w-lg mx-auto">
+                ⚠️ Le pointage de ce tableau n'est pas encore clôturé par la table d'arbitrage.
+                <p className="text-slate-500 font-semibold text-xs mt-1">
+                  Veuillez d'abord valider les présences et clôturer le pointage dans la rubrique <strong className="text-slate-750">"Joueurs"</strong> pour pouvoir générer les poules.
+                </p>
+              </div>
+            ) : (
+              <p className="text-slate-500 mt-4 text-sm leading-relaxed max-w-md mx-auto">
+                Les poules pour le tableau "{selectedCategory}" de la journée en cours ne sont pas encore générées.
+                Le pointage est validé et clos. Vous pouvez dès maintenant lancer la génération robotisée des poules.
+              </p>
+            )}
+            
+            <div className="my-2 inline-flex gap-6 px-6 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-500">
+              <span>Inscrits : <strong className="text-slate-800">{total.length}</strong></span>
+              <span>Presents : <strong className="text-indigo-600">{presents.length}</strong></span>
+            </div>
+
+            <div className="mt-6 flex flex-col items-center gap-3">
+              <button
+                onClick={handleGeneratePools}
+                disabled={generating || !isClosed || !hasEnoughPlayers}
+                className={`inline-flex items-center gap-3 px-8 py-4 text-white rounded-2xl font-bold text-lg transition-all shadow-xl active:scale-95 disabled:scale-100 ${
+                  !isClosed 
+                    ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
+                    : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-250 cursor-pointer'
+                }`}
+              >
+                {generating ? 'Génération en cours...' : !isClosed ? 'En attente de clôture du pointage 🔒' : 'Générer les Poules de cette Série'}
+                <ChevronRight className="w-6 h-6" />
+              </button>
+              {!hasEnoughPlayers && isClosed && (
+                <span className="text-rose-600 font-bold text-xs">
+                  ⚠️ Il faut au moins 3 joueurs présents dans ce tableau pour composer des poules.
+                </span>
+              )}
+            </div>
+          </div>
+        );
+      })() : (
         <>
           <div className="flex justify-between items-end mb-8 flex-wrap gap-4">
             <div>
@@ -291,39 +344,59 @@ export default function Pools() {
               const pool = pools.find(p => p.id === m.pool_id);
               return pool?.name.startsWith(`${selectedCategory} - `);
             }).length > 0 && (
-              <button
-                onClick={async () => {
-                  const categoryMatches = matches.filter(m => {
-                    const pool = pools.find(p => p.id === m.pool_id);
-                    return pool?.name.startsWith(`${selectedCategory} - `);
-                  });
-                  const allFinished = categoryMatches.every(m => m.status === 'finished');
-                  if (!allFinished) {
-                    if (!confirm('Attention: Tous les matchs de cette série ne sont pas terminés. Voulez-vous quand même clore la phase de poules de ce tableau et générer son tableau final ?')) return;
-                  } else {
-                    if (!confirm(`Voulez-vous clore les poules pour "${selectedCategory}" et générer son tableau final ?`)) return;
-                  }
-                  
-                  setGenerating(true);
-                  try {
-                    // Passer le nom de la catégorie à générer
-                    await generateBracket(tournament.id, selectedCategory);
-                    toast.success('Phase de poules terminée ! Direction le tableau.');
-                    await refreshTournament();
-                    navigate('/organizer/bracket');
-                  } catch (err: any) {
-                    console.error(err);
-                    toast.error(err.message || 'Erreur lors de la validation');
-                  } finally {
-                    setGenerating(false);
-                  }
-                }}
-                disabled={generating}
-                className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-2xl font-bold hover:bg-green-700 transition-all shadow-xl shadow-green-100 disabled:opacity-50"
-              >
-                <Trophy className="w-5 h-5" />
-                {generating ? 'Génération...' : 'Créer le Tableau Final'}
-              </button>
+              <div className="flex items-center gap-2">
+                {confirmingClosePools ? (
+                  <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 animate-fade-in shadow-sm">
+                    <span className="text-xs font-bold text-slate-600 px-2.5">
+                      {(() => {
+                        const categoryMatches = matches.filter(m => {
+                          const pool = pools.find(p => p.id === m.pool_id);
+                          return pool?.name.startsWith(`${selectedCategory} - `);
+                        });
+                        const allFinished = categoryMatches.every(m => m.status === 'finished');
+                        return allFinished 
+                          ? "Générer le tableau final ?" 
+                          : "⚠️ Des matchs sont en cours. Générer quand même ?";
+                      })()}
+                    </span>
+                    <button
+                      onClick={async () => {
+                        setConfirmingClosePools(false);
+                        setGenerating(true);
+                        try {
+                          await generateBracket(tournament!.id, selectedCategory);
+                          toast.success('Phase de poules terminée ! Direction le tableau.');
+                          await refreshTournament();
+                          navigate('/organizer/bracket');
+                        } catch (err: any) {
+                          console.error(err);
+                          toast.error(err.message || 'Erreur lors de la validation');
+                        } finally {
+                          setGenerating(false);
+                        }
+                      }}
+                      className="px-3.5 py-1.5 bg-green-600 hover:bg-green-700 text-white font-extrabold text-xs rounded-xl transition-all shadow-sm cursor-pointer"
+                    >
+                      Oui, créer ✓
+                    </button>
+                    <button
+                      onClick={() => setConfirmingClosePools(false)}
+                      className="px-3.5 py-1.5 bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                    >
+                      Annuler
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setConfirmingClosePools(true)}
+                    disabled={generating}
+                    className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-2xl font-bold hover:bg-green-700 transition-all shadow-xl shadow-green-100 disabled:opacity-50"
+                  >
+                    <Trophy className="w-5 h-5" />
+                    {generating ? 'Génération...' : 'Créer le Tableau Final'}
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
@@ -397,13 +470,21 @@ export default function Pools() {
                                     </div>
                                   </td>
                                   <td className="py-3">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      {s.dossard && (
+                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase tracking-widest">
+                                          Dossard {s.dossard}
+                                        </span>
+                                      )}
                                       <div className="font-semibold text-slate-900">{s.first_name} {s.last_name}</div>
                                       {isTargetRank && isComplete && (
                                         <Trophy className="w-3 h-3 text-amber-500 animate-bounce" />
                                       )}
                                     </div>
-                                    <div className="text-xs text-slate-400 italic">{s.club || 'Sans club'}</div>
+                                    <div className="text-xs text-slate-400 italic">
+                                      {s.club || 'Sans club'}
+                                      {s.points_fftt !== undefined && s.points_fftt !== null && s.points_fftt > 0 ? ` • ${s.points_fftt} pts` : ''}
+                                    </div>
                                   </td>
                                   <td className="py-3 text-center font-bold text-slate-700 px-2">
                                     <span className={s.points > 0 ? 'text-indigo-600' : ''}>{s.points}</span>

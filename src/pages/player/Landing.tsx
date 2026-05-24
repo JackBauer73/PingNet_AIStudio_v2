@@ -98,8 +98,17 @@ export default function Landing() {
         if (error) throw error;
         
         if (data && data.length > 0) {
-          setCategories(data);
-          setFormData(prev => ({ ...prev, serie: data[0].name }));
+          // Fusionner avec le stockage local
+          const localClosedRaw = localStorage.getItem(`closed_categories_${tournament.id}`);
+          const localClosed: string[] = localClosedRaw ? JSON.parse(localClosedRaw) : [];
+
+          const merged = data.map(cat => ({
+            ...cat,
+            is_closed: cat.is_closed || localClosed.includes(cat.name)
+          }));
+
+          setCategories(merged);
+          setFormData(prev => ({ ...prev, serie: merged[0].name }));
         } else {
           setCategories([]);
         }
@@ -129,6 +138,22 @@ export default function Landing() {
 
     const selectedCat = categories.find(c => c.name === formData.serie);
 
+    if (selectedCat && selectedCat.is_closed) {
+      setModalState({
+        isOpen: true,
+        type: 'error',
+        title: 'Tableau Clôturé 🔒',
+        message: `Les inscriptions pour le tableau "${selectedCat.name}" sont désormais clôturées par l'organisateur. Il n'est plus possible de s'y inscrire.`,
+        details: {
+          playerName: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
+          licence: !manualEntry ? licenceInput : 'Saisie manuelle',
+          categoryName: selectedCat.name,
+          reason: `Ce tableau est clôturé (pointage clos et poules en cours).`
+        }
+      });
+      return;
+    }
+
     // ── VALIDATION DE LA LIMITE DE TABLEAUX PAR JOURNÉE ──
     if (selectedCat && tournament) {
       try {
@@ -138,14 +163,47 @@ export default function Landing() {
         if (maxPerDay < 100) { // Sauf si illimité
           // Récupérer les inscriptions du joueur pour ce tournoi
           const { data: existingRegs, error: fetchErr } = await supabase
-            .from('players')
-            .select('serie')
-            .eq('tournament_id', tournament.id)
-            .ilike('first_name', formData.firstName.trim())
-            .ilike('last_name', formData.lastName.trim());
+            .from('registrations')
+            .select(`
+              table_categories ( name ),
+              players ( first_name, last_name )
+            `)
+            .eq('tournament_id', tournament.id);
 
           if (!fetchErr && existingRegs && existingRegs.length > 0) {
-            const sameDayRegs = existingRegs.filter(reg => {
+            const mappedRegs = existingRegs
+              .filter((r: any) => {
+                const p = Array.isArray(r.players) ? r.players[0] : r.players;
+                return p && 
+                  p.first_name.toLowerCase() === formData.firstName.trim().toLowerCase() && 
+                  p.last_name.toLowerCase() === formData.lastName.trim().toLowerCase();
+              })
+              .map((r: any) => {
+                const c = Array.isArray(r.table_categories) ? r.table_categories[0] : r.table_categories;
+                return {
+                  serie: c?.name || ''
+                };
+              });
+
+            // Vérifier si déjà inscrit à ce tableau précisément
+            const isAlreadyRegistered = mappedRegs.some(reg => reg.serie === selectedCat.name);
+            if (isAlreadyRegistered) {
+              setModalState({
+                isOpen: true,
+                type: 'error',
+                title: 'Déjà inscrit(e) ❌',
+                message: `Vous êtes déjà inscrit(e) au tableau "${selectedCat.name}".`,
+                details: {
+                  playerName: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
+                  licence: !manualEntry ? licenceInput : 'Saisie manuelle',
+                  categoryName: selectedCat.name,
+                  reason: `Votre inscription pour ce tableau est déjà validée ou en attente d'approbation.`
+                }
+              });
+              return;
+            }
+
+            const sameDayRegs = mappedRegs.filter(reg => {
               const cat = categories.find(c => c.name === reg.serie);
               return cat && Number(cat.day_number) === Number(selectedCat.day_number);
             });
@@ -759,8 +817,8 @@ export default function Landing() {
                         >
                           {categories.length > 0 ? (
                             categories.map((cat, idx) => (
-                              <option key={idx} value={cat.name}>
-                                {cat.name} ({cat.min_points} - {cat.max_points} pts) - {cat.price}€
+                              <option key={idx} value={cat.name} disabled={cat.is_closed}>
+                                {cat.name} ({cat.min_points} - {cat.max_points} pts) - {cat.price}€ {cat.is_closed ? '🔒 [CLÔTURÉ]' : ''}
                               </option>
                             ))
                           ) : (
@@ -866,8 +924,8 @@ export default function Landing() {
                       >
                         {categories.length > 0 ? (
                           categories.map((cat, idx) => (
-                            <option key={idx} value={cat.name}>
-                              {cat.name} ({cat.min_points} - {cat.max_points} pts) - {cat.price}€
+                            <option key={idx} value={cat.name} disabled={cat.is_closed}>
+                              {cat.name} ({cat.min_points} - {cat.max_points} pts) - {cat.price}€ {cat.is_closed ? '🔒 [CLÔTURÉ]' : ''}
                             </option>
                           ))
                         ) : (

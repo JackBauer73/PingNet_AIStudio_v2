@@ -230,6 +230,7 @@ export default function Dashboard() {
     sets_to_win: 2,
     points_per_set: 11,
     max_categories_per_day: 3,
+    players_per_pool: 3,
     mode: 'players' as const,
     payment_methods: {
       cb: false,
@@ -241,6 +242,7 @@ export default function Dashboard() {
   });
 
   interface TempTableCategory {
+    id?: string;
     name: string;
     min_points: number;
     max_points: number;
@@ -353,6 +355,7 @@ export default function Dashboard() {
       sets_to_win: tournament.sets_to_win || 2,
       points_per_set: tournament.points_per_set || 11,
       max_categories_per_day: tournament.max_categories_per_day || 3,
+      players_per_pool: tournament.players_per_pool || 3,
       mode: (tournament.score_mode || 'players') as any,
       payment_methods: tournament.payment_methods || {
         cb: false,
@@ -364,6 +367,7 @@ export default function Dashboard() {
     });
 
     const formattedCats = activeCategories.map(cat => ({
+      id: cat.id,
       name: cat.name,
       min_points: cat.min_points,
       max_points: cat.max_points,
@@ -413,6 +417,7 @@ export default function Dashboard() {
         sets_to_win: Number(newTournament.sets_to_win),
         points_per_set: Number(newTournament.points_per_set),
         max_categories_per_day: Number(newTournament.max_categories_per_day),
+        players_per_pool: Number(newTournament.players_per_pool),
         score_mode: newTournament.mode,
         payment_methods: newTournament.payment_methods
       };
@@ -423,12 +428,12 @@ export default function Dashboard() {
         .eq('id', tournament.id);
 
       // --- RETRY LOGIC FOR SCHEMA CACHE ERROR ---
-      if (tError && tError.message && tError.message.includes('max_categories_per_day')) {
-        console.warn("La colonne 'max_categories_per_day' n'existe pas ou n'est pas encore dans le cache du schéma Supabase. Sauvegarde sans cette colonne...");
-        toast.error("Colonne 'max_categories_per_day' manquante dans Supabase. Sauvegarde sans cette limite...", { duration: 5000 });
+      if (tError && tError.message && (tError.message.includes('max_categories_per_day') || tError.message.includes('players_per_pool'))) {
+        console.warn("La colonne 'max_categories_per_day' ou 'players_per_pool' n'existe pas ou n'est pas encore dans le cache du schéma Supabase. Sauvegarde sans ces colonnes...");
+        toast.error("Données de configuration manquantes ou obsolètes dans la base. Sauvegarde sans ces paramètres...", { duration: 5000 });
         
         // Supprimer la colonne et réessayer
-        const { max_categories_per_day, ...fallbackData } = tournamentData;
+        const { max_categories_per_day, players_per_pool, ...fallbackData } = tournamentData;
         const fallbackRes = await supabase
           .from('tournaments')
           .update(fallbackData)
@@ -439,34 +444,69 @@ export default function Dashboard() {
 
       if (tError) throw tError;
 
-      // 2. Mettre à jour les catégories (Séries)
-      // Pour simplifier et sécuriser en mode brouillon : on supprime d'abord les anciennes catégories, puis on réinsère.
-      const { error: deleteCatsError } = await supabase
-        .from('table_categories')
-        .delete()
-        .eq('tournament_id', tournament.id);
+      // 2. Mettre à jour les catégories (Séries) d'une manière non destructive
+      // On compare les catégories d'origine avec celles modifiées pour supprimer uniquement celles retirées
+      const activeIds = activeCategories.map(c => c.id);
+      const keptIds = categories.filter(c => c.id).map(c => c.id);
+      const idsToDelete = activeIds.filter(id => !keptIds.includes(id));
 
-      if (deleteCatsError) throw deleteCatsError;
+      if (idsToDelete.length > 0) {
+        const { error: deleteCatsError } = await supabase
+          .from('table_categories')
+          .delete()
+          .in('id', idsToDelete);
 
-      const categoriesData = categories.map(cat => ({
-        tournament_id: tournament.id,
-        name: cat.name,
-        min_points: Number(cat.min_points),
-        max_points: Number(cat.max_points),
-        price: Number(cat.price),
-        capacity: Number(cat.capacity),
-        start_time: cat.start_time || null,
-        day_number: Number(cat.day_number),
-        gender_restriction: cat.gender_restriction,
-        age_categories: cat.age_categories.trim() || null,
-        color_code: cat.color_code
-      }));
+        if (deleteCatsError) {
+          throw new Error("Impossible de supprimer certains tableaux car des joueurs y sont inscrits. Veuillez d'abord retirer les inscriptions associées.");
+        }
+      }
 
-      const { error: catError } = await supabase
-        .from('table_categories')
-        .insert(categoriesData);
+      const toUpsert = categories
+        .filter(cat => cat.id)
+        .map(cat => ({
+          id: cat.id,
+          tournament_id: tournament.id,
+          name: cat.name,
+          min_points: Number(cat.min_points),
+          max_points: Number(cat.max_points),
+          price: Number(cat.price),
+          capacity: Number(cat.capacity),
+          start_time: cat.start_time || null,
+          day_number: Number(cat.day_number),
+          gender_restriction: cat.gender_restriction,
+          age_categories: cat.age_categories.trim() || null,
+          color_code: cat.color_code
+        }));
 
-      if (catError) throw catError;
+      const toInsert = categories
+        .filter(cat => !cat.id)
+        .map(cat => ({
+          tournament_id: tournament.id,
+          name: cat.name,
+          min_points: Number(cat.min_points),
+          max_points: Number(cat.max_points),
+          price: Number(cat.price),
+          capacity: Number(cat.capacity),
+          start_time: cat.start_time || null,
+          day_number: Number(cat.day_number),
+          gender_restriction: cat.gender_restriction,
+          age_categories: cat.age_categories.trim() || null,
+          color_code: cat.color_code
+        }));
+
+      if (toUpsert.length > 0) {
+        const { error: upsertError } = await supabase
+          .from('table_categories')
+          .upsert(toUpsert);
+        if (upsertError) throw upsertError;
+      }
+
+      if (toInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from('table_categories')
+          .insert(toInsert);
+        if (insertError) throw insertError;
+      }
 
       // 3. Gérer les tables physiques si le nombre a changé
       await supabase.from('tournament_tables').delete().eq('tournament_id', tournament.id);
@@ -523,6 +563,7 @@ export default function Dashboard() {
         sets_to_win: Number(newTournament.sets_to_win),
         points_per_set: Number(newTournament.points_per_set),
         max_categories_per_day: Number(newTournament.max_categories_per_day),
+        players_per_pool: Number(newTournament.players_per_pool),
         score_mode: newTournament.mode,
         payment_methods: newTournament.payment_methods,
         status: 'draft',
@@ -536,11 +577,11 @@ export default function Dashboard() {
         .single();
 
       // --- RETRY LOGIC FOR SCHEMA CACHE ERROR ---
-      if (tResult.error && tResult.error.message && tResult.error.message.includes('max_categories_per_day')) {
-        console.warn("La colonne 'max_categories_per_day' n'existe pas ou n'est pas encore dans le cache du schéma Supabase. Tentative de création sans cette colonne...");
-        toast.error("Colonne 'max_categories_per_day' manquante dans Supabase. Création sans cette limite...", { duration: 5000 });
+      if (tResult.error && tResult.error.message && (tResult.error.message.includes('max_categories_per_day') || tResult.error.message.includes('players_per_pool'))) {
+        console.warn("La colonne 'max_categories_per_day' ou 'players_per_pool' n'existe pas ou n'est pas encore dans le cache du schéma Supabase. Tentative de création sans ces colonnes...");
+        toast.error("Données de configuration manquantes ou obsolètes dans la base. Création sans ces paramètres de filtrage...", { duration: 5000 });
         
-        const { max_categories_per_day, ...fallbackData } = tournamentData;
+        const { max_categories_per_day, players_per_pool, ...fallbackData } = tournamentData;
         tResult = await supabase
           .from('tournaments')
           .insert([fallbackData])
@@ -785,7 +826,7 @@ export default function Dashboard() {
                     🏓 Paramètres Sportifs & Arbitrage
                   </h3>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-1">Tables physiques</label>
                       <input 
@@ -837,7 +878,7 @@ export default function Dashboard() {
                     </div>
 
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-1">Inscriptions / Jour max</label>
+                      <label id="label-max-categories-per-day" className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-1">Tableau / jour Max</label>
                       <select 
                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-semibold text-sm text-slate-700 font-extrabold"
                         value={newTournament.max_categories_per_day}
@@ -848,6 +889,18 @@ export default function Dashboard() {
                         <option value={3}>3 tableaux max / joueur</option>
                         <option value={4}>4 tableaux max / joueur</option>
                         <option value={100}>Illimité 👥</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-1">Joueurs par poule</label>
+                      <select 
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-semibold text-sm text-slate-700 font-extrabold text-indigo-600"
+                        value={newTournament.players_per_pool || 3}
+                        onChange={e => setNewTournament({...newTournament, players_per_pool: parseInt(e.target.value) || 3})}
+                      >
+                        <option value={3}>3</option>
+                        <option value={4}>4</option>
                       </select>
                     </div>
                   </div>
@@ -1229,46 +1282,49 @@ export default function Dashboard() {
 
   if (!tournament || tournament.status === 'archived') {
     return (
-      <div className="p-8 max-w-4xl mx-auto mt-12">
-        <div className="text-center mb-12">
-          <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-[2rem] flex items-center justify-center mx-auto mb-6 border border-indigo-100 shadow-xl shadow-indigo-100/50">
-            <Trophy className="w-10 h-10" />
-          </div>
-          <h1 className="text-4xl font-black text-slate-950 tracking-tight">
-            {tournament?.status === 'archived' ? 'Précédent Tournoi Archivé !' : 'Bienvenue sur Ping Manager v2'}
-          </h1>
-          <p className="text-slate-500 mt-4 max-w-xl mx-auto text-sm leading-relaxed">
-            {tournament?.status === 'archived' 
-              ? `Le tournoi "${tournament.name}" a été archivé avec succès. Vous pouvez maintenant lancer un nouvel événement avec sa configuration dynamique par tableaux.`
-              : "Vous n'avez pas encore de tournoi actif. Créez votre événement, définissez vos tableaux de niveau (Séries) et attribuez vos tables physiques pour commencer."}
-          </p>
-          <div className="mt-8 flex justify-center">
-            <button 
-              onClick={() => {
-                setCategories([
-                  {
-                    name: 'Tableau A - Elite',
-                    min_points: 500,
-                    max_points: 3000,
-                    price: 10,
-                    capacity: 32,
-                    start_time: '09:00',
-                    day_number: 1,
-                    gender_restriction: 'ALL',
-                    age_categories: 'Seniors',
-                    color_code: '#4f46e5'
-                  }
-                ]);
-                setShowCreateModal(true);
-              }}
-              className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-2xl shadow-xl shadow-indigo-100 hover:shadow-indigo-200 transition-all flex items-center gap-2.5 active:scale-95"
-            >
-              <Trophy className="w-5 h-5" />
-              Lancer un nouveau tournoi
-            </button>
+      <>
+        <div className="p-8 max-w-4xl mx-auto mt-12">
+          <div className="text-center mb-12">
+            <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-[2rem] flex items-center justify-center mx-auto mb-6 border border-indigo-100 shadow-xl shadow-indigo-100/50">
+              <Trophy className="w-10 h-10" />
+            </div>
+            <h1 className="text-4xl font-black text-slate-950 tracking-tight">
+              {tournament?.status === 'archived' ? 'Précédent Tournoi Archivé !' : 'Bienvenue sur Ping Manager v2'}
+            </h1>
+            <p className="text-slate-500 mt-4 max-w-xl mx-auto text-sm leading-relaxed">
+              {tournament?.status === 'archived' 
+                ? `Le tournoi "${tournament.name}" a été archivé avec succès. Vous pouvez maintenant lancer un nouvel événement avec sa configuration dynamique par tableaux.`
+                : "Vous n'avez pas encore de tournoi actif. Créez votre événement, définissez vos tableaux de niveau (Séries) et attribuez vos tables physiques pour commencer."}
+            </p>
+            <div className="mt-8 flex justify-center">
+              <button 
+                onClick={() => {
+                  setCategories([
+                    {
+                      name: 'Tableau A - Elite',
+                      min_points: 500,
+                      max_points: 3000,
+                      price: 10,
+                      capacity: 32,
+                      start_time: '09:00',
+                      day_number: 1,
+                      gender_restriction: 'ALL',
+                      age_categories: 'Seniors',
+                      color_code: '#4f46e5'
+                    }
+                  ]);
+                  setShowCreateModal(true);
+                }}
+                className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-2xl shadow-xl shadow-indigo-100 hover:shadow-indigo-200 transition-all flex items-center gap-2.5 active:scale-95"
+              >
+                <Trophy className="w-5 h-5" />
+                Lancer un nouveau tournoi
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+        {renderModals()}
+      </>
     );
   }
 
@@ -1304,6 +1360,44 @@ export default function Dashboard() {
               </p>
             </div>
           </div>
+
+          <button 
+            onClick={async () => {
+              const confirmText = "⚠️ Voulez-vous archiver ou réinitialiser de force ce tournoi ?\n\nCela vous permettra de commencer un tout nouveau tournoi immédiatement, même si celui-ci n'a pas été entièrement joué ou s'il y a 0 donnée.";
+              if (window.confirm(confirmText)) {
+                setArchiving(true);
+                const toastId = toast.loading('Archivage en cours...');
+                try {
+                  await archiveTournament(tournament.id);
+                  toast.success('🎉 Tournoi archivé de force avec succès !', { id: toastId });
+                  refreshTournament();
+                } catch (err: any) {
+                  console.error(err);
+                  if (window.confirm("L'archivage a échoué (les données sont vides ou incohérentes). Souhaitez-vous SUPPRIMER définitivement ce tournoi pour débloquer la création ?")) {
+                    const { error: delError } = await supabase.from('tournaments').delete().eq('id', tournament.id);
+                    if (delError) throw delError;
+                    toast.success('Tournoi supprimé avec succès !', { id: toastId });
+                    refreshTournament();
+                  } else {
+                    toast.error(err.message || "Erreur lors de l'archivage", { id: toastId });
+                  }
+                } finally {
+                  setArchiving(false);
+                }
+              }
+            }}
+            disabled={archiving}
+            className="p-4 bg-red-50 hover:bg-red-100 border border-red-100 rounded-2xl flex items-center gap-3 transition-all active:scale-95 disabled:opacity-50 text-left cursor-pointer min-w-[200px]"
+            title="Archiver ou supprimer d'urgence"
+          >
+            <div className="w-10 h-10 bg-red-100 group-hover:bg-red-200 text-red-600 rounded-lg flex items-center justify-center font-bold">
+              🛠️
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase text-red-500 tracking-wider">Zone d'Urgence</p>
+              <p className="text-sm font-black text-red-700">Archiver / Supprimer</p>
+            </div>
+          </button>
         </div>
       </div>
 

@@ -14,7 +14,7 @@ export async function archiveTournament(tournamentId: string): Promise<void> {
 
   // 2. Compter le nombre de joueurs inscrits
   const { count: nb_joueurs } = await supabase
-    .from('players')
+    .from('registrations')
     .select('*', { count: 'exact', head: true })
     .eq('tournament_id', tournamentId);
 
@@ -66,7 +66,7 @@ export async function archiveTournament(tournamentId: string): Promise<void> {
   ];
 
   // 6. Insérer dans tournament_archives
-  const { error: archiveError } = await supabase
+  let { error: archiveError } = await supabase
     .from('tournament_archives')
     .insert({
       tournament_id: tournament.id,
@@ -79,6 +79,24 @@ export async function archiveTournament(tournamentId: string): Promise<void> {
       nb_matchs_total: nb_matchs || 0,
       tableaux: tableaux
     });
+
+  if (archiveError) {
+    console.warn("Erreur d'archivage avec l'organisateur d'origine (compte possiblement supprimé), nouvel essai anonymisé...", archiveError);
+    const retryRes = await supabase
+      .from('tournament_archives')
+      .insert({
+        tournament_id: tournament.id,
+        organizer_id: null,
+        name: tournament.name,
+        date: tournament.date,
+        location: tournament.location,
+        nb_tables: tournament.nb_tables,
+        nb_joueurs_total: nb_joueurs || 0,
+        nb_matchs_total: nb_matchs || 0,
+        tableaux: tableaux
+      });
+    archiveError = retryRes.error;
+  }
 
   if (archiveError) {
     throw archiveError;

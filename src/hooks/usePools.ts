@@ -25,23 +25,29 @@ export function usePools(tournamentId?: string) {
       
       const poolIds = poolsRes?.map(p => p.id) || [];
       
-      const [matchesRes, standingsRes, poolPlayersRes, playersRes] = await Promise.all([
+      const [matchesRes, poolPlayersRes, registrationsRes] = await Promise.all([
         supabase.from('matches').select('*, player1:player1_id(*), player2:player2_id(*), sets(*)').eq('tournament_id', tournamentId).eq('round', 'pool'),
-        supabase.from('pool_standings').select('*'),
         supabase.from('pool_players').select('*'),
-        supabase.from('players').select('*').eq('tournament_id', tournamentId)
+        supabase.from('registrations').select('*, players(*), table_categories(*)').eq('tournament_id', tournamentId)
       ]);
 
       if (matchesRes.error) throw matchesRes.error;
       if (poolPlayersRes.error) throw poolPlayersRes.error;
-      if (playersRes.error) throw playersRes.error;
-      
-      // If standings fails, don't crash the whole page, just show empty standings
-      if (standingsRes.error) {
-        console.warn('Standings fetch error (is the view created?):', standingsRes.error);
-      }
+      if (registrationsRes.error) throw registrationsRes.error;
 
-      const allPlayers = playersRes.data || [];
+      const allPlayers = (registrationsRes.data || []).map((r: any) => ({
+        id: r.players?.id,
+        first_name: r.players?.first_name || '',
+        last_name: r.players?.last_name || '',
+        club: r.players?.club || '',
+        licence_number: r.players?.licence_number || '',
+        points: r.players?.points || 500,
+        serie: r.table_categories?.name || '',
+        checked_in: r.checked_in || false,
+        paid: r.paid || false,
+        dossard: r.dossard || null,
+        tournament_id: r.tournament_id
+      }));
       const poolPlayers = poolPlayersRes.data || [];
       const playersById = new Map(allPlayers.map(p => [p.id, p]));
 
@@ -84,7 +90,9 @@ export function usePools(tournamentId?: string) {
               points_conceded: 0,
               points: 0,
               matches_played: 0,
-              serie: p.serie || ''
+              serie: p.serie || '',
+              dossard: p.dossard,
+              points_fftt: p.points
             });
           }
         });
@@ -153,8 +161,7 @@ export function usePools(tournamentId?: string) {
       setPools(poolsRes || []);
       setMatches(sortedMatches);
       
-      const hasDatabaseStandings = standingsRes.data && standingsRes.data.length > 0 && !standingsRes.error && standingsRes.data[0].pool_id;
-      setStandings(hasDatabaseStandings ? standingsRes.data : calculatedStandings);
+      setStandings(calculatedStandings);
     } catch (error) {
       console.error('Error fetching pools:', error);
       toast.error('Erreur lors du chargement des poules');

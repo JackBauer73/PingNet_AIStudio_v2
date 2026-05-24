@@ -59,13 +59,13 @@ export async function generateBracket(tournamentId: string, categoryName?: strin
   }
 
   // 1d. Charger les joueurs et matchs correspondants
-  const [matchesRes, playersRes] = await Promise.all([
+  const [matchesRes, registrationsRes] = await Promise.all([
     supabase.from('matches').select('*, sets(*)').eq('tournament_id', tournamentId).in('pool_id', poolIds),
-    supabase.from('players').select('*').eq('tournament_id', tournamentId).eq('serie', categoryName)
+    supabase.from('registrations').select('*, players(*), table_categories(*)').eq('tournament_id', tournamentId)
   ]);
 
   if (matchesRes.error) throw matchesRes.error;
-  if (playersRes.error) throw playersRes.error;
+  if (registrationsRes.error) throw registrationsRes.error;
 
   const { data: poolPlayers, error: ppError } = await supabase
     .from('pool_players')
@@ -75,7 +75,21 @@ export async function generateBracket(tournamentId: string, categoryName?: strin
   if (ppError) throw ppError;
 
   const matches = matchesRes.data || [];
-  const allPlayers = playersRes.data || [];
+  const allPlayers = (registrationsRes.data || [])
+    .filter((r: any) => r.table_categories?.name === categoryName)
+    .map((r: any) => ({
+      id: r.players?.id,
+      first_name: r.players?.first_name || '',
+      last_name: r.players?.last_name || '',
+      club: r.players?.club || '',
+      licence_number: r.players?.licence_number || '',
+      points: r.players?.points || 500,
+      serie: r.table_categories?.name || '',
+      checked_in: r.checked_in || false,
+      paid: r.paid || false,
+      dossard: r.dossard || null,
+      tournament_id: r.tournament_id
+    }));
   const playersById = new Map(allPlayers.map(p => [p.id, p]));
 
   // 2. Calculer le classement client-side

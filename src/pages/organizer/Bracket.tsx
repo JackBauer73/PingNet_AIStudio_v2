@@ -4,7 +4,7 @@ import { supabase } from '../../supabase';
 import { Match } from '../../types';
 import { generateBracket } from '../../utils/generateBracket';
 import toast from 'react-hot-toast';
-import { Trophy, Play, CheckCircle2, Lock, Grid3X3, ArrowRight } from 'lucide-react';
+import { Trophy, Play, CheckCircle2, Lock as LockIcon, Grid3X3, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 
@@ -325,7 +325,7 @@ export default function Bracket() {
         ['draft', 'open', 'registration'].includes(tournament?.status || '') ? (
           <div className="p-8 max-w-2xl mx-auto text-center mt-12 bg-white rounded-3xl border border-slate-200 shadow-xl py-16">
             <div className="w-20 h-20 bg-slate-50 text-slate-400 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-slate-100">
-              <Lock className="w-10 h-10" />
+              <LockIcon className="w-10 h-10" />
             </div>
             <h1 className="text-3xl font-extrabold text-slate-900 font-sans tracking-tight">Tableau Final Indisponible</h1>
             <p className="text-slate-500 mt-4 mb-8 text-sm leading-relaxed max-w-md mx-auto">
@@ -336,7 +336,7 @@ export default function Bracket() {
               disabled
               className="px-8 py-4 bg-slate-100 text-slate-400 rounded-2xl font-bold border border-slate-200 cursor-not-allowed text-sm flex items-center gap-2 mx-auto"
             >
-              <Lock className="w-4 h-4" /> En attente de la clôture des inscriptions
+              <LockIcon className="w-4 h-4" /> En attente de la clôture des inscriptions
             </button>
           </div>
         ) : (
@@ -373,7 +373,7 @@ export default function Bracket() {
                   onClick={handleCloseTournament}
                   className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white rounded-2xl font-bold hover:bg-black transition-all shadow-xl shadow-slate-100"
                 >
-                  <Lock className="w-5 h-5" />
+                  <LockIcon className="w-5 h-5" />
                   Clôturer le tournoi
                 </button>
               )}

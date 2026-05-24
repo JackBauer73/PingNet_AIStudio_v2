@@ -10,10 +10,10 @@ export function useTournament() {
   const loadStats = async (tId: string) => {
     const [playersCount, matchesStats] = await Promise.all([
       supabase
-        .from('players')
+        .from('registrations')
         .select('*', { count: 'exact', head: true })
         .eq('tournament_id', tId)
-        .not('checked_in', 'is', false),
+        .eq('checked_in', true),
       supabase
         .from('matches')
         .select('status')

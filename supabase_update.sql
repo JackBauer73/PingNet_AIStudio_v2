@@ -5,7 +5,8 @@
 
 -- 1. Ajout de la colonne starts_at sur la table des tournois (Tâche 1 & 2)
 ALTER TABLE tournaments
-  ADD COLUMN IF NOT EXISTS starts_at TIMESTAMPTZ;
+  ADD COLUMN IF NOT EXISTS starts_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS players_per_pool INTEGER DEFAULT 3;
 
 -- Ajout de la colonne checked_in sur la table des joueurs (Pointage de la Tâche 3)
 ALTER TABLE players
@@ -91,9 +92,13 @@ CREATE TABLE IF NOT EXISTS table_categories (
     age_categories TEXT,
     color_code TEXT DEFAULT '#4f46e5',
     registered_count INTEGER DEFAULT 0,
+    is_closed BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(tournament_id, name)
 );
+
+-- Assurer que la colonne is_closed existe sur les bases de données existantes
+ALTER TABLE table_categories ADD COLUMN IF NOT EXISTS is_closed BOOLEAN DEFAULT FALSE;
 
 -- Activation de RLS pour les catégories de tableau
 ALTER TABLE table_categories ENABLE ROW LEVEL SECURITY;
@@ -148,4 +153,50 @@ ALTER TABLE registrations
 CREATE UNIQUE INDEX IF NOT EXISTS idx_registrations_dossard_tournament
   ON registrations(tournament_id, dossard)
   WHERE dossard IS NOT NULL;
+
+
+-- ==========================================
+-- regle poules
+-- ==========================================
+-- Logique de génération des poules (FFTT) implémentée côté serveur / frontend :
+-- 1. Tri DESC des joueurs par points
+-- 2. Répartition serpentine uniforme
+-- 3. Séparation des joueurs du même club avec recherche d'écart de points minimal
+-- 4. Ordre FFTT officiel des matchs (poule de 3 : A-B, A-C, B-C / poule de 4 : A-D, B-C, A-C, B-D, A-B, C-D)
+
+-- Suppression de l'index unique restrictif s'il a été créé
+DROP INDEX IF EXISTS idx_registrations_user_tournament_unique;
+
+-- Index unique pour empêcher qu'un joueur physique soit inscrit plusieurs fois au même tableau
+CREATE UNIQUE INDEX IF NOT EXISTS idx_registrations_player_category_unique
+  ON registrations(player_id, table_category_id);
+
+-- Activation de RLS pour la table registrations
+ALTER TABLE registrations ENABLE ROW LEVEL SECURITY;
+
+-- Suppression des anciennes politiques si elles existent
+DROP POLICY IF EXISTS "Public Read Registrations" ON registrations;
+DROP POLICY IF EXISTS "Public Insert Registrations" ON registrations;
+DROP POLICY IF EXISTS "Public Update Registrations" ON registrations;
+DROP POLICY IF EXISTS "Public Delete Registrations" ON registrations;
+
+-- Création des nouvelles politiques de sécurité pour registrations
+CREATE POLICY "Public Read Registrations" ON registrations FOR SELECT USING (true);
+CREATE POLICY "Public Insert Registrations" ON registrations FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public Update Registrations" ON registrations FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Public Delete Registrations" ON registrations FOR DELETE USING (true);
+
+-- Ajout de la table registrations aux publications temps réel (realtime)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_rel pr 
+    JOIN pg_class c ON c.oid = pr.prrelid 
+    JOIN pg_publication p ON p.oid = pr.prpubid 
+    WHERE p.pubname = 'supabase_realtime' AND c.relname = 'registrations'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE registrations;
+  END IF;
+END $$;
+
 

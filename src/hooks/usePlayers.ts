@@ -11,9 +11,35 @@ export function usePlayers(tournamentId?: string) {
     try {
       setLoading(true);
       let query = supabase
-        .from('players')
-        .select('*')
-        .order('registered_at', { ascending: false });
+        .from('registrations')
+        .select(`
+          id,
+          tournament_id,
+          dossard,
+          checked_in,
+          paid,
+          status,
+          phone_used,
+          created_at,
+          player_id,
+          table_category_id,
+          players (
+            id,
+            first_name,
+            last_name,
+            phone,
+            club,
+            licence_number,
+            points,
+            registered_at
+          ),
+          table_categories (
+            id,
+            name,
+            day_number
+          )
+        `)
+        .order('created_at', { ascending: false });
 
       if (tournamentId) {
         query = query.eq('tournament_id', tournamentId);
@@ -22,7 +48,40 @@ export function usePlayers(tournamentId?: string) {
       const { data, error } = await query;
 
       if (error) throw error;
-      setPlayers(data || []);
+
+      // 1. Pour assurer la cohérence si l'unicité du dossard est portée sur une seule inscription
+      // on résout globalement le dossard par joueur physique dans le tournoi.
+      const dossardByPlayerId = new Map<string, number>();
+      (data || []).forEach(r => {
+        if (r.player_id && r.dossard !== null && r.dossard !== undefined) {
+          dossardByPlayerId.set(r.player_id, r.dossard);
+        }
+      });
+
+      const mapped: Player[] = (data || []).map((r: any) => {
+        const pObj = Array.isArray(r.players) ? r.players[0] : r.players;
+        const cObj = Array.isArray(r.table_categories) ? r.table_categories[0] : r.table_categories;
+        const resolvedDossard = r.dossard || (r.player_id ? dossardByPlayerId.get(r.player_id) : null) || null;
+        return {
+          id: r.id, // ID local de l’inscription
+          player_id: r.player_id,
+          table_category_id: r.table_category_id,
+          tournament_id: r.tournament_id,
+          first_name: pObj?.first_name || '',
+          last_name: pObj?.last_name || '',
+          phone: r.phone_used || pObj?.phone || null,
+          club: pObj?.club || null,
+          serie: cObj?.name || '',
+          checked_in: r.checked_in || false,
+          licence_number: pObj?.licence_number || null,
+          points: pObj?.points || null,
+          dossard: resolvedDossard,
+          paid: r.paid || false,
+          registered_at: r.created_at || new Date().toISOString()
+        };
+      });
+
+      setPlayers(mapped);
     } catch (error: any) {
       toast.error('Erreur lors du chargement des joueurs');
       console.error(error);
@@ -31,33 +90,134 @@ export function usePlayers(tournamentId?: string) {
     }
   };
 
-  const addPlayer = async (player: Omit<Player, 'id' | 'registered_at'>) => {
+  const addPlayer = async (playerForm: Omit<Player, 'id' | 'registered_at'>) => {
     try {
-      // Vérifier doublon nom + prénom dans la même série (tableau)
-      const { data: existing } = await supabase
-        .from('players')
+      // 1. Trouver l'ID de la catégorie à partir de son nom
+      const { data: catData, error: catError } = await supabase
+        .from('table_categories')
         .select('id')
-        .eq('tournament_id', player.tournament_id)
-        .ilike('last_name', player.last_name)
-        .ilike('first_name', player.first_name)
-        .eq('serie', player.serie);
+        .eq('tournament_id', playerForm.tournament_id)
+        .ilike('name', playerForm.serie.trim())
+        .maybeSingle();
 
-      if (existing && existing.length > 0) {
-        toast.error(`⚠️ ${player.first_name} ${player.last_name} est déjà inscrit(e) dans le tableau ${player.serie} !`);
+      if (catError || !catData) {
+        toast.error(`Catégorie de tableau non trouvée : ${playerForm.serie}`);
+        return null;
+      }
+      const categoryId = catData.id;
+
+      // 2. Trouver ou créer le joueur physique dans 'players'
+      let playerId = '';
+      let pQuery = supabase.from('players').select('id');
+      if (playerForm.licence_number && playerForm.licence_number.trim() !== '') {
+        pQuery = pQuery.eq('licence_number', playerForm.licence_number.trim());
+      } else {
+        pQuery = pQuery
+          .ilike('first_name', playerForm.first_name.trim())
+          .ilike('last_name', playerForm.last_name.trim());
+      }
+
+      const { data: existingPlayers } = await pQuery;
+      if (existingPlayers && existingPlayers.length > 0) {
+        playerId = existingPlayers[0].id;
+        // Optionnel : actualiser ses points/club/téléphone
+        await supabase
+          .from('players')
+          .update({
+            club: playerForm.club?.trim() || null,
+            phone: playerForm.phone || null,
+            points: playerForm.points,
+          })
+          .eq('id', playerId);
+      } else {
+        // Insérer un nouveau joueur unique
+        const { data: newP, error: insertPErr } = await supabase
+          .from('players')
+          .insert({
+            first_name: playerForm.first_name.trim(),
+            last_name: playerForm.last_name.trim(),
+            club: playerForm.club?.trim() || null,
+            phone: playerForm.phone || null,
+            licence_number: playerForm.licence_number?.trim() || null,
+            points: playerForm.points
+          })
+          .select()
+          .single();
+
+        if (insertPErr) throw insertPErr;
+        playerId = newP.id;
+      }
+
+      // 3. Vérifier si l'inscription existe déjà à cette catégorie
+      const { data: existingReg } = await supabase
+        .from('registrations')
+        .select('id')
+        .eq('player_id', playerId)
+        .eq('table_category_id', categoryId)
+        .maybeSingle();
+
+      if (existingReg) {
+        toast.error(`⚠️ ${playerForm.first_name} ${playerForm.last_name} est déjà inscrit(e) dans le tableau ${playerForm.serie} !`);
         return null;
       }
 
-      const { data, error } = await supabase
-        .from('players')
-        .insert([player])
-        .select();
+      // 4. Insérer l'inscription dans registrations
+      const { data: reg, error: regErr } = await supabase
+        .from('registrations')
+        .insert({
+          tournament_id: playerForm.tournament_id,
+          player_id: playerId,
+          table_category_id: categoryId,
+          status: 'pending',
+          phone_used: playerForm.phone || null,
+          checked_in: false,
+          paid: false,
+          dossard: null
+        })
+        .select(`
+          id,
+          tournament_id,
+          dossard,
+          checked_in,
+          paid,
+          status,
+          phone_used,
+          created_at,
+          player_id,
+          table_category_id,
+          players (*),
+          table_categories (*)
+        `)
+        .single();
 
-      if (error) throw error;
-      setPlayers(prev => [data[0], ...prev]);
-      toast.success('Joueur ajouté avec succès');
-      return data[0];
+      if (regErr) throw regErr;
+
+      const regPObj = Array.isArray(reg.players) ? reg.players[0] : reg.players;
+      const regCObj = Array.isArray(reg.table_categories) ? reg.table_categories[0] : reg.table_categories;
+
+      const mappedNewPlayer: Player = {
+        id: reg.id,
+        player_id: reg.player_id,
+        table_category_id: reg.table_category_id,
+        tournament_id: reg.tournament_id,
+        first_name: regPObj?.first_name || '',
+        last_name: regPObj?.last_name || '',
+        phone: reg.phone_used || regPObj?.phone || null,
+        club: regPObj?.club || null,
+        serie: regCObj?.name || '',
+        checked_in: reg.checked_in || false,
+        licence_number: regPObj?.licence_number || null,
+        points: regPObj?.points || null,
+        dossard: reg.dossard || null,
+        paid: reg.paid || false,
+        registered_at: reg.created_at || new Date().toISOString()
+      };
+
+      setPlayers(prev => [mappedNewPlayer, ...prev]);
+      toast.success('Inscription ajoutée avec succès');
+      return mappedNewPlayer;
     } catch (error: any) {
-      toast.error('Erreur lors de l’ajout du joueur');
+      toast.error('Erreur lors de l’inscription du joueur');
       console.error(error);
       return null;
     }
@@ -66,13 +226,13 @@ export function usePlayers(tournamentId?: string) {
   const deletePlayer = async (id: string) => {
     try {
       const { error } = await supabase
-        .from('players')
+        .from('registrations')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
       setPlayers(prev => prev.filter(p => p.id !== id));
-      toast.success('Joueur supprimé');
+      toast.success('Inscription supprimée');
     } catch (error: any) {
       toast.error('Erreur lors de la suppression');
       console.error(error);
@@ -82,8 +242,11 @@ export function usePlayers(tournamentId?: string) {
   const toggleCheckin = async (id: string, currentStatus: boolean) => {
     try {
       const { error } = await supabase
-        .from('players')
-        .update({ checked_in: !currentStatus })
+        .from('registrations')
+        .update({
+          checked_in: !currentStatus,
+          status: !currentStatus ? 'validated' : 'pending'
+        })
         .eq('id', id);
 
       if (error) throw error;
@@ -97,13 +260,36 @@ export function usePlayers(tournamentId?: string) {
 
   const updatePlayerSerie = async (id: string, newSerie: string, firstName: string, lastName: string) => {
     try {
-      const { data: existing } = await supabase
-        .from('players')
+      // Trouver l'ID de la nouvelle catégorie
+      const { data: catData, error: catError } = await supabase
+        .from('table_categories')
         .select('id')
         .eq('tournament_id', tournamentId)
-        .ilike('last_name', lastName)
-        .ilike('first_name', firstName)
-        .eq('serie', newSerie)
+        .ilike('name', newSerie.trim())
+        .maybeSingle();
+
+      if (catError || !catData) {
+        toast.error(`Catégorie introuvable : ${newSerie}`);
+        return false;
+      }
+      const newCategoryId = catData.id;
+
+      // Récupérer le player ID pour cette inscription
+      const { data: currentReg } = await supabase
+        .from('registrations')
+        .select('player_id')
+        .eq('id', id)
+        .single();
+
+      if (!currentReg) throw new Error('Inscription introuvable');
+      const pId = currentReg.player_id;
+
+      // Vérifier si le joueur est déjà inscrit à cette nouvelle catégorie
+      const { data: existing } = await supabase
+        .from('registrations')
+        .select('id')
+        .eq('player_id', pId)
+        .eq('table_category_id', newCategoryId)
         .neq('id', id);
 
       if (existing && existing.length > 0) {
@@ -111,13 +297,14 @@ export function usePlayers(tournamentId?: string) {
         return false;
       }
 
+      // Mettre à jour l'inscription
       const { error } = await supabase
-        .from('players')
-        .update({ serie: newSerie })
+        .from('registrations')
+        .update({ table_category_id: newCategoryId })
         .eq('id', id);
 
       if (error) throw error;
-      setPlayers(prev => prev.map(p => p.id === id ? { ...p, serie: newSerie } : p));
+      setPlayers(prev => prev.map(p => p.id === id ? { ...p, serie: newSerie, table_category_id: newCategoryId } : p));
       toast.success('Tableau mis à jour avec succès !');
       return true;
     } catch (error: any) {
@@ -129,13 +316,40 @@ export function usePlayers(tournamentId?: string) {
 
   const updatePlayerDetails = async (id: string, updates: Partial<Player>) => {
     try {
+      // Trouver le player_id lié à cette inscription
+      const regObj = players.find(p => p.id === id);
+      if (!regObj || !regObj.player_id) throw new Error('Joueur introuvable');
+
+      const mappedUpdates: any = {};
+      if (updates.first_name) mappedUpdates.first_name = updates.first_name;
+      if (updates.last_name) mappedUpdates.last_name = updates.last_name;
+      if (updates.phone) mappedUpdates.phone = updates.phone;
+      if (updates.club) mappedUpdates.club = updates.club;
+      if (updates.licence_number !== undefined) mappedUpdates.licence_number = updates.licence_number;
+      if (updates.points !== undefined) mappedUpdates.points = updates.points;
+
+      // Mettre à jour dans la table players
       const { error } = await supabase
         .from('players')
-        .update(updates)
-        .eq('id', id);
+        .update(mappedUpdates)
+        .eq('id', regObj.player_id);
 
       if (error) throw error;
-      setPlayers(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+
+      // Mettre à jour le téléphone s'il a changé
+      if (updates.phone) {
+        await supabase
+          .from('registrations')
+          .update({ phone_used: updates.phone })
+          .eq('id', id);
+      }
+
+      setPlayers(prev => prev.map(p => {
+        if (p.player_id === regObj.player_id) {
+          return { ...p, ...updates };
+        }
+        return p;
+      }));
       toast.success('Joueur mis à jour avec succès');
       return true;
     } catch (error: any) {

@@ -16,6 +16,7 @@ export interface Tournament {
   points_per_set: number;
   score_mode: ScoreMode;
   max_categories_per_day?: number | null;
+  players_per_pool?: number | null;
   current_day?: number | null;
   starts_at?: string | null;
   payment_methods?: {
@@ -47,6 +48,8 @@ export interface TableCategory {
 
 export interface Player {
   id: string;
+  player_id?: string;
+  table_category_id?: string;
   tournament_id: string;
   first_name: string;
   last_name: string;
@@ -117,4 +120,6 @@ export interface PoolStanding {
   serie: string;
   club: string;
   standing_rank: number;
+  dossard?: number | null;
+  points_fftt?: number | null;
 }

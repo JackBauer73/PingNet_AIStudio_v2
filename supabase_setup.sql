@@ -25,6 +25,7 @@ CREATE TABLE tournaments (
     status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'open', 'registration', 'pools', 'bracket', 'in_progress', 'finished', 'closed', 'archived')),
     starts_at TIMESTAMPTZ,
     max_categories_per_day INTEGER DEFAULT 3, -- Limite de tableaux par jour par joueur
+    players_per_pool INTEGER DEFAULT 3, -- Nombre privilégié de joueurs par poule (3 ou 4)
     created_at TIMESTAMPTZ DEFAULT NOW(),
     organizer_id UUID REFERENCES auth.users(id) -- Pour lier à l'utilisateur connecté
 );
@@ -117,6 +118,7 @@ CREATE TABLE table_categories (
     age_categories TEXT,
     color_code TEXT DEFAULT '#4f46e5',
     registered_count INTEGER DEFAULT 0,
+    is_closed BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(tournament_id, name)
 );
@@ -136,6 +138,30 @@ CREATE TABLE tournament_archives (
     archived_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Table des Inscriptions (Registrations)
+CREATE TABLE registrations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tournament_id UUID REFERENCES tournaments(id) ON DELETE CASCADE,
+    player_id UUID REFERENCES players(id) ON DELETE CASCADE,
+    table_category_id UUID REFERENCES table_categories(id) ON DELETE CASCADE,
+    user_id TEXT,
+    dossard INTEGER,
+    checked_in BOOLEAN DEFAULT FALSE,
+    paid BOOLEAN DEFAULT FALSE,
+    status TEXT DEFAULT 'pending',
+    phone_used TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Index unique pour les dossards par tournoi
+CREATE UNIQUE INDEX IF NOT EXISTS idx_registrations_dossard_tournament
+  ON registrations(tournament_id, dossard)
+  WHERE dossard IS NOT NULL;
+
+-- Index unique pour empêcher qu'un joueur physique soit inscrit plusieurs fois au même tableau
+CREATE UNIQUE INDEX IF NOT EXISTS idx_registrations_player_category_unique
+  ON registrations(player_id, table_category_id);
+
 -- 7. Activation de la Sécurité (RLS)
 ALTER TABLE tournaments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tournament_tables ENABLE ROW LEVEL SECURITY;
@@ -146,6 +172,7 @@ ALTER TABLE matches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE table_categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tournament_archives ENABLE ROW LEVEL SECURITY;
+ALTER TABLE registrations ENABLE ROW LEVEL SECURITY;
 
 -- 8. Politiques de Sécurité (Exemple simple : Lecture pour tous, Ecriture pour l'organisateur)
 
@@ -184,12 +211,18 @@ CREATE POLICY "Auth All Table Categories" ON table_categories FOR ALL USING (aut
 CREATE POLICY "Public Read Archives" ON tournament_archives FOR SELECT USING (true);
 CREATE POLICY "Organizer All Archives" ON tournament_archives FOR ALL USING (auth.uid() = organizer_id);
 
+-- Inscriptions : Lecture publique, Insertion publique, Mise à jour publique, Suppression publique
+CREATE POLICY "Public Read Registrations" ON registrations FOR SELECT USING (true);
+CREATE POLICY "Public Insert Registrations" ON registrations FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public Update Registrations" ON registrations FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Public Delete Registrations" ON registrations FOR DELETE USING (true);
+
 -- 9. Publication temps réel (Realtime) de manière sécurisée
 -- Permet à Supabase de diffuser les changements sur les tables sélectionnées sans erreur de duplication
 DO $$
 DECLARE
     t text;
-    tables text[] := ARRAY['tournaments', 'tournament_tables', 'players', 'pools', 'pool_players', 'matches', 'sets', 'tournament_archives', 'table_categories'];
+    tables text[] := ARRAY['tournaments', 'tournament_tables', 'players', 'pools', 'pool_players', 'matches', 'sets', 'tournament_archives', 'table_categories', 'registrations'];
 BEGIN
     FOREACH t IN ARRAY tables
     LOOP

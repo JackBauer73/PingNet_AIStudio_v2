@@ -19,7 +19,9 @@ import {
   Clock,
   UserX,
   Check,
-  X
+  X,
+  Lock as LockIcon,
+  Unlock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../supabase';
@@ -52,6 +54,7 @@ export default function Players() {
   const [selectedSerie, setSelectedSerie] = useState<string | 'all'>('all');
   const [activeTab, setActiveTab] = useState<'all' | 'to_check' | 'checked'>('all');
   const [sendingSmsId, setSendingSmsId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (tournament?.current_day) {
@@ -69,26 +72,42 @@ export default function Players() {
     points: ''
   });
 
-  React.useEffect(() => {
+  const fetchCategories = async () => {
     if (!tournament?.id) return;
-    const fetchCategories = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('table_categories')
-          .select('*')
-          .eq('tournament_id', tournament.id)
-          .order('day_number', { ascending: true })
-          .order('name', { ascending: true });
-        if (!error && data) {
-          setCategories(data);
-          if (data.length > 0) {
-            setFormData(prev => ({ ...prev, serie: data[0].name }));
-          }
+    try {
+      const { data, error } = await supabase
+        .from('table_categories')
+        .select('*')
+        .eq('tournament_id', tournament.id)
+        .order('day_number', { ascending: true })
+        .order('name', { ascending: true });
+      if (!error && data) {
+        // En cas de cache obsolète ou de colonne manquante, on complète à l’aide du localStorage local
+        const localClosedRaw = localStorage.getItem(`closed_categories_${tournament.id}`);
+        const localClosed: string[] = localClosedRaw ? JSON.parse(localClosedRaw) : [];
+
+        const merged = data.map(cat => ({
+          ...cat,
+          is_closed: cat.is_closed || localClosed.includes(cat.name)
+        }));
+
+        setCategories(merged);
+        if (merged.length > 0) {
+          setFormData(prev => {
+            // Uniquement si pas de série valide sélectionnée
+            if (prev.serie === 'NC' || !merged.some(d => d.name === prev.serie)) {
+              return { ...prev, serie: merged[0].name };
+            }
+            return prev;
+          });
         }
-      } catch (err) {
-        console.error(err);
       }
-    };
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  React.useEffect(() => {
     fetchCategories();
   }, [tournament?.id]);
 
@@ -98,6 +117,12 @@ export default function Players() {
 
     if (!formData.first_name.trim() || !formData.last_name.trim()) {
       toast.error('Veuillez remplir le nom et le prénom du joueur.');
+      return;
+    }
+
+    const targetCat = categories.find(c => c.name === formData.serie);
+    if (targetCat && targetCat.is_closed) {
+      toast.error(`Impossible d'ajouter un joueur car le tableau "${formData.serie}" est clôturé 🔒.`);
       return;
     }
 
@@ -152,46 +177,113 @@ export default function Players() {
     }
   };
 
+  // Basculer le statut fermé/ouvert d'un tableau pour le pointage
+  const toggleCategoryClosure = async (category: any) => {
+    const nextStatus = !category.is_closed;
+    const toastId = toast.loading(`Mise à jour du statut du tableau ${category.name}...`);
+    try {
+      // 1. Essayer de sauvegarder en base de données Supabase
+      const { error } = await supabase
+        .from('table_categories')
+        .update({ is_closed: nextStatus })
+        .eq('id', category.id);
+
+      if (error) {
+        // En cas de cache obsolète ou de colonne manquante, on bascule de façon transparente en stockage local
+        if (error.code === 'PGRST204' || error.message?.includes('is_closed')) {
+          console.warn("La colonne 'is_closed' n'est pas encore dans le cache ou est absente. Utilisation du stockage local...");
+          const key = `closed_categories_${tournament?.id}`;
+          const localClosedRaw = localStorage.getItem(key);
+          let localClosed: string[] = localClosedRaw ? JSON.parse(localClosedRaw) : [];
+          if (nextStatus) {
+            if (!localClosed.includes(category.name)) {
+              localClosed.push(category.name);
+            }
+          } else {
+            localClosed = localClosed.filter(name => name !== category.name);
+          }
+          localStorage.setItem(key, JSON.stringify(localClosed));
+
+          toast.success(`Le tableau "${category.name}" est désormais ${nextStatus ? 'clôturé de secours 🔒' : 'réouvert 🔓'} ! (Stocké localement) ✓`, { id: toastId });
+          await fetchCategories();
+          return;
+        }
+        throw error;
+      }
+
+      // 2. Si l'enregistrement Supabase réussit, on synchronise également le localStorage par précaution
+      const key = `closed_categories_${tournament?.id}`;
+      const localClosedRaw = localStorage.getItem(key);
+      let localClosed: string[] = localClosedRaw ? JSON.parse(localClosedRaw) : [];
+      if (nextStatus) {
+        if (!localClosed.includes(category.name)) {
+          localClosed.push(category.name);
+        }
+      } else {
+        localClosed = localClosed.filter(name => name !== category.name);
+      }
+      localStorage.setItem(key, JSON.stringify(localClosed));
+
+      toast.success(`Le tableau "${category.name}" est désormais ${nextStatus ? 'clôturé 🔒' : 'réouvert 🔓'} ! ✓`, { id: toastId });
+      await fetchCategories();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(`Erreur lors de la modification : ${err.message}`, { id: toastId });
+    }
+  };
+
   // Pointage express jour J + assignation de dossard intelligente (par journée active uniquement)
   const handleTableCheckIn = async (player: any) => {
+    // Déterminer le tableau ciblé
+    const currentCategory = categories.find(c => c.name === player.serie);
+    if (currentCategory?.is_closed) {
+      toast.error(`Le tableau "${player.serie}" est clôturé 🔒. Le pointage/paiement n'est plus modifiable.`);
+      return;
+    }
+
     const toastId = toast.loading(`Pointage de ${player.first_name} ${player.last_name}...`);
 
     try {
-      // 1. Déterminer la journée du tableau ciblé (celui auquel appartient l'inscription)
-      const currentCategory = categories.find(c => c.name === player.serie);
       const targetDay = currentCategory?.day_number || 1;
 
       // 2. Trouver toutes les inscriptions de ce même joueur physique pour la MÊME journée
       const sameDayRegistrations = players.filter(p => {
-        const isSamePlayer = (p.licence_number && player.licence_number && p.licence_number === player.licence_number) ||
-          ((!p.licence_number || !player.licence_number) && 
-           p.first_name?.toLowerCase().trim() === player.first_name?.toLowerCase().trim() && 
-           p.last_name?.toLowerCase().trim() === player.last_name?.toLowerCase().trim());
-        if (!isSamePlayer) return false;
+        if (p.player_id !== player.player_id) return false;
 
         const pCat = categories.find(c => c.name === p.serie);
         const pDay = pCat?.day_number || 1;
         return pDay === targetDay;
       });
 
+      // Filtrer pour exclure les inscriptions qui appartiendraient à des tableaux clôturés
+      const allowedRegistrations = sameDayRegistrations.filter(p => {
+        const pCat = categories.find(c => c.name === p.serie);
+        return !pCat?.is_closed;
+      });
+
+      if (allowedRegistrations.length === 0) {
+        toast.error(`Tous les tableaux de ce joueur pour la Journée ${targetDay} sont clôturés !`, { id: toastId });
+        return;
+      }
+
       // 3. Assigner ou récupérer un dossard via le service intelligent
       const result = await assignDossard({
         registrationId: player.id,
         tournamentId: tournament?.id!,
-        onlyThisRegistration: true // Nous allons appliquer le pointage finement nous-mêmes pour respecter les journées
+        onlyThisRegistration: true
       });
 
       const dossardId = result.dossard;
 
-      // 4. Mettre à jour checked_in: true et paid: true uniquement pour les inscriptions de la MÊME journée
-      // Note : on n'associe pas le dossard à toutes les lignes pour respecter strictement l'index unique de Supabase
-      const sameDayIds = sameDayRegistrations.map(p => p.id);
+      // 4. Mettre à jour checked_in: true et paid: true uniquement pour les inscriptions autorisées
+      const sameDayIds = allowedRegistrations.map(p => p.id);
       
       const { error: updateError } = await supabase
-        .from('players')
+        .from('registrations')
         .update({
           checked_in: true,
-          paid: true
+          paid: true,
+          status: 'validated'
         })
         .in('id', sameDayIds);
 
@@ -199,7 +291,7 @@ export default function Players() {
         throw updateError;
       }
 
-      toast.success(`Dossard n°${dossardId} attribué & présent pour tous ses tableaux de la Journée ${targetDay} ✓`, { id: toastId });
+      toast.success(`Dossard n°${dossardId} attribué & présent pour ses tableaux ouverts de la Journée ${targetDay} ✓`, { id: toastId });
 
       // 5. Si le joueur n'était pas déjà pointé sur un autre tableau, on envoie ses identifiants uniques par SMS
       if (!result.dejaPointe && player.phone) {
@@ -227,44 +319,39 @@ export default function Players() {
 
   // Annuler le pointage pour un tableau donné individuellement
   const handleCancelSingleCheckIn = async (player: any) => {
-    const confirm = window.confirm(`Voulez-vous annuler le pointage de ${player.first_name} ${player.last_name} uniquement pour le tableau ${player.serie} ?`);
-    if (!confirm) return;
+    const currentCategory = categories.find(c => c.name === player.serie);
+    if (currentCategory?.is_closed) {
+      toast.error(`Le tableau "${player.serie}" est clôturé 🔒. Pointage non modifiable.`);
+      return;
+    }
 
     const toastId = toast.loading(`Annulation du pointage de ${player.serie}...`);
     try {
-      // On dépointe et annule le paiement UNIQUEMENT pour cette ligne (cette inscription au tableau)
+      // On dépointe et annule le paiement UNIQUEMENT pour cette inscription dans registrations
       const { error: updateError } = await supabase
-        .from('players')
+        .from('registrations')
         .update({
           checked_in: false,
-          paid: false
+          paid: false,
+          status: 'pending'
         })
         .eq('id', player.id);
 
       if (updateError) throw updateError;
 
-      // Si le joueur physique n'a plus AUCUN tableau pointé dans TOUT le tournoi,
-      // on peut libérer son numéro de dossard pour qu'il soit propre.
-      const hasOtherCheckedIn = players.some(p => p.id !== player.id && p.checked_in && (
-        (p.licence_number && player.licence_number && p.licence_number === player.licence_number) ||
-        ((!p.licence_number || !player.licence_number) && 
-         p.first_name?.toLowerCase().trim() === player.first_name?.toLowerCase().trim() && 
-         p.last_name?.toLowerCase().trim() === player.last_name?.toLowerCase().trim())
-      ));
+      // Un joueur physique peut avoir plusieurs inscriptions. Regardons s'il en a d'autres encore pointées.
+      const hasOtherCheckedIn = players.some(p => p.id !== player.id && p.checked_in && p.player_id === player.player_id);
 
       if (!hasOtherCheckedIn) {
-        // Optionnel : s'il n'a plus aucun pointage nul part, on libère le dossard des inscriptions restantes
-        const samePlayers = players.filter(p => 
-          (p.licence_number && player.licence_number && p.licence_number === player.licence_number) ||
-          ((!p.licence_number || !player.licence_number) && 
-           p.first_name?.toLowerCase().trim() === player.first_name?.toLowerCase().trim() && 
-           p.last_name?.toLowerCase().trim() === player.last_name?.toLowerCase().trim())
-        );
+        // S'il n'a plus aucun pointage nulle part, on libère le dossard de toutes ses inscriptions
+        const sameRegs = players.filter(p => p.player_id === player.player_id);
+        const sameIds = sameRegs.map(p => p.id);
 
-        const sameIds = samePlayers.map(p => p.id);
         await supabase
-          .from('players')
-          .update({ dossard: null })
+          .from('registrations')
+          .update({
+            dossard: null
+          })
           .in('id', sameIds);
       }
 
@@ -308,28 +395,30 @@ export default function Players() {
     }
   };
 
-  // Réinitialiser le pointage global du joueur (remettre en non-pointé et enlever le dossard sur toutes les lignes)
+  // Réinitialiser le pointage global du joueur (remettre en non-pointé et enlever le dossard sur toutes ses inscriptions)
   const handleResetCheckIn = async (player: any) => {
-    const confirm = window.confirm(`Voulez-vous annuler le pointage global de ${player.first_name} ${player.last_name} (tous tableaux) et libérer son dossard ?`);
-    if (!confirm) return;
+    const sameRegs = players.filter(p => p.player_id === player.player_id);
+    const hasClosedCategory = sameRegs.some(p => {
+      const cat = categories.find(c => c.name === p.serie);
+      return cat?.is_closed;
+    });
+
+    if (hasClosedCategory) {
+      toast.error(`Certains tableaux de ce joueur sont clôturés 🔒. Réinitialisation globale impossible (annulez individuellement les tableaux ouverts).`);
+      return;
+    }
 
     const toastId = toast.loading("Réinitialisation complète du pointage...");
     try {
-      // Trouver tous les enregistrements correspondants au même joueur physique
-      const samePlayers = players.filter(p => 
-        (p.licence_number && player.licence_number && p.licence_number === player.licence_number) ||
-        ((!p.licence_number || !player.licence_number) && 
-         p.first_name?.toLowerCase().trim() === player.first_name?.toLowerCase().trim() && 
-         p.last_name?.toLowerCase().trim() === player.last_name?.toLowerCase().trim())
-      );
+      const sameIds = sameRegs.map(p => p.id);
 
-      const sameIds = samePlayers.map(p => p.id);
       const { error } = await supabase
-        .from('players')
+        .from('registrations')
         .update({
           checked_in: false,
           dossard: null,
-          paid: false
+          paid: false,
+          status: 'pending'
         })
         .in('id', sameIds);
 
@@ -620,12 +709,80 @@ export default function Players() {
                 style={isActive ? { backgroundColor: bgCol, borderColor: bgCol, color: textCol } : {}}
               >
                 <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: isActive ? textCol : bgCol }} />
-                {cat.name} {cat.day_number && selectedDay === 'all' ? `(J${cat.day_number})` : ''}
+                {cat.name} {cat.day_number && selectedDay === 'all' ? `(J${cat.day_number})` : ''} {cat.is_closed ? '🔒' : ''}
               </button>
             );
           })}
         </div>
       </div>
+
+      {/* Bannière de contrôle du tableau sélectionné */}
+      {selectedSerie !== 'all' && (() => {
+        const cat = categories.find(c => c.name === selectedSerie);
+        if (!cat) return null;
+        
+        const presents = players.filter(p => p.serie === cat.name && p.checked_in).length;
+        const inscrits = players.filter(p => p.serie === cat.name).length;
+
+        return (
+          <div className={`p-6 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm transition-all ${
+            cat.is_closed 
+              ? 'bg-rose-50/70 border-rose-150 text-rose-950 animate-fade-in' 
+              : 'bg-emerald-50/50 border-emerald-150 text-emerald-950 animate-fade-in'
+          }`}>
+            <div className="flex items-start gap-3.5">
+              <div className={`p-2.5 rounded-xl shrink-0 ${cat.is_closed ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                {cat.is_closed ? <LockIcon className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold flex items-center gap-1.5 flex-wrap">
+                  Pointage du Tableau - <strong className="font-extrabold uppercase">{cat.name}</strong>
+                  {cat.is_closed ? (
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-rose-600 text-white inline-flex items-center gap-1">
+                      🔒 Clôturé
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-600 text-white inline-flex items-center gap-1">
+                      🔓 Ouvert
+                    </span>
+                  )}
+                </h3>
+                <p className="text-xs text-slate-500 max-w-xl leading-relaxed">
+                  {cat.is_closed 
+                    ? "Le pointage et les inscriptions sont verrouillés pour ce tableau. Vous pouvez maintenant configurer et générer les poules en toute sérénité."
+                    : "Le pointage en direct est ouvert aux joueurs. Une fois tout le monde pointé présent, clôturez ce tableau pour débloquer la génération des poules."
+                  }
+                </p>
+                <div className="flex gap-4 text-[11px] font-bold text-slate-450 pt-1">
+                  <span>Inscrits total : <strong className="text-slate-800">{inscrits}</strong></span>
+                  <span>Pointés présents : <strong className={cat.is_closed ? "text-rose-650" : "text-emerald-650"}>{presents}</strong></span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={() => toggleCategoryClosure(cat)}
+              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm active:scale-95 cursor-pointer shrink-0 ${
+                cat.is_closed
+                  ? 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/80 hover:border-slate-300'
+                  : 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-100'
+              }`}
+            >
+              {cat.is_closed ? (
+                <>
+                  <Unlock className="w-4 h-4" />
+                  Réouvrir le Pointage
+                </>
+              ) : (
+                <>
+                  <LockIcon className="w-4 h-4" />
+                  Clôturer & Bloquer le Pointage
+                </>
+              )}
+            </button>
+          </div>
+        );
+      })()}
 
       {/* Tableau interactif principal */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -730,75 +887,118 @@ export default function Players() {
 
                     {/* Colonne TABLEAU (SERIE) */}
                     <td className="px-6 py-4">
-                      <select
-                        id={`player-serie-select-${player.id}`}
-                        value={player.serie}
-                        onChange={(e) => updatePlayerSerie(player.id, e.target.value, player.first_name, player.last_name)}
-                        className="bg-indigo-50/60 hover:bg-slate-100 text-indigo-700 font-black border border-indigo-100/50 text-[11px] px-2.5 py-1.5 rounded-xl outline-none transition-all cursor-pointer shadow-sm focus:ring-2 focus:ring-indigo-400 max-w-[155px] truncate"
-                      >
-                        {categories.map((c) => (
-                          <option key={c.id} value={c.name} className="text-slate-800 bg-white font-medium">
-                            {c.name} (J{c.day_number})
-                          </option>
-                        ))}
-                        {!categories.some((c) => c.name === player.serie) && (
-                          <option value={player.serie} className="text-slate-850 bg-white font-medium">
-                            {player.serie}
-                          </option>
-                        )}
-                      </select>
+                      {(() => {
+                        const currentCat = categories.find(c => c.name === player.serie);
+                        const isOriginalClosed = currentCat?.is_closed;
+                        return (
+                          <select
+                            id={`player-serie-select-${player.id}`}
+                            value={player.serie}
+                            disabled={isOriginalClosed}
+                            onChange={async (e) => {
+                              const newSerieName = e.target.value;
+                              const newCat = categories.find(c => c.name === newSerieName);
+                              if (newCat?.is_closed) {
+                                toast.error(`Le tableau de destination "${newSerieName}" est clôturé 🔒. Impossible d'y transférer un joueur.`);
+                                return;
+                              }
+                              updatePlayerSerie(player.id, newSerieName, player.first_name, player.last_name);
+                            }}
+                            className={`font-black border text-[11px] px-2.5 py-1.5 rounded-xl outline-none transition-all shadow-sm max-w-[155px] truncate ${
+                              isOriginalClosed 
+                                ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' 
+                                : 'bg-indigo-50/60 hover:bg-slate-100 text-indigo-700 border-indigo-100/50 cursor-pointer focus:ring-2 focus:ring-indigo-400'
+                            }`}
+                            title={isOriginalClosed ? "Tableau clôturé (série non modifiable)" : "Modifier la série"}
+                          >
+                            {categories.map((c) => (
+                              <option key={c.id} value={c.name} className="text-slate-800 bg-white font-medium" disabled={c.is_closed}>
+                                {c.name} (J{c.day_number}) {c.is_closed ? '🔒 [CLOS]' : ''}
+                              </option>
+                            ))}
+                            {!categories.some((c) => c.name === player.serie) && (
+                              <option value={player.serie} className="text-slate-850 bg-white font-medium">
+                                {player.serie}
+                              </option>
+                            )}
+                          </select>
+                        );
+                      })()}
                     </td>
-
+ 
                     {/* Colonne CLASSEMENT (POINTS) */}
                     <td className="px-6 py-4">
                       <span className="inline-flex text-[11px] font-bold tracking-wider font-mono px-2 py-1 bg-slate-50 border border-slate-150 rounded-lg text-slate-600">
                         {player.points ?? '500'} pts
                       </span>
                     </td>
-
+ 
                     {/* Colonne POINTAGE J-J (RÈGLEMENT & DOSSARD) */}
                     <td className="px-6 py-4 text-center">
-                      {!player.checked_in ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            id={`checkin-cb-btn-${player.id}`}
-                            onClick={() => handleTableCheckIn(player)}
-                            className="px-3 py-1.5 text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm rounded-lg active:scale-95 transition-all cursor-pointer"
-                          >
-                            Pointer (CB)
-                          </button>
-                          <button
-                            id={`checkin-pay-btn-${player.id}`}
-                            onClick={() => handleTableCheckIn(player)}
-                            className="px-3.5 py-1.5 text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
-                          >
-                            <BadgeEuro className="w-4 h-4" /> Encaisser
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center gap-2">
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-700 border border-emerald-500/10 text-xs font-bold rounded-lg justify-center shadow-inner">
-                            <CheckCircle className="w-4 h-4 text-emerald-600" /> Pointé (Dossard #{
-                              players.find(p => (
-                                (p.licence_number && player.licence_number && p.licence_number === player.licence_number) ||
-                                ((!p.licence_number || !player.licence_number) && 
-                                 p.first_name?.toLowerCase().trim() === player.first_name?.toLowerCase().trim() && 
-                                 p.last_name?.toLowerCase().trim() === player.last_name?.toLowerCase().trim())
-                              ) && p.dossard)?.dossard || player.dossard
-                            })
-                          </span>
-                          <button
-                            id={`forfait-single-btn-${player.id}`}
-                            onClick={() => handleCancelSingleCheckIn(player)}
-                            className="p-1.5 px-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/50 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1 cursor-pointer"
-                            title="Annuler le pointage / Forfait de ce tableau spécifique"
-                          >
-                            <X className="w-3.5 h-3.5" /> Forfait
-                          </button>
-                        </div>
-                      )}
-                    </td>
+                      {(() => {
+                        const currentCat = categories.find(c => c.name === player.serie);
+                        const isOriginalClosed = currentCat?.is_closed;
 
+                        if (!player.checked_in) {
+                          if (isOriginalClosed) {
+                            return (
+                              <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 text-slate-400 border border-slate-200/60 text-xs font-bold rounded-lg justify-center shadow-inner">
+                                <LockIcon className="w-3.5 h-3.5" /> Clôturé 🔒 (Absent)
+                              </span>
+                            );
+                          }
+
+                          return (
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                id={`checkin-cb-btn-${player.id}`}
+                                onClick={() => handleTableCheckIn(player)}
+                                className="px-3 py-1.5 text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm rounded-lg active:scale-95 transition-all cursor-pointer"
+                              >
+                                Pointer (CB)
+                              </button>
+                              <button
+                                id={`checkin-pay-btn-${player.id}`}
+                                onClick={() => handleTableCheckIn(player)}
+                                className="px-3.5 py-1.5 text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
+                              >
+                                <BadgeEuro className="w-4 h-4" /> Encaisser
+                              </button>
+                            </div>
+                          );
+                        } else {
+                          return (
+                            <div className="flex items-center justify-center gap-2">
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-700 border border-emerald-500/10 text-xs font-bold rounded-lg justify-center shadow-inner">
+                                <CheckCircle className="w-4 h-4 text-emerald-600" /> Pointé (Dossard #{
+                                  players.find(p => (
+                                    (p.licence_number && player.licence_number && p.licence_number === player.licence_number) ||
+                                    ((!p.licence_number || !player.licence_number) && 
+                                     p.first_name?.toLowerCase().trim() === player.first_name?.toLowerCase().trim() && 
+                                     p.last_name?.toLowerCase().trim() === player.last_name?.toLowerCase().trim())
+                                  ) && p.dossard)?.dossard || player.dossard
+                                })
+                              </span>
+                              {!isOriginalClosed ? (
+                                <button
+                                  id={`forfait-single-btn-${player.id}`}
+                                  onClick={() => handleCancelSingleCheckIn(player)}
+                                  className="p-1.5 px-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/50 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1 cursor-pointer"
+                                  title="Annuler le pointage / Forfait de ce tableau spécifique"
+                                >
+                                  <X className="w-3.5 h-3.5" /> Forfait
+                                </button>
+                              ) : (
+                                <span className="p-1.5 px-2 bg-slate-50 text-slate-400 border border-slate-200/50 rounded-lg text-[10px] font-semibold inline-flex items-center gap-1 cursor-not-allowed" title="Le tableau est clôturé (statut verrouillé)">
+                                  <LockIcon className="w-3 h-3 text-slate-300" /> Clôturé 🔒
+                                </span>
+                              )}
+                            </div>
+                          );
+                        }
+                      })()}
+                    </td>
+ 
                     {/* Colonne IDENTIFIANTS SMS DE SCORE */}
                     <td className="px-6 py-4 text-center">
                       {player.checked_in ? (
@@ -822,16 +1022,61 @@ export default function Players() {
                         </span>
                       )}
                     </td>
-
+ 
                     {/* Colonne ACTIONS */}
                     <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => deletePlayer(player.id)}
-                        className="p-1.5 text-slate-300 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
-                        title="Supprimer l'inscription"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {(() => {
+                        const currentCat = categories.find(c => c.name === player.serie);
+                        const isOriginalClosed = currentCat?.is_closed;
+
+                        return (
+                          <div className="flex items-center justify-end gap-1.5">
+                            {confirmDeleteId === player.id ? (
+                              <div className="flex items-center gap-1 animate-fade-in">
+                                <button
+                                  onClick={async () => {
+                                    await deletePlayer(player.id);
+                                    setConfirmDeleteId(null);
+                                  }}
+                                  className="px-2.5 py-1 text-[10px] font-black bg-rose-600 text-white rounded-lg hover:bg-rose-700 active:scale-95 transition-all cursor-pointer shadow-sm"
+                                >
+                                  Confirmer 🗑️
+                                </button>
+                                <button
+                                  onClick={() => setConfirmDeleteId(null)}
+                                  className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                                  title="Annuler"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  if (isOriginalClosed) {
+                                    toast.error(`Le tableau "${player.serie}" est clôturé 🔒. Impossible de supprimer cette inscription.`);
+                                    return;
+                                  }
+                                  setConfirmDeleteId(player.id);
+                                  // Auto reset after 4 seconds
+                                  setTimeout(() => {
+                                    setConfirmDeleteId(prev => prev === player.id ? null : prev);
+                                  }, 4000);
+                                }}
+                                disabled={isOriginalClosed}
+                                className={`p-1.5 rounded-lg transition-all ${
+                                  isOriginalClosed 
+                                    ? 'text-slate-200 cursor-not-allowed' 
+                                    : 'text-slate-350 hover:text-rose-600 hover:bg-rose-50 cursor-pointer'
+                                }`}
+                                title={isOriginalClosed ? "Tableau clôturé (Suppression verrouillée)" : "Supprimer l'inscription"}
+                              >
+                                {isOriginalClosed ? <LockIcon className="w-4 h-4 text-slate-300" /> : <Trash2 className="w-4 h-4" />}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </td>
 
                   </tr>
