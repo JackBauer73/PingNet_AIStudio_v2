@@ -11,8 +11,11 @@ ALTER TABLE tournaments
 ALTER TABLE players
   ADD COLUMN IF NOT EXISTS checked_in BOOLEAN DEFAULT TRUE,
   ADD COLUMN IF NOT EXISTS licence_number TEXT,
-  ADD COLUMN IF NOT EXISTS pts_phase1 INTEGER,
-  ADD COLUMN IF NOT EXISTS pts_phase2 INTEGER;
+  ADD COLUMN IF NOT EXISTS points INTEGER;
+
+-- Suppression des anciennes colonnes si elles existent
+ALTER TABLE players DROP COLUMN IF EXISTS pts_phase1;
+ALTER TABLE players DROP COLUMN IF EXISTS pts_phase2;
 
 COMMENT ON COLUMN tournaments.starts_at IS
   'Date et heure de début du tournoi — déclenche le passage automatique en in_progress';
@@ -114,3 +117,35 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE table_categories;
   END IF;
 END $$;
+
+-- 7. SECTION SYSTÈME DE DOSSARD (Tâche 1 Migration SQL)
+-- Table players (utilisée par notre app)
+ALTER TABLE players
+  ADD COLUMN IF NOT EXISTS dossard INTEGER,
+  ADD COLUMN IF NOT EXISTS paid BOOLEAN DEFAULT FALSE;
+
+-- On supprime l'index unique restrictif car un joueur physique peut avoir plusieurs inscriptions 
+-- (plusieurs lignes dans la table players) dans un même tournoi, et l'index unique empêchait 
+-- de leur donner le même dossard.
+DROP INDEX IF EXISTS idx_players_dossard_tournament;
+
+-- Table registrations (pour compatibilité avec le script d'exécution SQL d'autres contextes si nécessaire)
+CREATE TABLE IF NOT EXISTS registrations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tournament_id UUID,
+  user_id TEXT,
+  dossard INTEGER,
+  checked_in BOOLEAN DEFAULT FALSE,
+  paid BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE registrations
+  ADD COLUMN IF NOT EXISTS dossard INTEGER,
+  ADD COLUMN IF NOT EXISTS paid BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS checked_in BOOLEAN DEFAULT FALSE;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_registrations_dossard_tournament
+  ON registrations(tournament_id, dossard)
+  WHERE dossard IS NOT NULL;
+

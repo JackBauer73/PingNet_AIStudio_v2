@@ -53,8 +53,7 @@ CREATE TABLE players (
     serie TEXT,
     checked_in BOOLEAN DEFAULT TRUE,
     licence_number TEXT,
-    pts_phase1 INTEGER,
-    pts_phase2 INTEGER,
+    points INTEGER,
     registered_at TIMESTAMPTZ DEFAULT NOW()
 );
 

@@ -48,6 +48,8 @@ export default function App() {
         >
           <Route index element={<Dashboard />} />
           <Route path="players" element={<Players />} />
+          <Route path="checkin" element={<Players />} />
+          <Route path="checkin/:tournamentId" element={<Players />} />
           <Route path="pools" element={<Pools />} />
           <Route path="bracket" element={<Bracket />} />
           <Route path="scores" element={<Scores />} />

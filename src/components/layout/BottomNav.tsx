@@ -12,7 +12,8 @@ import {
   MoreHorizontal,
   X,
   User,
-  Calendar
+  Calendar,
+  UserCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../supabase';
@@ -20,7 +21,7 @@ import { useTournament } from '../../hooks/useTournament';
 
 const primaryNavigation = [
   { name: 'Dashboard', href: '/organizer', icon: LayoutDashboard },
-  { name: 'Joueurs', href: '/organizer/players', icon: Users },
+  { name: 'Pointage J-J', href: '/organizer/checkin', icon: UserCheck },
   { name: 'Poules', href: '/organizer/pools', icon: Grid3X3 },
   { name: 'Tableau', href: '/organizer/bracket', icon: Trophy },
 ];

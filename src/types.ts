@@ -55,8 +55,9 @@ export interface Player {
   serie: string;
   checked_in?: boolean;
   licence_number?: string | null;
-  pts_phase1?: number | null;
-  pts_phase2?: number | null;
+  points?: number | null;
+  dossard?: number | null;
+  paid?: boolean;
   registered_at: string;
 }
 

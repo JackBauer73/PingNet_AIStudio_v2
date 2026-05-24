@@ -20,8 +20,6 @@ export default function Landing() {
     serie: 'Série A',
     points: 500,
     licenceNumber: '',
-    ptsPhase1: '',
-    ptsPhase2: ''
   });
   const [licenceInput, setLicenceInput] = useState('');
   const [searchingLicence, setSearchingLicence] = useState(false);
@@ -30,6 +28,7 @@ export default function Landing() {
   const [submitting, setSubmitting] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
+  const [profileSearch, setProfileSearch] = useState('');
 
   // States pour la fenêtre modale d'affichage de réussite/erreur de validation
   const [modalState, setModalState] = useState<{
@@ -74,8 +73,6 @@ export default function Landing() {
           serie: matched ? matched.name : (categories[0]?.name || 'Série A'),
           points: points,
           licenceNumber: data.licence || licenceInput.trim(),
-          ptsPhase1: data.initial || points,
-          ptsPhase2: points
         });
         toast.success(`👤 Profil FFTT importé : ${data.prenom} ${data.nom}`);
       }
@@ -265,12 +262,9 @@ export default function Landing() {
         serie: formData.serie,
         checked_in: null, // Inscriptions publiques : initialement inscrites (non pointées)
         licence_number: formData.licenceNumber ? formData.licenceNumber.trim() : null,
-        pts_phase1: manualEntry 
+        points: manualEntry 
           ? Number(formData.points || 500) 
-          : (formData.ptsPhase1 ? Number(formData.ptsPhase1) : (ffttPlayer?.initial || ffttPlayer?.classement || 500)),
-        pts_phase2: manualEntry 
-          ? null 
-          : (formData.ptsPhase2 ? Number(formData.ptsPhase2) : (ffttPlayer?.classement || ffttPlayer?.mensuel || null)),
+          : (ffttPlayer?.classement || ffttPlayer?.initial || ffttPlayer?.mensuel || 500),
       });
       
       if (!result) {
@@ -304,8 +298,6 @@ export default function Landing() {
         serie: categories[0]?.name || 'Série A', 
         points: 500,
         licenceNumber: '',
-        ptsPhase1: '',
-        ptsPhase2: ''
       });
       setLicenceInput('');
       setFfttPlayer(null);
@@ -506,6 +498,136 @@ export default function Landing() {
                     );
                   })}
                 </div>
+              </div>
+            )}
+
+            {/* Widget de Recherche de Dossard / Statut de Pointage */}
+            {tournament && (
+              <div id="checkin-lookup-widget" className="mt-6 bg-white p-6 rounded-3xl border border-slate-100 shadow-sm space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shadow-inner">
+                    <Search className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-sm text-slate-900">Vérifier mon Inscription & Dossard</h3>
+                    <p className="text-slate-400 text-xs mt-0.5">Saisissez votre nom ou licence pour suivre votre statut.</p>
+                  </div>
+                </div>
+
+                <div className="relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Rechercher par nom ou n° de licence..."
+                    className="w-full pl-9 pr-4 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/25 focus:border-indigo-500 transition-all font-medium"
+                    value={profileSearch || ''}
+                    onChange={(e) => setProfileSearch(e.target.value)}
+                  />
+                </div>
+
+                {profileSearch.trim().length >= 2 && (() => {
+                  const cleanedQuery = profileSearch.trim().toLowerCase();
+                  
+                  // Regrouper les inscriptions par joueur physique
+                  const matchingMap = new Map<string, any>();
+                  
+                  players.forEach(p => {
+                    const fullName = `${p.first_name} ${p.last_name}`.toLowerCase();
+                    const licence = p.licence_number || '';
+                    if (fullName.includes(cleanedQuery) || licence.includes(cleanedQuery)) {
+                      const key = p.licence_number && p.licence_number.trim() !== ''
+                        ? `lic_${p.licence_number.trim()}`
+                        : `name_${p.first_name.trim().toLowerCase()}_${p.last_name.trim().toLowerCase()}`;
+
+                      if (!matchingMap.has(key)) {
+                        matchingMap.set(key, {
+                          first_name: p.first_name,
+                          last_name: p.last_name,
+                          licence_number: p.licence_number || null,
+                          club: p.club || null,
+                          checked_in: !!p.checked_in,
+                          dossard: p.dossard || null,
+                          series: [p.serie]
+                        });
+                      } else {
+                        const existing = matchingMap.get(key);
+                        if (!existing.series.includes(p.serie)) {
+                          existing.series.push(p.serie);
+                        }
+                        if (p.checked_in) existing.checked_in = true;
+                        if (p.dossard && !existing.dossard) existing.dossard = p.dossard;
+                      }
+                    }
+                  });
+
+                  const matchedRows = Array.from(matchingMap.values());
+
+                  if (matchedRows.length === 0) {
+                    return (
+                      <p className="text-xs text-rose-500 font-medium bg-rose-50 border border-rose-100/50 px-3.5 py-2.5 rounded-xl">
+                        Aucune inscription trouvée pour "{profileSearch}".
+                      </p>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-3 pt-2">
+                      {matchedRows.map((player, pIdx) => (
+                        <div 
+                          key={pIdx}
+                          className={`p-4 rounded-2xl border transition-all text-xs space-y-2
+                            ${player.checked_in 
+                              ? 'bg-emerald-500/5 border-emerald-100 text-emerald-800' 
+                              : 'bg-amber-500/5 border-amber-100 text-amber-800'}`}
+                        >
+                          <div className="flex justify-between items-start gap-2">
+                            <div>
+                              <p className="font-extrabold text-slate-900 text-sm">
+                                {player.last_name.toUpperCase()} {player.first_name}
+                              </p>
+                              <p className="text-[10px] text-slate-500 mt-0.5">
+                                {player.club || 'Sans club'} {player.licence_number ? `• Licence ${player.licence_number}` : ''}
+                              </p>
+                            </div>
+                            {player.checked_in ? (
+                              <span className="font-black text-xs bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-lg shrink-0 shadow-sm">
+                                Pointé présent ✓
+                              </span>
+                            ) : (
+                              <span className="font-semibold text-[10px] bg-amber-100 text-amber-850 px-2.5 py-1 rounded-lg shrink-0 shadow-sm">
+                                À pointer ⏳
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="border-t border-slate-100/60 pt-2.5 flex flex-col gap-1.5">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className="text-slate-400 font-medium text-[10px]">Tableaux :</span>
+                              {player.series.map((s: string, sIdx: number) => (
+                                <span key={sIdx} className="px-1.5 py-0.5 rounded bg-white border border-slate-100 font-bold uppercase tracking-wide text-[9px] text-slate-600 shadow-sm-flat">
+                                  {s}
+                                </span>
+                              ))}
+                            </div>
+
+                            {player.checked_in && player.dossard ? (
+                              <div className="mt-1 bg-emerald-100/60 border border-emerald-200/55 p-2 rounded-xl text-emerald-900 font-extrabold text-sm flex items-center gap-2 shadow-sm">
+                                <span className="inline-flex items-center justify-center w-6 h-6 bg-emerald-600 text-white font-mono font-black rounded-lg text-xs shadow-inner">
+                                  {player.dossard}
+                                </span>
+                                <span>Votre dossard : {player.dossard}</span>
+                              </div>
+                            ) : (
+                              <p className="text-[10px] text-slate-500 italic mt-1 bg-slate-100/65 p-2 rounded-xl leading-relaxed">
+                                Rendez-vous à la table de pointage de l'événement pour récupérer votre dossard.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
             )}
             

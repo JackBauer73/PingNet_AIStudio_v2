@@ -8,14 +8,15 @@ import {
   QrCode,
   LogOut,
   History,
-  Calendar
+  Calendar,
+  UserCheck
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useTournament } from '../../hooks/useTournament';
 
 const navigation = [
   { name: 'Dashboard', href: '/organizer', icon: LayoutDashboard },
-  { name: 'Joueurs', href: '/organizer/players', icon: Users },
+  { name: 'Pointage J-J', href: '/organizer/checkin', icon: UserCheck },
   { name: 'Poules', href: '/organizer/pools', icon: Grid3X3 },
   { name: 'Tableau', href: '/organizer/bracket', icon: Trophy },
   { name: 'Direct', href: '/organizer/scores', icon: QrCode },
