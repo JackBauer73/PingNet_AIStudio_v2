@@ -106,6 +106,46 @@ export function useTableMatch(tableNumber: number) {
         .eq('id', match.id);
 
       if (error) throw error;
+
+      // Si c'est un match de poule, lancer automatiquement le match suivant en attente pour cette même poule sur cette table
+      if (match.pool_id && match.table_number) {
+        const { data: nextPendingMatches, error: pendingError } = await supabase
+          .from('matches')
+          .select('id')
+          .eq('pool_id', match.pool_id)
+          .eq('status', 'pending')
+          .order('created_at', { ascending: true })
+          .order('id', { ascending: true })
+          .limit(1);
+
+        if (!pendingError && nextPendingMatches && nextPendingMatches.length > 0) {
+          const nextMatchId = nextPendingMatches[0].id;
+          await supabase
+            .from('matches')
+            .update({
+              table_number: match.table_number,
+              status: 'in_progress',
+              started_at: new Date().toISOString()
+            })
+            .eq('id', nextMatchId);
+        } else {
+          // Si plus aucun match n'est en attente/en cours dans cette poule, marquer la poule comme 'finished' !
+          const { data: remainingMatches, error: remainingError } = await supabase
+            .from('matches')
+            .select('id, status')
+            .eq('pool_id', match.pool_id);
+
+          if (!remainingError && remainingMatches) {
+            const activeOrPending = remainingMatches.filter(m => m.id !== match.id && (m.status === 'pending' || m.status === 'in_progress'));
+            if (activeOrPending.length === 0) {
+              await supabase
+                .from('pools')
+                .update({ status: 'finished', table_number: null })
+                .eq('id', match.pool_id);
+            }
+          }
+        }
+      }
       
       // Handle bracket progression
       await handleBracketProgression(match.id, winnerId);

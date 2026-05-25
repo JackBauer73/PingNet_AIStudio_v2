@@ -4,6 +4,7 @@ import {
   LayoutDashboard, 
   Users, 
   Grid3X3, 
+  Table,
   Trophy, 
   Settings, 
   QrCode,
@@ -39,6 +40,7 @@ export default function BottomNav() {
   };
 
   const menuItems = [
+    { name: 'Gestion des Tables', href: '/organizer/tables', icon: Table, description: 'Suivi et affectation des tables' },
     { name: 'Reporting Score / Direct', href: '/organizer/scores', icon: QrCode, description: 'Saisie des scores et tables' },
     { name: 'Historique des tournois', href: '/organizer/archives', icon: History, description: 'Rapports et anciens tournois' },
     { name: 'Paramètres', href: '/organizer/settings', icon: Settings, description: 'Gestion des séries de jeu' },

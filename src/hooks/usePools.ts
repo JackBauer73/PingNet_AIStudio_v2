@@ -39,7 +39,12 @@ export function usePools(tournamentId?: string) {
       const poolIds = poolsRes.map(p => p.id);
       
       const [matchesRes, poolPlayersRes, registrationsRes] = await Promise.all([
-        supabase.from('matches').select('*, player1:player1_id(*), player2:player2_id(*), sets(*)').eq('tournament_id', tournamentId).eq('round', 'pool'),
+        supabase.from('matches')
+          .select('*, player1:player1_id(*), player2:player2_id(*), sets(*)')
+          .eq('tournament_id', tournamentId)
+          .eq('round', 'pool')
+          .order('created_at', { ascending: true })
+          .order('id', { ascending: true }),
         supabase.from('pool_players').select('*'),
         supabase.from('registrations').select('*, players(*), table_categories(*)').eq('tournament_id', tournamentId)
       ]);

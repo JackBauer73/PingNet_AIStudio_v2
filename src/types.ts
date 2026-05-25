@@ -69,6 +69,8 @@ export interface Pool {
   tournament_id: string;
   name: string;
   status: 'pending' | 'in_progress' | 'finished';
+  table_number?: number | null;
+  table_category_id?: string | null;
   created_at: string;
 }
 

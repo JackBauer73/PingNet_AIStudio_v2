@@ -30,6 +30,72 @@ export default function Pools() {
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [confirmingClosePools, setConfirmingClosePools] = useState(false);
+  const [reassigningPool, setReassigningPool] = useState<string | null>(null);
+
+  const isPoolFinished = (poolId: string) => {
+    const pool = pools.find(p => p.id === poolId);
+    if (!pool) return true;
+    if (pool.status === 'finished') return true;
+    const poolMatches = matches.filter(m => m.pool_id === poolId);
+    return poolMatches.length > 0 && poolMatches.every(m => m.status === 'finished');
+  };
+
+  const handleReassignTable = async (poolId: string, newTableNumber: number) => {
+    if (!tournament) return;
+
+    // Vérifier que la table cible est libre (protection contre double-clic)
+    const targetBusy = pools.some(
+      p => Number((p as any).table_number) === Number(newTableNumber) && p.id !== poolId
+    );
+    if (targetBusy) {
+      toast.error(`La table ${newTableNumber} est déjà occupée par une autre poule.`);
+      return;
+    }
+
+    try {
+      const pool = pools.find(p => p.id === poolId) as any;
+      const oldTableNumber = pool?.table_number;
+
+      await supabase
+        .from('pools')
+        .update({ table_number: newTableNumber })
+        .eq('id', poolId);
+
+      // Mettre à jour également tous les matchs en cours de cette poule pour qu'ils héritent de la nouvelle table
+      await supabase
+        .from('matches')
+        .update({ table_number: newTableNumber })
+        .eq('pool_id', poolId)
+        .eq('status', 'in_progress');
+
+      // Remettre l'ancienne table disponible
+      if (oldTableNumber) {
+        await supabase
+          .from('tournament_tables')
+          .update({ status: 'available' })
+          .eq('tournament_id', tournament.id)
+          .eq('table_number', oldTableNumber);
+      }
+
+      // Marquer la nouvelle table occupée
+      await supabase
+        .from('tournament_tables')
+        .update({ status: 'busy' })
+        .eq('tournament_id', tournament.id)
+        .eq('table_number', newTableNumber);
+
+      setReassigningPool(null);
+      toast.success(`Poule déplacée sur la table ${newTableNumber}`);
+      refreshPools();
+    } catch (err: any) {
+      // Code 23505 = index unique violé → table déjà prise (protection BDD)
+      if (err?.code === '23505') {
+        toast.error(`La table ${newTableNumber} est déjà prise.`);
+      } else {
+        toast.error('Erreur lors du déplacement de la poule');
+      }
+    }
+  };
 
   React.useEffect(() => {
     if (!tournament?.id) return;
@@ -40,23 +106,14 @@ export default function Pools() {
         .eq('tournament_id', tournament.id)
         .order('name');
       if (!error && data) {
-        // En cas de cache obsolète ou de colonne manquante, on complète à l’aide du localStorage local
-        const localClosedRaw = localStorage.getItem(`closed_categories_${tournament.id}`);
-        const localClosed: string[] = localClosedRaw ? JSON.parse(localClosedRaw) : [];
-
-        const merged = data.map(cat => ({
-          ...cat,
-          is_closed: cat.is_closed || localClosed.includes(cat.name)
-        }));
-
-        setCategories(merged);
+        setCategories(data);
         // Filtrer les catégories sur la journée courante
         const currentDay = tournament.current_day || 1;
-        const catsToday = merged.filter(c => (c.day_number || 1) === currentDay);
+        const catsToday = data.filter(c => (c.day_number || 1) === currentDay);
         if (catsToday.length > 0) {
           setSelectedCategory(catsToday[0].name);
-        } else if (merged.length > 0) {
-          setSelectedCategory(merged[0].name);
+        } else if (data.length > 0) {
+          setSelectedCategory(data[0].name);
         }
       }
     };
@@ -89,19 +146,54 @@ export default function Pools() {
 
     setGenerating(true);
     try {
-      const poolsResult = generatePools(categoryPlayers, [], tournament.players_per_pool || 3);
+      // Charger UNIQUEMENT les tables disponibles (status = 'available')
+      const { data: availableTables } = await supabase
+        .from('tournament_tables')
+        .select('id, table_number')
+        .eq('tournament_id', tournament.id)
+        .eq('status', 'available')          // ← clé : évite les conflits entre catégories
+        .order('table_number');
+
+      const physicalTables = (availableTables || []).map(t => ({
+        id: t.id,
+        table_number: t.table_number
+      }));
+
+      const poolsResult = generatePools(categoryPlayers, physicalTables, tournament.players_per_pool || 3);
       const poolsPlayers = poolsResult.map(p => p.players);
       
-      // 1. Créer les poules en préfixant par le nom de la catégorie !
+      // La contrainte UNIQUE(tournament_id, name) en BDD bloque la double génération
       const { data: createdPools, error: poolError } = await supabase
         .from('pools')
         .insert(poolsPlayers.map((_, i) => ({
           tournament_id: tournament.id,
-          name: `${selectedCategory} - Poule ${i + 1}`
+          name: `${selectedCategory} - Poule ${i + 1}`,
+          table_number: poolsResult[i].table?.table_number ?? null,
+          table_category_id: currentCategoryObj?.id ?? null
         })))
         .select();
 
-      if (poolError) throw poolError;
+      if (poolError) {
+        // Code 23505 = violation de contrainte unique → double génération
+        if ((poolError as any).code === '23505') {
+          toast.error('Les poules de ce tableau existent déjà.');
+        } else {
+          throw poolError;
+        }
+        return;
+      }
+
+      // Marquer les tables assignées comme 'busy'
+      const assignedTableNums = poolsResult
+        .map(p => p.table?.table_number)
+        .filter((n): n is number => n != null);
+      if (assignedTableNums.length > 0) {
+        await supabase
+          .from('tournament_tables')
+          .update({ status: 'busy' })
+          .eq('tournament_id', tournament.id)
+          .in('table_number', assignedTableNums);
+      }
 
       // 2. Créer les liaisons pool_players
       const poolPlayersRows = createdPools.flatMap((pool, i) =>
@@ -145,41 +237,54 @@ export default function Pools() {
         return;
       }
 
-      // 2. Trouver les tables occupées
-      const { data: busyMatches } = await supabase
-        .from('matches')
-        .select('table_number')
-        .eq('tournament_id', tournament.id)
-        .eq('status', 'in_progress');
+      // 2. Trouver la table assignée à cette poule
+      const pool = pools.find(p => p.id === poolId);
+      let tableToUse = pool ? (pool as any).table_number : null;
 
-      const busyTableNumbers = busyMatches?.map(m => m.table_number).filter(Boolean) || [];
-      
-      // 3. Identifier les tables libres
-      const freeTables = Array.from({ length: tournament.nb_tables }, (_, i) => i + 1)
-        .filter(n => !busyTableNumbers.includes(n));
+      if (!tableToUse) {
+        // Fallback si pas de table assignée : chercher une table libre globale
+        const { data: busyMatches } = await supabase
+          .from('matches')
+          .select('table_number')
+          .eq('tournament_id', tournament.id)
+          .eq('status', 'in_progress');
 
-      if (freeTables.length === 0) {
-        toast.error('Aucune table libre pour le moment.');
-        return;
+        const busyTableNumbers = busyMatches?.map(m => m.table_number).filter(Boolean) || [];
+        const freeTables = Array.from({ length: tournament.nb_tables }, (_, i) => i + 1)
+          .filter(n => !busyTableNumbers.includes(n));
+
+        if (freeTables.length === 0) {
+          toast.error('Aucune table libre pour le moment.');
+          return;
+        }
+        tableToUse = freeTables[0];
+      } else {
+        // Si on a une table assignée, vérifier si elle est actuellement occupée par UN AUTRE match actif d'un autre pool
+        const tableOccupied = matches.some(
+          m => m.status === 'in_progress' && Number(m.table_number) === Number(tableToUse)
+        );
+        if (tableOccupied) {
+          toast.error(`La table ${tableToUse} affectée à cette poule est déjà occupée par un autre match.`);
+          return;
+        }
       }
 
-      // 4. Assigner les tables aux matchs
-      const matchesToLaunch = pendingPoolMatches.slice(0, freeTables.length);
-      const updates = matchesToLaunch.map((match, i) => 
-        supabase.from('matches').update({
-          table_number: freeTables[i],
-          status: 'in_progress',
-          started_at: new Date().toISOString()
-        }).eq('id', match.id)
-      );
+      // 3. Ne lancer QUE le premier match en attente de cette poule (règle 1 table = 1 match simultané par poule)
+      const matchToLaunch = pendingPoolMatches[0];
 
-      await Promise.all(updates);
+      await supabase.from('matches').update({
+        table_number: tableToUse,
+        status: 'in_progress',
+        started_at: new Date().toISOString()
+      }).eq('id', matchToLaunch.id);
       
-      // 5. Mettre à jour le statut de la poule
-      await supabase.from('pools').update({ status: 'in_progress' }).eq('id', poolId);
+      // 4. Mettre à jour le statut et la table de la poule
+      await supabase.from('pools').update({ 
+        status: 'in_progress',
+        table_number: tableToUse
+      }).eq('id', poolId);
 
-      toast.success(`🏓 ${matchesToLaunch.length} match(s) lancé(s) sur les tables libres !`);
-      // Use refresh from usePools/useTournament
+      toast.success(`🏓 Match de poule lancé sur la Table ${tableToUse} !`);
       refreshPools();
     } catch (error) {
       console.error(error);
@@ -191,31 +296,62 @@ export default function Pools() {
     if (!tournament) return;
 
     try {
-      const { data: busyMatches } = await supabase
-        .from('matches')
-        .select('table_number')
-        .eq('tournament_id', tournament.id)
-        .eq('status', 'in_progress');
+      const matchObj = matches.find(m => m.id === matchId);
+      const poolOfMatch = matchObj?.pool_id ? pools.find(p => p.id === matchObj.pool_id) : null;
+      let tableToUse = poolOfMatch ? (poolOfMatch as any).table_number : null;
 
-      const busyTableNumbers = busyMatches?.map(m => m.table_number).filter(Boolean) || [];
-      const freeTables = Array.from({ length: tournament.nb_tables }, (_, i) => i + 1)
-        .filter(n => !busyTableNumbers.includes(n));
+      if (!tableToUse) {
+        const { data: busyMatches } = await supabase
+          .from('matches')
+          .select('table_number')
+          .eq('tournament_id', tournament.id)
+          .eq('status', 'in_progress');
 
-      if (freeTables.length === 0) {
-        toast.error('Veuillez attendre qu’une table se libère.');
-        return;
+        const busyTableNumbers = busyMatches?.map(m => m.table_number).filter(Boolean) || [];
+        const freeTables = Array.from({ length: tournament.nb_tables }, (_, i) => i + 1)
+          .filter(n => !busyTableNumbers.includes(n));
+
+        if (freeTables.length === 0) {
+          toast.error('Veuillez attendre qu’une table se libère.');
+          return;
+        }
+        tableToUse = freeTables[0];
+      } else {
+        // Vérifier si la table assignée est déjà occupée
+        const tableOccupied = matches.some(
+          m => m.status === 'in_progress' && Number(m.table_number) === Number(tableToUse) && m.id !== matchId
+        );
+        if (tableOccupied) {
+          toast.error(`La table ${tableToUse} de cette poule est actuellement occupée par un autre match en cours.`);
+          return;
+        }
       }
 
       await supabase.from('matches').update({
-        table_number: freeTables[0],
+        table_number: tableToUse,
         status: 'in_progress',
         started_at: new Date().toISOString()
       }).eq('id', matchId);
 
-      toast.success(`Match lancé sur la table ${freeTables[0]}`);
+      // Si de type poule, on force le statut de la poule à in_progress si nécessaire et on s'assure qu'elle a sa table assignée
+      if (poolOfMatch) {
+        const poolUpdates: any = {};
+        if (poolOfMatch.status === 'pending') {
+          poolUpdates.status = 'in_progress';
+        }
+        if (!poolOfMatch.table_number) {
+          poolUpdates.table_number = tableToUse;
+        }
+        if (Object.keys(poolUpdates).length > 0) {
+          await supabase.from('pools').update(poolUpdates).eq('id', poolOfMatch.id);
+        }
+      }
+
+      toast.success(`Match lancé sur la table ${tableToUse}`);
       refreshPools();
     } catch (error) {
       console.error(error);
+      toast.error('Erreur lors du lancement du match');
     }
   };
 
@@ -340,64 +476,67 @@ export default function Pools() {
                 Suivez les équipes, classements et fiches de match de ce tableau de niveau.
               </p>
             </div>
-            {matches.filter(m => {
-              const pool = pools.find(p => p.id === m.pool_id);
-              return pool?.name.startsWith(`${selectedCategory} - `);
-            }).length > 0 && (
-              <div className="flex items-center gap-2">
-                {confirmingClosePools ? (
-                  <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 animate-fade-in shadow-sm">
-                    <span className="text-xs font-bold text-slate-600 px-2.5">
-                      {(() => {
-                        const categoryMatches = matches.filter(m => {
-                          const pool = pools.find(p => p.id === m.pool_id);
-                          return pool?.name.startsWith(`${selectedCategory} - `);
-                        });
-                        const allFinished = categoryMatches.every(m => m.status === 'finished');
-                        return allFinished 
-                          ? "Générer le tableau final ?" 
-                          : "⚠️ Des matchs sont en cours. Générer quand même ?";
-                      })()}
-                    </span>
+
+            <div className="flex items-center gap-4 flex-wrap">
+              {matches.filter(m => {
+                const pool = pools.find(p => p.id === m.pool_id);
+                return pool?.name.startsWith(`${selectedCategory} - `);
+              }).length > 0 && (
+                <div className="flex items-center gap-2">
+                  {confirmingClosePools ? (
+                    <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 animate-fade-in shadow-sm">
+                      <span className="text-xs font-bold text-slate-600 px-2.5">
+                        {(() => {
+                          const categoryMatches = matches.filter(m => {
+                            const pool = pools.find(p => p.id === m.pool_id);
+                            return pool?.name.startsWith(`${selectedCategory} - `);
+                          });
+                          const allFinished = categoryMatches.every(m => m.status === 'finished');
+                          return allFinished 
+                            ? "Générer le tableau final ?" 
+                            : "⚠️ Des matchs sont en cours. Générer quand même ?";
+                        })()}
+                      </span>
+                      <button
+                        onClick={async () => {
+                          setConfirmingClosePools(false);
+                          setGenerating(true);
+                          try {
+                            await generateBracket(tournament!.id, selectedCategory);
+                            toast.success('Phase de poules terminée ! Direction le tableau.');
+                            await refreshTournament();
+                            navigate('/organizer/bracket');
+                          } catch (err: any) {
+                            console.error(err);
+                            toast.error(err.message || 'Erreur lors de la validation');
+                          } finally {
+                            setGenerating(false);
+                          }
+                        }}
+                        className="px-3.5 py-1.5 bg-green-600 hover:bg-green-700 text-white font-extrabold text-xs rounded-xl transition-all shadow-sm cursor-pointer"
+                      >
+                        Oui, créer ✓
+                      </button>
+                      <button
+                        onClick={() => setConfirmingClosePools(false)}
+                        className="px-3.5 py-1.5 bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  ) : (
                     <button
-                      onClick={async () => {
-                        setConfirmingClosePools(false);
-                        setGenerating(true);
-                        try {
-                          await generateBracket(tournament!.id, selectedCategory);
-                          toast.success('Phase de poules terminée ! Direction le tableau.');
-                          await refreshTournament();
-                          navigate('/organizer/bracket');
-                        } catch (err: any) {
-                          console.error(err);
-                          toast.error(err.message || 'Erreur lors de la validation');
-                        } finally {
-                          setGenerating(false);
-                        }
-                      }}
-                      className="px-3.5 py-1.5 bg-green-600 hover:bg-green-700 text-white font-extrabold text-xs rounded-xl transition-all shadow-sm cursor-pointer"
+                      onClick={() => setConfirmingClosePools(true)}
+                      disabled={generating}
+                      className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-2xl font-bold hover:bg-green-700 transition-all shadow-xl shadow-green-100 disabled:opacity-50"
                     >
-                      Oui, créer ✓
+                      <Trophy className="w-5 h-5" />
+                      {generating ? 'Génération...' : 'Créer le Tableau Final'}
                     </button>
-                    <button
-                      onClick={() => setConfirmingClosePools(false)}
-                      className="px-3.5 py-1.5 bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 font-bold text-xs rounded-xl transition-all cursor-pointer"
-                    >
-                      Annuler
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => setConfirmingClosePools(true)}
-                    disabled={generating}
-                    className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-2xl font-bold hover:bg-green-700 transition-all shadow-xl shadow-green-100 disabled:opacity-50"
-                  >
-                    <Trophy className="w-5 h-5" />
-                    {generating ? 'Génération...' : 'Créer le Tableau Final'}
-                  </button>
-                )}
-              </div>
-            )}
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
@@ -405,160 +544,238 @@ export default function Pools() {
               const poolMatches = matches.filter(m => m.pool_id === pool.id);
               return (
                 <div key={pool.id} className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden border-t-4 border-t-indigo-500">
-                  <div className="p-6 bg-slate-50/50 border-b border-slate-100 flex justify-between items-center">
-                    <div>
-                      <h2 className="text-xl font-bold text-slate-900">{pool.name.replace(`${selectedCategory} - `, '')}</h2>
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                        pool.status === 'finished' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
-                      }`}>
-                        {pool.status === 'finished' ? 'Terminée' : 'En cours'}
-                      </span>
-                    </div>
-                    {pool.status !== 'finished' && (
-                      <button
-                        onClick={() => handleLaunchPool(pool.id)}
-                        className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-bold hover:bg-slate-800 transition-all shadow-md"
-                      >
-                        <Play className="w-4 h-4" />
-                        Lancer les matchs
-                      </button>
-                    )}
-                  </div>
+                  <div className="p-6 bg-slate-50/50 border-b border-slate-100 flex justify-between items-center flex-wrap gap-4">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                          <h2 className="text-xl font-bold text-slate-900">{pool.name.replace(`${selectedCategory} - `, '')}</h2>
+                          {!isPoolFinished(pool.id) && pool.table_number ? (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-slate-900 text-white tracking-widest shadow-sm">
+                              Table {pool.table_number}
+                            </span>
+                          ) : (
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-100 text-slate-400 tracking-wider">
+                              Aucune table
+                            </span>
+                          )}
+                        </div>
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          isPoolFinished(pool.id) 
+                            ? 'bg-green-100 text-green-700' 
+                            : pool.status === 'in_progress'
+                            ? 'bg-amber-100 text-amber-700 font-extrabold animate-pulse'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {isPoolFinished(pool.id) 
+                            ? 'Terminée' 
+                            : pool.status === 'in_progress' 
+                            ? `Active • Table ${pool.table_number || '?'}` 
+                            : 'En attente'
+                          }
+                        </span>
+                      </div>
+                      
+                      {!isPoolFinished(pool.id) && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {reassigningPool === pool.id ? (
+                            <div className="flex items-center gap-1.5 bg-white border border-slate-200 p-1 rounded-xl shadow-sm animate-fade-in">
+                              <select
+                                value=""
+                                onChange={(e) => {
+                                  const val = Number(e.target.value);
+                                  if (val) {
+                                    handleReassignTable(pool.id, val);
+                                  }
+                                }}
+                                className="text-xs font-bold bg-white border-0 focus:ring-0 p-1 focus:outline-none"
+                              >
+                                <option value="">-- Assigner Table --</option>
+                                {Array.from({ length: tournament?.nb_tables || 0 }, (_, i) => i + 1)
+                                  .filter(num => !pools.some(p => !isPoolFinished(p.id) && Number(p.table_number) === Number(num)))
+                                  .map((num) => (
+                                    <option key={num} value={num}>Table {num}</option>
+                                  ))}
+                              </select>
+                              <button
+                                onClick={() => setReassigningPool(null)}
+                                className="text-[10px] text-slate-400 hover:text-slate-600 font-bold px-1"
+                              >
+                                Annuler
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setReassigningPool(pool.id)}
+                              className="px-2.5 py-1.5 border border-slate-200 hover:border-slate-350 text-slate-600 hover:text-slate-900 rounded-xl text-[11px] font-bold transition-all"
+                            >
+                              {pool.table_number ? 'Déplacer de table' : 'Assigner une table'}
+                            </button>
+                          )}
 
-                  <div className="p-6">
-                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Classement</h3>
-                    <div className="overflow-x-auto mb-8">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="text-left text-slate-400 italic">
-                            <th className="pb-3 font-medium">Pos</th>
-                            <th className="pb-3 font-medium">Joueur</th>
-                            <th className="pb-3 font-medium text-center">Pts</th>
-                            <th className="pb-3 font-medium text-center">Sets</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-50">
                           {(() => {
-                            const playerIdsInPool = new Set(poolMatches.flatMap(m => [m.player1_id, m.player2_id]));
-                            const poolStandings = standings
-                              .filter(s => s.pool_id === pool.id || playerIdsInPool.has(s.player_id))
-                              .sort((a, b) => a.standing_rank - b.standing_rank);
-
-                            if (poolStandings.length === 0) {
+                            const isMatchInProgress = poolMatches.some(m => m.status === 'in_progress');
+                            const hasPendingMatches = poolMatches.some(m => m.status === 'pending');
+                            
+                            if (isMatchInProgress) {
                               return (
-                                <tr>
-                                  <td colSpan={4} className="py-8 text-center text-slate-400 italic">
-                                    En attente des premiers résultats...
-                                  </td>
-                                </tr>
+                                <div className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-50 text-indigo-700 border border-indigo-200/60 rounded-xl text-xs font-black uppercase animate-pulse shadow-sm">
+                                  <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                                  Table {pool.table_number || '?'} en cours
+                                </div>
                               );
                             }
                             
-                            return poolStandings.map((s) => {
-                              const isTargetRank = s.standing_rank <= 2;
-                              const isComplete = poolMatches.length > 0 && poolMatches.every(m => m.status === 'finished');
-                              
-                              return (
-                                <tr key={s.player_id} className={`group transition-colors ${isTargetRank && isComplete ? 'bg-green-50/40' : ''}`}>
-                                  <td className="py-3 px-2">
-                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
-                                      isTargetRank && isComplete 
-                                        ? 'bg-green-600 text-white shadow-lg shadow-green-200 scale-110' 
-                                        : 'bg-slate-100 text-slate-400'
-                                    }`}>
-                                      {s.standing_rank}
-                                    </div>
-                                  </td>
-                                  <td className="py-3">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      {s.dossard && (
-                                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase tracking-widest">
-                                          Dossard {s.dossard}
-                                        </span>
-                                      )}
-                                      <div className="font-semibold text-slate-900">{s.first_name} {s.last_name}</div>
-                                      {isTargetRank && isComplete && (
-                                        <Trophy className="w-3 h-3 text-amber-500 animate-bounce" />
-                                      )}
-                                    </div>
-                                    <div className="text-xs text-slate-400 italic">
-                                      {s.club || 'Sans club'}
-                                      {s.points_fftt !== undefined && s.points_fftt !== null && s.points_fftt > 0 ? ` • ${s.points_fftt} pts` : ''}
-                                    </div>
-                                  </td>
-                                  <td className="py-3 text-center font-bold text-slate-700 px-2">
-                                    <span className={s.points > 0 ? 'text-indigo-600' : ''}>{s.points}</span>
-                                  </td>
-                                  <td className="py-3 text-center font-medium text-slate-500 tabular-nums text-xs">
-                                    <span className="text-green-600">{s.sets_won}</span>
-                                    <span className="mx-1 text-slate-300">/</span>
-                                    <span className="text-red-500">{s.sets_lost}</span>
-                                  </td>
-                                </tr>
-                              );
-                            });
+                            if (!hasPendingMatches) {
+                              return null;
+                            }
+
+                            return (
+                              <button
+                                onClick={() => handleLaunchPool(pool.id)}
+                                className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-850 transition-all shadow-md active:scale-95"
+                              >
+                                <Play className="w-3.5 h-3.5 fill-current" />
+                                {pool.status === 'pending' ? 'Lancer la poule' : 'Lancer le match suivant'}
+                              </button>
+                            );
                           })()}
-                        </tbody>
-                      </table>
+                        </div>
+                      )}
                     </div>
 
-                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Matchs</h3>
-                    <div className="space-y-3">
-                      {poolMatches.map((match) => (
-                        <div key={match.id} className="flex flex-col p-3 rounded-xl border border-slate-100 bg-slate-50/10 group hover:border-indigo-200 transition-colors">
-                          <div className="flex items-center justify-between mb-2">
-                             <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
-                               match.status === 'in_progress' ? 'bg-blue-100 text-blue-700' : 
-                               match.status === 'finished' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400'
-                             }`}>
-                               {match.status === 'in_progress' ? `Table ${match.table_number}` : 
-                                match.status === 'finished' ? 'Terminé' : 'En attente'}
-                             </span>
-                             {match.status === 'pending' && (
-                               <button 
-                                 onClick={() => handleLaunchSingleMatch(match.id)}
-                                 className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-900 transition-colors"
-                               >
-                                 <Play className="w-3 h-3" />
-                               </button>
-                             )}
-                          </div>
-                          
-                          <div className="flex items-center gap-4">
-                            <div className="flex-1 text-right font-semibold text-slate-700 truncate">
-                              {match.player1?.last_name}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="w-8 h-8 rounded bg-white border border-slate-200 flex items-center justify-center font-black text-slate-900 tabular-nums">
-                                {match.sets?.filter(s => s.score_p1 > s.score_p2).length || 0}
-                              </div>
-                              <div className="text-slate-300 font-bold">:</div>
-                              <div className="w-8 h-8 rounded bg-white border border-slate-200 flex items-center justify-center font-black text-slate-900 tabular-nums">
-                                {match.sets?.filter(s => s.score_p2 > s.score_p1).length || 0}
-                              </div>
-                            </div>
-                            <div className="flex-1 text-left font-semibold text-slate-700 truncate">
-                              {match.player2?.last_name}
-                            </div>
-                          </div>
+                    <div className="p-6">
+                      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Classement</h3>
+                      <div className="overflow-x-auto mb-8">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="text-left text-slate-400 italic">
+                              <th className="pb-3 font-medium">Pos</th>
+                              <th className="pb-3 font-medium">Joueur</th>
+                              <th className="pb-3 font-medium text-center">Pts</th>
+                              <th className="pb-3 font-medium text-center">Sets</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-50">
+                            {(() => {
+                              const playerIdsInPool = new Set(poolMatches.flatMap(m => [m.player1_id, m.player2_id]));
+                              const poolStandings = standings
+                                .filter(s => s.pool_id === pool.id || playerIdsInPool.has(s.player_id))
+                                .sort((a, b) => a.standing_rank - b.standing_rank);
 
-                          {match.sets && match.sets.length > 0 && (
-                            <div className="mt-2 flex justify-center gap-3 text-[10px] tabular-nums font-medium">
-                              {match.sets.map((s, idx) => (
-                                <div key={s.id || idx} className="bg-white px-1.5 py-0.5 rounded border border-slate-100 shadow-sm text-slate-500">
-                                  {s.score_p1}-{s.score_p2}
-                                </div>
-                              ))}
+                              if (poolStandings.length === 0) {
+                                return (
+                                  <tr>
+                                    <td colSpan={4} className="py-8 text-center text-slate-400 italic">
+                                      En attente des premiers résultats...
+                                    </td>
+                                  </tr>
+                                );
+                              }
+                              
+                              return poolStandings.map((s) => {
+                                const isTargetRank = s.standing_rank <= 2;
+                                const isComplete = poolMatches.length > 0 && poolMatches.every(m => m.status === 'finished');
+                                
+                                return (
+                                  <tr key={s.player_id} className={`group transition-colors ${isTargetRank && isComplete ? 'bg-green-50/40' : ''}`}>
+                                    <td className="py-3 px-2">
+                                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
+                                        isTargetRank && isComplete 
+                                          ? 'bg-green-600 text-white shadow-lg shadow-green-200 scale-110' 
+                                          : 'bg-slate-100 text-slate-400'
+                                      }`}>
+                                        {s.standing_rank}
+                                      </div>
+                                    </td>
+                                    <td className="py-3">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        {s.dossard && (
+                                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase tracking-widest">
+                                            Dossard {s.dossard}
+                                          </span>
+                                        )}
+                                        <div className="font-semibold text-slate-900">{s.first_name} {s.last_name}</div>
+                                        {isTargetRank && isComplete && (
+                                          <Trophy className="w-3 h-3 text-amber-500 animate-bounce" />
+                                        )}
+                                      </div>
+                                      <div className="text-xs text-slate-400 italic">
+                                        {s.club || 'Sans club'}
+                                        {s.points_fftt !== undefined && s.points_fftt !== null && s.points_fftt > 0 ? ` • ${s.points_fftt} pts` : ''}
+                                      </div>
+                                    </td>
+                                    <td className="py-3 text-center font-bold text-slate-700 px-2">
+                                      <span className={s.points > 0 ? 'text-indigo-600' : ''}>{s.points}</span>
+                                    </td>
+                                    <td className="py-3 text-center font-medium text-slate-500 tabular-nums text-xs">
+                                      <span className="text-green-600">{s.sets_won}</span>
+                                      <span className="mx-1 text-slate-300">/</span>
+                                      <span className="text-red-500">{s.sets_lost}</span>
+                                    </td>
+                                  </tr>
+                                );
+                              });
+                            })()}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Matchs</h3>
+                      <div className="space-y-3">
+                        {poolMatches.map((match) => (
+                          <div key={match.id} className="flex flex-col p-3 rounded-xl border border-slate-100 bg-slate-50/10 group hover:border-indigo-200 transition-colors">
+                            <div className="flex items-center justify-between mb-2">
+                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
+                                 match.status === 'in_progress' ? 'bg-blue-100 text-blue-700' : 
+                                 match.status === 'finished' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400'
+                               }`}>
+                                 {match.status === 'in_progress' ? `Table ${match.table_number}` : 
+                                  match.status === 'finished' ? 'Terminé' : 'En attente'}
+                               </span>
+                               {match.status === 'pending' && (
+                                 <button 
+                                   onClick={() => handleLaunchSingleMatch(match.id)}
+                                   className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-900 transition-colors"
+                                 >
+                                   <Play className="w-3 h-3" />
+                                 </button>
+                               )}
                             </div>
-                          )}
-                        </div>
-                      ))}
+                            
+                            <div className="flex items-center gap-4">
+                              <div className="flex-1 text-right font-semibold text-slate-700 truncate">
+                                {match.player1?.last_name}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded bg-white border border-slate-200 flex items-center justify-center font-black text-slate-900 tabular-nums">
+                                  {match.sets?.filter(s => s.score_p1 > s.score_p2).length || 0}
+                                </div>
+                                <div className="text-slate-300 font-bold">:</div>
+                                <div className="w-8 h-8 rounded bg-white border border-slate-200 flex items-center justify-center font-black text-slate-900 tabular-nums">
+                                  {match.sets?.filter(s => s.score_p2 > s.score_p1).length || 0}
+                                </div>
+                              </div>
+                              <div className="flex-1 text-left font-semibold text-slate-700 truncate">
+                                {match.player2?.last_name}
+                              </div>
+                            </div>
+
+                            {match.sets && match.sets.length > 0 && (
+                              <div className="mt-2 flex justify-center gap-3 text-[10px] tabular-nums font-medium">
+                                {match.sets.map((s, idx) => (
+                                  <div key={s.id || idx} className="bg-white px-1.5 py-0.5 rounded border border-slate-100 shadow-sm text-slate-500">
+                                    {s.score_p1}-{s.score_p2}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
 
           {(() => {
             const categoryMatches = matches.filter(m => {
