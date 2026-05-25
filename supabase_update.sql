@@ -200,3 +200,27 @@ BEGIN
 END $$;
 
 
+-- =========================================================================
+-- MISE À JOUR SECURITÉ (RLS) DES MATCHS ET DES SETS POUR LE PORTAIL JOUEURS
+-- =========================================================================
+-- Permet aux joueurs d'entrer et valider les scores de leur table sans authentification
+
+-- Politiques pour la table MATCHS
+DROP POLICY IF EXISTS "Public Update Matches" ON matches;
+CREATE POLICY "Public Update Matches" ON matches FOR UPDATE USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public Insert Matches" ON matches;
+CREATE POLICY "Public Insert Matches" ON matches FOR INSERT WITH CHECK (true);
+
+
+-- Politiques pour la table SETS
+DROP POLICY IF EXISTS "Public Insert Sets" ON sets;
+CREATE POLICY "Public Insert Sets" ON sets FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public Update Sets" ON sets;
+CREATE POLICY "Public Update Sets" ON sets FOR UPDATE USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Public Delete Sets" ON sets;
+CREATE POLICY "Public Delete Sets" ON sets FOR DELETE USING (true);
+
+

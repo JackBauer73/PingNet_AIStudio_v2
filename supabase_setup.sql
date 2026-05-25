@@ -199,9 +199,14 @@ CREATE POLICY "Auth All Pool Players" ON pool_players FOR ALL USING (auth.role()
 
 CREATE POLICY "Public Read Matches" ON matches FOR SELECT USING (true);
 CREATE POLICY "Auth All Matches" ON matches FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "Public Update Matches" ON matches FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Public Insert Matches" ON matches FOR INSERT WITH CHECK (true);
 
 CREATE POLICY "Public Read Sets" ON sets FOR SELECT USING (true);
 CREATE POLICY "Auth All Sets" ON sets FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "Public Insert Sets" ON sets FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public Update Sets" ON sets FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Public Delete Sets" ON sets FOR DELETE USING (true);
 
 -- Policies pour les catégories de tableau (table_categories)
 CREATE POLICY "Public Read Table Categories" ON table_categories FOR SELECT USING (true);
