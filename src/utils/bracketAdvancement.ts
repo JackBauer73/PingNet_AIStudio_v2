@@ -1,141 +1,70 @@
 import { supabase } from '../supabase';
-import { RoundType } from '../types';
+import { getNextBracketPosition } from '../lib/bracketPositions';
 
-const ROUND_ORDER: RoundType[] = ['thirtysecondfinal', 'sixteenthfinal', 'eighthfinal', 'quarterfinal', 'semifinal', 'final'];
-
+/**
+ * Appelé après chaque match de bracket terminé.
+ * Place le vainqueur/perdant dans la case suivante grâce à sa bracket_position fixe.
+ */
 export async function handleBracketProgression(matchId: string, winnerId: string) {
-  // 1. Get current match details
+  // 1. Récupérer le match actuel
   const { data: match, error: matchError } = await supabase
     .from('matches')
     .select('*')
     .eq('id', matchId)
     .single();
 
-  if (matchError || !match || match.round === 'pool') return;
+  if (matchError || !match || !match.bracket_id) return;
 
-  const currentRound = match.round as RoundType;
+  const currentPos = match.bracket_position;
+  if (currentPos === undefined || currentPos === null) return;
+
   const tournamentId = match.tournament_id;
 
-  // 2. Identify the position of the match in the current round
-  const { data: roundMatches, error: roundError } = await supabase
-    .from('matches')
-    .select('id')
-    .eq('tournament_id', tournamentId)
-    .eq('round', currentRound)
-    .order('created_at', { ascending: true })
-    .order('id', { ascending: true });
+  // 2. Déterminer et enregistrer le perdant (pour la 3e place)
+  const loserId = match.player1_id === winnerId ? match.player2_id : match.player1_id;
 
-  if (roundError || !roundMatches) return;
-
-  const matchIndex = roundMatches.findIndex(m => m.id === matchId);
-  if (matchIndex === -1) return;
-
-  // 3. Find target round and index
-  const currentRoundIdx = ROUND_ORDER.indexOf(currentRound);
-  if (currentRoundIdx === -1 || currentRoundIdx === ROUND_ORDER.length - 1) return; // Final round has no next
-
-  const nextRound = ROUND_ORDER[currentRoundIdx + 1];
-  const nextMatchIndex = Math.floor(matchIndex / 2);
-  const isPlayer1 = matchIndex % 2 === 0;
-
-  // 4. Find the target match in the next round
-  let { data: nextRoundMatches, error: nextRoundError } = await supabase
-    .from('matches')
-    .select('id')
-    .eq('tournament_id', tournamentId)
-    .eq('round', nextRound)
-    .order('created_at', { ascending: true })
-    .order('id', { ascending: true });
-
-  // Safety: If match is missing (especially for Final), create it on the fly
-  if ((!nextRoundMatches || nextRoundMatches.length <= nextMatchIndex) && !nextRoundError) {
-    const numExpected = nextRound === 'final' ? 1 : Math.max(1, Math.floor(roundMatches.length / 2));
-    const toCreate = [];
-    const existingCount = nextRoundMatches?.length || 0;
-    
-    for (let i = existingCount; i < numExpected; i++) {
-      toCreate.push({
-        tournament_id: tournamentId,
-        player1_id: null,
-        player2_id: null,
-        round: nextRound,
-        status: 'pending'
-      });
-    }
-
-    if (toCreate.length > 0) {
-      const { data: created } = await supabase.from('matches').insert(toCreate).select('id');
-      if (created) {
-        nextRoundMatches = [...(nextRoundMatches || []), ...created];
-      }
-    }
-  }
-
-  if (!nextRoundMatches || nextRoundMatches.length <= nextMatchIndex) return;
-
-  const targetMatchId = nextRoundMatches[nextMatchIndex].id;
-
-  // 5. Update target match
-  const updateData = isPlayer1 ? { player1_id: winnerId } : { player2_id: winnerId };
   await supabase
     .from('matches')
-    .update(updateData)
-    .eq('id', targetMatchId);
+    .update({
+      winner_id: winnerId,
+      status: 'finished',
+      finished_at: new Date().toISOString()
+    })
+    .eq('id', matchId);
 
-  // 5.b Handle 3rd place match (losers of semi-finals)
-  if (currentRound === 'semifinal') {
-    const loserId = match.player1_id === winnerId ? match.player2_id : match.player1_id;
-    if (loserId) {
-      const { data: thirdPlaceMatch } = await supabase
-        .from('matches')
-        .select('id')
-        .eq('tournament_id', tournamentId)
-        .eq('round', '3rd_place')
-        .single();
-      
-      if (thirdPlaceMatch) {
-        const thirdPlaceUpdate = isPlayer1 ? { player1_id: loserId } : { player2_id: loserId };
-        await supabase
-          .from('matches')
-          .update(thirdPlaceUpdate)
-          .eq('id', thirdPlaceMatch.id);
-      }
-    }
-  }
+  // Si c'est la finale, il n'y a plus de match de vainqueur suivant
+  if (match.bracket_round === 'final') return;
 
-  // 6. Auto-launch match if it's now full
-  const { data: updatedMatch } = await supabase
-    .from('matches')
-    .select('player1_id, player2_id')
-    .eq('id', targetMatchId)
+  // 3. Charger les caractéristiques du bracket pour trouver le ted_size
+  const { data: bracket } = await supabase
+    .from('brackets')
+    .select('ted_size')
+    .eq('id', match.bracket_id)
     .single();
 
-  if (updatedMatch?.player1_id && updatedMatch?.player2_id) {
-    // Fetch tournament for tables info
-    const { data: tournament } = await supabase
-      .from('tournaments')
-      .select('nb_tables')
-      .eq('id', tournamentId)
-      .single();
+  if (!bracket) return;
 
-    // Check for free tables
-    const { data: busyMatches } = await supabase
+  // 4. Calculer la position suivante
+  const nextPos = getNextBracketPosition(currentPos, bracket.ted_size);
+  if (nextPos === null) return;
+
+  // 5. Mettre à jour le match suivant
+  // Si la position actuelle est paire, le joueur va dans player1_id. Si impaire, dans player2_id.
+  const isSlot1 = currentPos % 2 === 0;
+  const field = isSlot1 ? 'player1_id' : 'player2_id';
+
+  await supabase
+    .from('matches')
+    .update({ [field]: winnerId })
+    .eq('bracket_id', match.bracket_id)
+    .eq('bracket_position', nextPos);
+
+  // 6. Gérer la petite finale (3e place) si on vient d'une demi-finale
+  if (match.bracket_round === 'semifinal' && loserId) {
+    await supabase
       .from('matches')
-      .select('table_number')
-      .eq('tournament_id', tournamentId)
-      .eq('status', 'in_progress');
-
-    const nbTables = tournament?.nb_tables || 0;
-    const busyTableNumbers = busyMatches?.map(m => m.table_number).filter(Boolean) || [];
-    const freeTables = Array.from({ length: nbTables }, (_, i) => i + 1)
-      .filter(n => !busyTableNumbers.includes(n));
-
-    if (freeTables.length > 0) {
-      await supabase.from('matches').update({
-        table_number: freeTables[0],
-        status: 'in_progress',
-        started_at: new Date().toISOString()
-      }).eq('id', targetMatchId);
-    }
+      .update({ [field]: loserId })
+      .eq('bracket_id', match.bracket_id)
+      .eq('bracket_round', '3rd');
   }
 }

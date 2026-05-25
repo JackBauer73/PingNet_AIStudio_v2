@@ -264,8 +264,8 @@ export function generatePools(players: Player[], tables: Table[] = [], preferred
         matches.push({ player1: A, player2: B, order: 1 });
       } else if (len === 3) {
         const C = sortedPlayersInPool[2];
-        matches.push({ player1: A, player2: B, order: 1 });
-        matches.push({ player1: A, player2: C, order: 2 });
+        matches.push({ player1: A, player2: C, order: 1 });
+        matches.push({ player1: A, player2: B, order: 2 });
         matches.push({ player1: B, player2: C, order: 3 });
       } else if (len === 4) {
         const C = sortedPlayersInPool[2];

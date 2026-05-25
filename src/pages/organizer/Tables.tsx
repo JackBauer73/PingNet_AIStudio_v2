@@ -95,7 +95,7 @@ export default function Tables() {
       // 2. Enlever la table de tous les matchs en cours de cette poule
       await supabase
         .from('matches')
-        .update({ table_number: null })
+        .update({ table_number: null, status: 'pending' })
         .eq('pool_id', poolId)
         .eq('status', 'in_progress');
 
@@ -136,6 +136,34 @@ export default function Tables() {
     } catch (err) {
       console.error(err);
       toast.error("Erreur lors de l'assignation.");
+    }
+  };
+
+  // Assigner un match de tableau final à une table et le lancer
+  const handleAssignBracketMatchToTable = async (matchId: string, tableNum: number) => {
+    try {
+      const alreadyOccupied = matches.some(m => m.status === 'in_progress' && Number(m.table_number) === Number(tableNum)) ||
+                              pools.some(p => p.status !== 'finished' && !p.name.includes('Bracket') && Number(p.table_number) === Number(tableNum));
+      if (alreadyOccupied) {
+        toast.error(`La table ${tableNum} est déjà occupée.`);
+        return;
+      }
+
+      await supabase
+        .from('matches')
+        .update({
+          table_number: tableNum,
+          status: 'in_progress',
+          started_at: new Date().toISOString()
+        })
+        .eq('id', matchId);
+
+      toast.success(`Match de phase finale lancé sur la Table ${tableNum} !`);
+      setAssigningTable(null);
+      fetchTablesData(true);
+    } catch (err) {
+      console.error(err);
+      toast.error("Erreur lors du lancement du match de phase finale.");
     }
   };
 
@@ -262,6 +290,15 @@ export default function Tables() {
     }
     return true;
   });
+
+  // Matchs de tableau final prêts à être lancés (en attente, avec 2 joueurs qualifiés)
+  const readyBracketMatches = matches.filter(m => 
+    m.round !== 'pool' && 
+    m.status === 'pending' && 
+    m.player1_id && 
+    m.player2_id && 
+    !m.table_number
+  );
 
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-8 animate-fade-in pb-16">
@@ -559,9 +596,9 @@ export default function Tables() {
                         try {
                           await supabase
                             .from('matches')
-                            .update({ table_number: null })
+                            .update({ table_number: null, status: 'pending' })
                             .eq('id', activeMatch.id);
-                          toast.success("Match dé-assigné de la table.");
+                          toast.success("Match dé-assigné de la table (de retour en attente de lancement).");
                           fetchTablesData(true);
                         } catch (err) {
                           console.error(err);
@@ -577,26 +614,48 @@ export default function Tables() {
                   <div>
                     {assigningTable === tableNum ? (
                       <div className="space-y-1.5 pt-1">
-                        <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest block">Assigner poule...</label>
-                        {unassignedPools.length > 0 ? (
+                        <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest block">Assigner poule ou match...</label>
+                        {unassignedPools.length > 0 || readyBracketMatches.length > 0 ? (
                           <select
                             value=""
                             onChange={(e) => {
-                              const poolId = e.target.value;
-                              if (poolId) {
-                                handleAssignPoolToTable(poolId, tableNum);
+                              const val = e.target.value;
+                              if (val.startsWith('pool:')) {
+                                handleAssignPoolToTable(val.replace('pool:', ''), tableNum);
+                              } else if (val.startsWith('match:')) {
+                                handleAssignBracketMatchToTable(val.replace('match:', ''), tableNum);
                               }
                             }}
                             className="w-full text-xs font-bold bg-white border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
                           >
-                            <option value="">Choisir poule libre</option>
-                            {unassignedPools.map((p) => (
-                              <option key={p.id} value={p.id}>{p.name}</option>
-                            ))}
+                            <option value="">Choisir poule ou match</option>
+                            {unassignedPools.length > 0 && (
+                              <optgroup label="Poules de qualification">
+                                {unassignedPools.map((p) => (
+                                  <option key={p.id} value={`pool:${p.id}`}>{p.name}</option>
+                                ))}
+                              </optgroup>
+                            )}
+                            {readyBracketMatches.length > 0 && (
+                              <optgroup label="Matchs de phase finale">
+                                {readyBracketMatches.map((m) => {
+                                  const p1 = m.player1 ? `${m.player1.first_name || ''} ${m.player1.last_name || ''}`.trim() : 'Joueur 1';
+                                  const p2 = m.player2 ? `${m.player2.first_name || ''} ${m.player2.last_name || ''}`.trim() : 'Joueur 2';
+                                  const roundLabel = getRoundLabel(m.round);
+                                  const sName = m.player1?.serie || m.player2?.serie || '';
+                                  const sPrefix = sName ? `[${sName}] ` : '';
+                                  return (
+                                    <option key={m.id} value={`match:${m.id}`}>
+                                      {sPrefix}{roundLabel} : {p1} vs {p2}
+                                    </option>
+                                  );
+                                })}
+                              </optgroup>
+                            )}
                           </select>
                         ) : (
                           <div className="text-[10px] text-slate-400 italic py-1 leading-normal">
-                            Aucune poule libre disponible en attente de table.
+                            Aucune poule ou match disponible en attente de table.
                           </div>
                         )}
                         <button
@@ -611,7 +670,7 @@ export default function Tables() {
                         onClick={() => setAssigningTable(tableNum)}
                         className="w-full py-2 hover:bg-slate-900 hover:text-white text-slate-600 border border-slate-200 hover:border-slate-900 rounded-xl text-[11px] font-extrabold transition-all text-center cursor-pointer"
                       >
-                        Assigner une poule
+                        Assigner poule ou match
                       </button>
                     )}
                   </div>

@@ -24,6 +24,20 @@ export function useMatches(tournamentId?: string) {
         sets: (m.sets || []).sort((a: any, b: any) => (a.set_number || 0) - (b.set_number || 0))
       }));
 
+      // Auto-réparation des matchs en cours sans table (état incohérent)
+      const buggedMatches = sortedMatches.filter((m: any) => m.status === 'in_progress' && !m.table_number);
+      if (buggedMatches.length > 0) {
+        console.warn("Auto-réparation de matchs 'in_progress' sans table_number :", buggedMatches);
+        for (const m of buggedMatches) {
+          await supabase
+            .from('matches')
+            .update({ status: 'pending', table_number: null })
+            .eq('id', m.id);
+        }
+        await fetchMatches(true);
+        return;
+      }
+
       setMatches(sortedMatches);
     } catch (error) {
       console.error(error);

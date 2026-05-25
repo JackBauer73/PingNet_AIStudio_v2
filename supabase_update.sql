@@ -224,3 +224,59 @@ DROP POLICY IF EXISTS "Public Delete Sets" ON sets;
 CREATE POLICY "Public Delete Sets" ON sets FOR DELETE USING (true);
 
 
+
+-- =========================================================================
+-- ARCHITECTURE DU TABLEAU FINAL (BRACKET RESILIENT ET HYBRIDE)
+-- =========================================================================
+
+-- 1. Créer la table brackets pour porter les métadonnées du tableau final
+CREATE TABLE IF NOT EXISTS public.brackets (
+  id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  tournament_id  UUID        NOT NULL REFERENCES public.tournaments(id) ON DELETE CASCADE,
+  category_id    UUID        NOT NULL REFERENCES public.table_categories(id) ON DELETE CASCADE,
+  ted_size       INTEGER     NOT NULL CHECK (ted_size IN (2,4,8,16,32,64,128)),
+  nb_qualifiers  INTEGER     NOT NULL,
+  status         TEXT        NOT NULL DEFAULT 'pending'
+                             CHECK (status IN ('pending','in_progress','finished')),
+  created_at     TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (tournament_id, category_id)
+);
+
+-- Activation de RLS pour les brackets
+ALTER TABLE public.brackets ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public Read Brackets" ON public.brackets;
+CREATE POLICY "Public Read Brackets" ON public.brackets FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Auth All Brackets" ON public.brackets;
+CREATE POLICY "Auth All Brackets" ON public.brackets FOR ALL USING (auth.role() = 'authenticated');
+
+
+-- 2. Enrichir la table matches classique avec des colonnes destinées au Bracket
+ALTER TABLE public.matches
+  ADD COLUMN IF NOT EXISTS bracket_id       UUID    REFERENCES public.brackets(id) ON DELETE CASCADE,
+  ADD COLUMN IF NOT EXISTS bracket_position INTEGER,
+  ADD COLUMN IF NOT EXISTS bracket_round    TEXT;
+
+
+-- 3. Indexation de performance pour accélérer les requêtes de bracket
+CREATE INDEX IF NOT EXISTS idx_matches_bracket_id  ON public.matches(bracket_id);
+CREATE INDEX IF NOT EXISTS idx_matches_bracket_pos ON public.matches(bracket_id, bracket_position);
+CREATE INDEX IF NOT EXISTS idx_brackets_tournament ON public.brackets(tournament_id, category_id);
+
+
+-- 4. Publication de la nouvelle table brackets pour la technologie Realtime Supabase
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_rel pr 
+    JOIN pg_class c ON c.oid = pr.prrelid 
+    JOIN pg_publication p ON p.oid = pr.prpubid 
+    WHERE p.pubname = 'supabase_realtime' AND c.relname = 'brackets'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.brackets;
+  END IF;
+END $$;
+
+
+

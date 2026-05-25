@@ -74,10 +74,23 @@ export interface Pool {
   created_at: string;
 }
 
+export interface Bracket {
+  id: string;
+  tournament_id: string;
+  category_id: string;
+  ted_size: number;
+  nb_qualifiers: number;
+  status: 'pending' | 'in_progress' | 'finished';
+  created_at: string;
+}
+
 export interface Match {
   id: string;
   tournament_id: string;
   pool_id: string | null;
+  bracket_id?: string | null;
+  bracket_position?: number | null;
+  bracket_round?: string | null;
   player1_id: string | null;
   player2_id: string | null;
   table_number: number | null;
