@@ -15,15 +15,28 @@ export function usePools(tournamentId?: string) {
     try {
       if (!silent) setLoading(true);
       
-      const { data: poolsRes, error: poolsError } = await supabase
+      const { data: rawPools, error: poolsError } = await supabase
         .from('pools')
         .select('*')
-        .eq('tournament_id', tournamentId)
-        .order('name');
+        .eq('tournament_id', tournamentId);
       
       if (poolsError) throw poolsError;
       
-      const poolIds = poolsRes?.map(p => p.id) || [];
+      const getPoolNumber = (name: string): number => {
+        const match = name.match(/Poule\s+(\d+)/i);
+        return match ? parseInt(match[1], 10) : 0;
+      };
+
+      const poolsRes = (rawPools || []).sort((a, b) => {
+        const numA = getPoolNumber(a.name);
+        const numB = getPoolNumber(b.name);
+        if (numA !== numB) {
+          return numA - numB;
+        }
+        return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+      });
+      
+      const poolIds = poolsRes.map(p => p.id);
       
       const [matchesRes, poolPlayersRes, registrationsRes] = await Promise.all([
         supabase.from('matches').select('*, player1:player1_id(*), player2:player2_id(*), sets(*)').eq('tournament_id', tournamentId).eq('round', 'pool'),

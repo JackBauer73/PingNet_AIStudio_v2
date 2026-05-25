@@ -390,11 +390,13 @@ export default function Bracket() {
           </div>
 
           <div className="flex gap-12 pb-12 items-start overflow-x-auto">
-            {['eighthfinal', 'quarterfinal', 'semifinal', 'final', '3rd_place'].map((round) => {
+            {['thirtysecondfinal', 'sixteenthfinal', 'eighthfinal', 'quarterfinal', 'semifinal', 'final', '3rd_place'].map((round) => {
               const roundMatches = matches.filter(m => m.round === round);
               if (roundMatches.length === 0 && round !== 'final') return null;
 
               const roundLabels: Record<string, string> = {
+                'thirtysecondfinal': '32èmes',
+                'sixteenthfinal': '16èmes',
                 'eighthfinal': 'Huitièmes',
                 'quarterfinal': 'Quarts de Finale',
                 'semifinal': 'Demi-Finales',
@@ -407,6 +409,8 @@ export default function Bracket() {
                 if (roundName === '3rd_place') return `Perdant Demi ${playerNum}`;
                 if (roundName === 'semifinal') return `Vainqueur Quart ${index * 2 + playerNum}`;
                 if (roundName === 'quarterfinal') return `Vainqueur Huitième ${index * 2 + playerNum}`;
+                if (roundName === 'eighthfinal') return `Vainqueur Seizième ${index * 2 + playerNum}`;
+                if (roundName === 'sixteenthfinal') return `Vainqueur Trente-deuxième ${index * 2 + playerNum}`;
                 return '—';
               };
 

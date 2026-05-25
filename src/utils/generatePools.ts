@@ -131,17 +131,52 @@ export function generatePools(players: Player[], tables: Table[] = [], preferred
   const sorted = [...players].sort((a, b) => getPlayerPoints(b) - getPlayerPoints(a));
 
   // Étape 1 : Calculer la composition des poules
-  const { total: nbTotalPoules } = computePoolComposition(sorted.length, preferredSize);
+  const comp = computePoolComposition(sorted.length, preferredSize);
+  const nbTotalPoules = comp.total;
+
+  // Créer un tableau de capacités ordonné (les plus petites poules d'abord)
+  const poolsCaps: number[] = [];
+  for (let i = 0; i < comp.nbPoules2; i++) poolsCaps.push(2);
+  for (let i = 0; i < comp.nbPoules3; i++) poolsCaps.push(3);
+  for (let i = 0; i < comp.nbPoules4; i++) poolsCaps.push(4);
+
   const pools: Player[][] = Array.from({ length: nbTotalPoules }, () => []);
 
-  // Règle 2 : Méthode serpent
+  // Règle 2 : Méthode serpent avec saut des poules pleines
   let direction = 1;
   let currentPoolIdx = 0;
 
   sorted.forEach((player) => {
-    pools[currentPoolIdx].push(player);
-    currentPoolIdx += direction;
+    // Trouver la prochaine poule non pleine dans l'ordre serpentin
+    let found = false;
+    for (let steps = 0; steps < nbTotalPoules * 2; steps++) {
+      if (pools[currentPoolIdx].length < poolsCaps[currentPoolIdx]) {
+        found = true;
+        break;
+      }
+      currentPoolIdx += direction;
+      if (currentPoolIdx >= nbTotalPoules) {
+        direction = -1;
+        currentPoolIdx = nbTotalPoules - 1;
+      } else if (currentPoolIdx < 0) {
+        direction = 1;
+        currentPoolIdx = 0;
+      }
+    }
 
+    if (found) {
+      pools[currentPoolIdx].push(player);
+    } else {
+      // Sécurité : trouver la première poule non pleine
+      const fallbackIdx = pools.findIndex((p, idx) => p.length < poolsCaps[idx]);
+      if (fallbackIdx !== -1) {
+        pools[fallbackIdx].push(player);
+        currentPoolIdx = fallbackIdx;
+      }
+    }
+
+    // Préparer le pas pour le joueur suivant
+    currentPoolIdx += direction;
     if (currentPoolIdx >= nbTotalPoules) {
       direction = -1;
       currentPoolIdx = nbTotalPoules - 1;
@@ -151,7 +186,7 @@ export function generatePools(players: Player[], tables: Table[] = [], preferred
     }
   });
 
-  // Règle 3 : Séparer les joueurs du même club
+  // Règle 3 : Séparer les joueurs du même club (Échange au même rang du serpentin uniquement)
   for (let i = 0; i < pools.length; i++) {
     const currentPool = pools[i];
     
@@ -169,50 +204,49 @@ export function generatePools(players: Player[], tables: Table[] = [], preferred
       if (clubCounts[clubKey] < 2) continue;
 
       const clubPlayersInPool = currentPool.filter(p => getClubKey(p) === clubKey);
+      // On garde le premier joueur (souvent de meilleur rang / points) et on essaie d'échanger les autres
       const doublons = clubPlayersInPool.slice(1);
 
       for (const doublon of doublons) {
-        let bestCandidatePoolIdx = -1;
-        let bestCandidateIdxInPool = -1;
-        let minPointsDiff = Infinity;
+        const rankIdx = currentPool.findIndex(p => p.id === doublon.id);
+        if (rankIdx === -1) continue;
 
+        let exchangeDone = false;
+
+        // Chercher un candidat à échanger au même rang dans une autre poule (même index dans l'ordre serpentin)
         for (let j = 0; j < pools.length; j++) {
           if (i === j) continue;
           const otherPool = pools[j];
 
-          otherPool.forEach((candidat, candIdx) => {
+          if (otherPool.length > rankIdx) {
+            const candidat = otherPool[rankIdx];
             const candClub = getClubKey(candidat);
-            
-            // On vérifie que le candidat entrant ne crée pas de conflit en i,
-            // et que le doublon entrant ne crée pas de conflit en j
-            const candCausesConflictInI = candClub ? currentPool.some(p => p.id !== doublon.id && getClubKey(p) === candClub) : false;
-            const doublonCausesConflictInJ = otherPool.some(p => p.id !== candidat.id && getClubKey(p) === clubKey);
+
+            // Vérifier que l'échange ne recrée pas de conflit :
+            // 1. Le candidat entrant dans currentPool ne doit pas avoir le même club qu'un joueur de currentPool autre que doublon
+            const remainingPoolI = currentPool.filter(p => p.id !== doublon.id);
+            const candCausesConflictInI = candClub ? remainingPoolI.some(p => getClubKey(p) === candClub) : false;
+
+            // 2. Le doublon entrant dans otherPool ne doit pas avoir le même club qu'un joueur de otherPool autre que candidat
+            const remainingPoolJ = otherPool.filter(p => p.id !== candidat.id);
+            const doublonCausesConflictInJ = clubKey ? remainingPoolJ.some(p => getClubKey(p) === clubKey) : false;
 
             if (!candCausesConflictInI && !doublonCausesConflictInJ) {
-              const diff = Math.abs(getPlayerPoints(candidat) - getPlayerPoints(doublon));
-              if (diff < minPointsDiff) {
-                minPointsDiff = diff;
-                bestCandidatePoolIdx = j;
-                bestCandidateIdxInPool = candIdx;
-              }
+              // Effectuer l'échange au même rang
+              currentPool[rankIdx] = candidat;
+              otherPool[rankIdx] = doublon;
+              exchangeDone = true;
+              break;
             }
-          });
+          }
         }
 
-        if (bestCandidatePoolIdx !== -1 && bestCandidateIdxInPool !== -1) {
-          const candidate = pools[bestCandidatePoolIdx][bestCandidateIdxInPool];
-          const doublonIdx = currentPool.findIndex(p => p.id === doublon.id);
-          currentPool[doublonIdx] = candidate;
-          pools[bestCandidatePoolIdx][bestCandidateIdxInPool] = doublon;
-        } else {
-          console.warn(`Impossible de séparer ${doublon.club || 'le club'} dans la poule ${i + 1}`);
+        if (!exchangeDone) {
+          console.warn(`Impossible de séparer le joueur ${doublon.first_name} ${doublon.last_name} de club ${doublon.club} au rang ${rankIdx + 1}`);
         }
       }
     }
   }
-
-  // Trier les poules par taille croissante pour que les plus petites poules (comme les poules de 2) soient en premier (Poules 1, 2...)
-  pools.sort((a, b) => a.length - b.length);
 
   // Étape 5 & 6 : Générer les matchs FFTT round-robin et affecter les tables physiques
   return pools.map((playersInPool, idx) => {

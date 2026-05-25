@@ -1,7 +1,7 @@
 import { supabase } from '../supabase';
 import { RoundType } from '../types';
 
-const ROUND_ORDER: RoundType[] = ['eighthfinal', 'quarterfinal', 'semifinal', 'final'];
+const ROUND_ORDER: RoundType[] = ['thirtysecondfinal', 'sixteenthfinal', 'eighthfinal', 'quarterfinal', 'semifinal', 'final'];
 
 export async function handleBracketProgression(matchId: string, winnerId: string) {
   // 1. Get current match details

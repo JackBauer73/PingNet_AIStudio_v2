@@ -1,7 +1,7 @@
 export type TournamentStatus = 'draft' | 'open' | 'registration' | 'pools' | 'bracket' | 'in_progress' | 'finished' | 'closed' | 'archived';
 export type ScoreMode = 'referee' | 'players';
 export type MatchStatus = 'pending' | 'in_progress' | 'finished' | 'walkover';
-export type RoundType = 'pool' | 'eighthfinal' | 'quarterfinal' | 'semifinal' | 'final' | '3rd_place';
+export type RoundType = 'pool' | 'thirtysecondfinal' | 'sixteenthfinal' | 'eighthfinal' | 'quarterfinal' | 'semifinal' | 'final' | '3rd_place';
 
 export interface Tournament {
   id: string;
