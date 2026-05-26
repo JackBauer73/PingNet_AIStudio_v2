@@ -8,6 +8,11 @@ export function usePlayers(tournamentId?: string) {
   const [loading, setLoading] = useState(true);
 
   const fetchPlayers = async () => {
+    if (!tournamentId) {
+      setPlayers([]);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
       let query = supabase

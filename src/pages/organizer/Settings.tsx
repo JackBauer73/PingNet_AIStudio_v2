@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabase';
 import toast from 'react-hot-toast';
-import { Save, User, Building2, MapPin, Phone, Globe, Upload, BadgeHelp, Palette, Sparkles, Trophy } from 'lucide-react';
+import { Save, User, Building2, MapPin, Phone, Globe, Upload, BadgeHelp, Palette, Sparkles, Trophy, Trash2 } from 'lucide-react';
 import { motion } from 'motion/react';
 
 const CLUB_COLORS = [
@@ -34,15 +34,21 @@ export default function Settings() {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           setUserEmail(user.email || '');
+          
+          // Récupération locale d'abord s'il y a un décalage ou une sauvegarde hors-ligne
+          const localSavedRaw = localStorage.getItem(`local_club_profile_${user.id}`);
+          const localSaved = localSavedRaw ? JSON.parse(localSavedRaw) : {};
+          
           const metadata = user.user_metadata || {};
-          setClubName(metadata.club_name || '');
-          setClubCity(metadata.club_city || '');
-          setClubAddress(metadata.club_address || '');
-          setClubPhone(metadata.club_phone || '');
-          setClubWebsite(metadata.club_website || '');
-          setPresidentName(metadata.president_name || '');
-          setClubColor(metadata.club_color || 'indigo');
-          setClubLogo(metadata.club_logo || '');
+          
+          setClubName(localSaved.club_name || metadata.club_name || '');
+          setClubCity(localSaved.club_city || metadata.club_city || '');
+          setClubAddress(localSaved.club_address || metadata.club_address || '');
+          setClubPhone(localSaved.club_phone || metadata.club_phone || '');
+          setClubWebsite(localSaved.club_website || metadata.club_website || '');
+          setPresidentName(localSaved.president_name || metadata.president_name || '');
+          setClubColor(localSaved.club_color || metadata.club_color || 'indigo');
+          setClubLogo(localSaved.club_logo || metadata.club_logo || '');
         }
       } catch (err) {
         console.error('Erreur de récupération du profil:', err);
@@ -57,15 +63,60 @@ export default function Settings() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 800000) { // Limit to ~800KB for easy metadata storage
-      toast.error("L'image est trop lourde. Veuillez choisir une image de moins de 800 Ko.");
-      return;
-    }
+    const compressToastId = toast.loading('Optimisation et compression du logo...');
 
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setClubLogo(reader.result as string);
-      toast.success('Le logo a été chargé localement ! N\'oubliez pas d\'enregistrer.');
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const MAX_SIZE = 120; // 120x120 is perfect and guarantees a size under 3KB
+          let width = img.width;
+          let height = img.height;
+
+          // Scaled proportions with aspect ratio preserved
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            // Convert to highly compact JPEG (0.5 quality)
+            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.5);
+            setClubLogo(compressedBase64);
+            toast.success("Logo chargé et optimisé avec succès (poids ultra-léger) ! N'oubliez pas d'enregistrer.", { id: compressToastId });
+          } else {
+            throw new Error('Canvas context is null');
+          }
+        } catch (error) {
+          console.error('Error resizing image:', error);
+          if (file.size <= 25000) { // Safely allow small originals up to 25KB unmodified
+            setClubLogo(event.target?.result as string);
+            toast.success("Logo chargé ! N'oubliez pas d'enregistrer.", { id: compressToastId });
+          } else {
+            toast.error("L'image est trop lourde pour ce format. Veuillez essayer un autre fichier ou une image de petite taille.", { id: compressToastId });
+          }
+        }
+      };
+      img.onerror = () => {
+        toast.error("Format d'image non valide.", { id: compressToastId });
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = () => {
+      toast.error('Erreur lors de la lecture du fichier.', { id: compressToastId });
     };
     reader.readAsDataURL(file);
   };
@@ -76,21 +127,46 @@ export default function Settings() {
     const toastId = toast.loading('Sauvegarde en cours...');
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        data: {
-          club_name: clubName.trim(),
-          club_city: clubCity.trim(),
-          club_address: clubAddress.trim(),
-          club_phone: clubPhone.trim(),
-          club_website: clubWebsite.trim(),
-          president_name: presidentName.trim(),
-          club_color: clubColor,
-          club_logo: clubLogo // base64
-        }
-      });
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const updateData = {
+        club_name: clubName.trim(),
+        club_city: clubCity.trim(),
+        club_address: clubAddress.trim(),
+        club_phone: clubPhone.trim(),
+        club_website: clubWebsite.trim(),
+        president_name: presidentName.trim(),
+        club_color: clubColor,
+        club_logo: clubLogo // base64
+      };
 
-      if (error) throw error;
-      toast.success('Profil du club mis à jour avec succès !', { id: toastId });
+      // 1. Sauvegarde locale instantanée comme filet de sécurité
+      if (user) {
+        localStorage.setItem(`local_club_profile_${user.id}`, JSON.stringify(updateData));
+      }
+
+      // 2. Lancement de la mise à jour Supabase avec un timeout de 3,5 secondes de précaution
+      const updatePromise = supabase.auth.updateUser({ data: updateData });
+      
+      const timeoutPromise = new Promise<{ data: { user: null }, error: Error }>((_, reject) => 
+        setTimeout(() => reject(new Error('TIMEOUT_SERVEUR')), 3500)
+      );
+
+      try {
+        const res = await Promise.race([updatePromise, timeoutPromise]);
+        if ('error' in res && res.error) {
+          throw res.error;
+        }
+        toast.success('🎉 Profil du club mis à jour avec succès !', { id: toastId });
+      } catch (raceErr: any) {
+        if (raceErr.name === 'Error' && raceErr.message === 'TIMEOUT_SERVEUR') {
+          console.warn("Le serveur Supabase a mis trop de temps à répondre (possible surcharge de payload dans le jeton JWT). Profil enregistré localement.");
+          toast.success("⚡ Profil enregistré localement ! Vos modifications d'adresse et de contact sont actives sur ce navigateur.", { id: toastId, duration: 6000 });
+        } else {
+          throw raceErr;
+        }
+      }
+
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || 'Erreur lors de la sauvegarde du profil', { id: toastId });
@@ -144,10 +220,23 @@ export default function Settings() {
                       <Trophy className="w-10 h-10 text-slate-400" />
                     )}
                   </div>
-                  <label className="absolute -bottom-2 -right-2 bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-xl cursor-pointer shadow-lg transition-all scale-95 hover:scale-100">
+                  <label className="absolute -bottom-2 -right-2 bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-xl cursor-pointer shadow-lg transition-all scale-95 hover:scale-100" title="Changer le logo">
                     <Upload className="w-4 h-4" />
                     <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
                   </label>
+                  {clubLogo && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setClubLogo('');
+                        toast.success("Logo supprimé localement. N'oubliez pas d'enregistrer !");
+                      }}
+                      className="absolute -top-2 -right-2 bg-red-600 hover:bg-red-700 text-white p-2 rounded-xl cursor-pointer shadow-lg transition-all scale-95 hover:scale-100"
+                      title="Supprimer le logo"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
                 <div className="flex-1 text-center sm:text-left">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-1">Logo officiel</span>

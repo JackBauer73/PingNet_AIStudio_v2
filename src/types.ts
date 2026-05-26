@@ -1,6 +1,6 @@
 export type TournamentStatus = 'draft' | 'open' | 'registration' | 'pools' | 'bracket' | 'in_progress' | 'finished' | 'closed' | 'archived';
 export type ScoreMode = 'referee' | 'players';
-export type MatchStatus = 'pending' | 'in_progress' | 'finished' | 'walkover';
+export type MatchStatus = 'pending' | 'in_progress' | 'awaiting_validation' | 'disputed' | 'finished' | 'walkover';
 export type RoundType = 'pool' | 'thirtysecondfinal' | 'sixteenthfinal' | 'eighthfinal' | 'quarterfinal' | 'semifinal' | 'final' | '3rd_place';
 
 export interface Tournament {
@@ -103,6 +103,11 @@ export interface Match {
   finished_at: string | null;
   created_at: string;
   
+  scorer_id?: string | null;
+  scorer_role?: 'player' | 'arbiter' | 'third_player' | null;
+  p1_present?: boolean;
+  p2_present?: boolean;
+  
   // Optional relations for UI
   player1?: Player;
   player2?: Player;
@@ -115,6 +120,7 @@ export interface SetScore {
   set_number: number;
   score_p1: number;
   score_p2: number;
+  is_validated?: boolean;
   created_at: string;
 }
 

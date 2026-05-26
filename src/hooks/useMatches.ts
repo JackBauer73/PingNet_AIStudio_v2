@@ -8,7 +8,10 @@ export function useMatches(tournamentId?: string) {
   const [loading, setLoading] = useState(true);
 
   const fetchMatches = async (silent = false) => {
-    if (!tournamentId) return;
+    if (!tournamentId) {
+      if (!silent) setLoading(false);
+      return;
+    }
     try {
       if (!silent) setLoading(true);
       const { data, error } = await supabase

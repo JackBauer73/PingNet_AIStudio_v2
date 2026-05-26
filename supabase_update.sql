@@ -279,4 +279,137 @@ BEGIN
 END $$;
 
 
+-- ═══════════════════════════════════════════════════════
+-- SECURE MULTI-CLUB DATA ISOLATION & PERFORMANCE INDEXES
+-- ═══════════════════════════════════════════════════════
+
+-- ÉTAPE 1 — Index de performance
+CREATE INDEX IF NOT EXISTS idx_tournaments_organizer_id
+  ON public.tournaments(organizer_id);
+CREATE INDEX IF NOT EXISTS idx_table_categories_tournament_id
+  ON public.table_categories(tournament_id);
+CREATE INDEX IF NOT EXISTS idx_pools_tournament_id
+  ON public.pools(tournament_id);
+CREATE INDEX IF NOT EXISTS idx_matches_tournament_id
+  ON public.matches(tournament_id);
+CREATE INDEX IF NOT EXISTS idx_matches_pool_id
+  ON public.matches(pool_id);
+CREATE INDEX IF NOT EXISTS idx_matches_table_number
+  ON public.matches(table_number)
+  WHERE status = 'in_progress';
+CREATE INDEX IF NOT EXISTS idx_sets_match_id
+  ON public.sets(match_id);
+CREATE INDEX IF NOT EXISTS idx_registrations_tournament_id
+  ON public.registrations(tournament_id);
+CREATE INDEX IF NOT EXISTS idx_registrations_player_id
+  ON public.registrations(player_id);
+CREATE INDEX IF NOT EXISTS idx_pool_players_pool_id
+  ON public.pool_players(pool_id);
+CREATE INDEX IF NOT EXISTS idx_pool_players_player_id
+  ON public.pool_players(player_id);
+
+-- ÉTAPE 2 — Activer RLS sur toutes les tables
+ALTER TABLE public.tournaments       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.table_categories  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pools             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.matches           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.sets              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.registrations     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pool_players      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.players           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tournament_tables ENABLE ROW LEVEL SECURITY;
+
+-- ÉTAPE 3 — Policies RLS organisateur
+
+-- tournaments
+DROP POLICY IF EXISTS "organizer_own_tournaments" ON public.tournaments;
+CREATE POLICY "organizer_own_tournaments" ON public.tournaments FOR ALL
+  USING (organizer_id = auth.uid());
+
+-- table_categories
+DROP POLICY IF EXISTS "organizer_own_categories" ON public.table_categories;
+CREATE POLICY "organizer_own_categories" ON public.table_categories FOR ALL
+  USING (tournament_id IN (
+    SELECT id FROM public.tournaments WHERE organizer_id = auth.uid()
+  ));
+
+-- pools
+DROP POLICY IF EXISTS "organizer_own_pools" ON public.pools;
+CREATE POLICY "organizer_own_pools" ON public.pools FOR ALL
+  USING (tournament_id IN (
+    SELECT id FROM public.tournaments WHERE organizer_id = auth.uid()
+  ));
+
+-- matches — organisateur
+DROP POLICY IF EXISTS "organizer_own_matches" ON public.matches;
+CREATE POLICY "organizer_own_matches" ON public.matches FOR ALL
+  USING (tournament_id IN (
+    SELECT id FROM public.tournaments WHERE organizer_id = auth.uid()
+  ));
+
+-- matches — lecture publique (QR table)
+DROP POLICY IF EXISTS "public_read_active_matches" ON public.matches;
+CREATE POLICY "public_read_active_matches" ON public.matches FOR SELECT
+  USING (status IN ('in_progress', 'finished'));
+
+-- sets — organisateur
+DROP POLICY IF EXISTS "organizer_own_sets" ON public.sets;
+CREATE POLICY "organizer_own_sets" ON public.sets FOR ALL
+  USING (match_id IN (
+    SELECT m.id FROM public.matches m
+    JOIN public.tournaments t ON t.id = m.tournament_id
+    WHERE t.organizer_id = auth.uid()
+  ));
+
+-- sets — lecture publique
+DROP POLICY IF EXISTS "public_read_sets" ON public.sets;
+CREATE POLICY "public_read_sets" ON public.sets FOR SELECT
+  USING (true);
+
+-- registrations
+DROP POLICY IF EXISTS "organizer_own_registrations" ON public.registrations;
+CREATE POLICY "organizer_own_registrations" ON public.registrations FOR ALL
+  USING (tournament_id IN (
+    SELECT id FROM public.tournaments WHERE organizer_id = auth.uid()
+  ));
+
+-- pool_players
+DROP POLICY IF EXISTS "organizer_own_pool_players" ON public.pool_players;
+CREATE POLICY "organizer_own_pool_players" ON public.pool_players FOR ALL
+  USING (pool_id IN (
+    SELECT p.id FROM public.pools p
+    JOIN public.tournaments t ON t.id = p.tournament_id
+    WHERE t.organizer_id = auth.uid()
+  ));
+
+-- players
+DROP POLICY IF EXISTS "organizer_reads_own_players" ON public.players;
+CREATE POLICY "organizer_reads_own_players" ON public.players FOR SELECT
+  USING (id IN (
+    SELECT r.player_id FROM public.registrations r
+    JOIN public.tournaments t ON t.id = r.tournament_id
+    WHERE t.organizer_id = auth.uid()
+  ));
+
+DROP POLICY IF EXISTS "anyone_can_insert_player" ON public.players;
+CREATE POLICY "anyone_can_insert_player" ON public.players FOR INSERT
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "organizer_updates_own_players" ON public.players;
+CREATE POLICY "organizer_updates_own_players" ON public.players FOR UPDATE
+  USING (id IN (
+    SELECT r.player_id FROM public.registrations r
+    JOIN public.tournaments t ON t.id = r.tournament_id
+    WHERE t.organizer_id = auth.uid()
+  ));
+
+-- tournament_tables
+DROP POLICY IF EXISTS "organizer_own_tables" ON public.tournament_tables;
+CREATE POLICY "organizer_own_tables" ON public.tournament_tables FOR ALL
+  USING (tournament_id IN (
+    SELECT id FROM public.tournaments WHERE organizer_id = auth.uid()
+  ));
+
+
+
 
