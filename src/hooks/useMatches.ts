@@ -9,7 +9,8 @@ export function useMatches(tournamentId?: string) {
 
   const fetchMatches = async (silent = false) => {
     if (!tournamentId) {
-      if (!silent) setLoading(false);
+      setMatches([]);
+      setLoading(false);
       return;
     }
     try {

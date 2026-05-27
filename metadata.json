@@ -1,5 +1,5 @@
 {
-  "name": "PingNet v2",
+  "name": "Ping Manager",
   "description": "Gestion de tournois de tennis de table avec saisie des scores en temps réel par QR Code.",
   "requestFramePermissions": [],
   "majorCapabilities": [

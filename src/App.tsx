@@ -14,15 +14,6 @@ import Landing from './pages/player/Landing';
 import OrganizerLayout from './components/layout/OrganizerLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
-// Player Portal Page Imports
-import { PlayerRoute } from './lib/PlayerRoute';
-import PlayerLogin from './pages/player/PlayerLogin';
-import PlayerAuth from './pages/player/PlayerAuth';
-import PlayerDashboard from './pages/player/PlayerDashboard';
-import MatchScoring from './pages/player/MatchScoring';
-import MatchValidation from './pages/player/MatchValidation';
-import PoolStandingsValidation from './pages/player/PoolStandingsValidation';
-
 // Temporary placeholders
 import Settings from './pages/organizer/Settings';
 
@@ -33,43 +24,6 @@ export default function App() {
       <Routes>
         {/* Public Player Route */}
         <Route path="/table/:tableNumber" element={<TableView />} />
-        
-        {/* Player Portal Routes */}
-        <Route path="/player/login" element={<PlayerLogin />} />
-        <Route path="/player/auth" element={<PlayerAuth />} />
-        
-        <Route 
-          path="/player/:tournamentId" 
-          element={
-            <PlayerRoute>
-              <PlayerDashboard />
-            </PlayerRoute>
-          } 
-        />
-        <Route 
-          path="/player/:tournamentId/match/:matchId" 
-          element={
-            <PlayerRoute>
-              <MatchScoring />
-            </PlayerRoute>
-          } 
-        />
-        <Route 
-          path="/player/:tournamentId/validate/:matchId" 
-          element={
-            <PlayerRoute>
-              <MatchValidation />
-            </PlayerRoute>
-          } 
-        />
-        <Route 
-          path="/player/:tournamentId/pool/:poolId" 
-          element={
-            <PlayerRoute>
-              <PoolStandingsValidation />
-            </PlayerRoute>
-          } 
-        />
         
         {/* Auth Route */}
         <Route path="/login" element={<Login />} />

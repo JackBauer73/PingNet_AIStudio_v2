@@ -11,7 +11,10 @@ export function usePools(tournamentId?: string) {
 
   const fetchPoolsData = async (silent = false) => {
     if (!tournamentId) {
-      if (!silent) setLoading(false);
+      setPools([]);
+      setMatches([]);
+      setStandings([]);
+      setLoading(false);
       return;
     }
     
@@ -48,7 +51,7 @@ export function usePools(tournamentId?: string) {
           .eq('round', 'pool')
           .order('created_at', { ascending: true })
           .order('id', { ascending: true }),
-        supabase.from('pool_players').select('*').in('pool_id', poolIds),
+        supabase.from('pool_players').select('*'),
         supabase.from('registrations').select('*, players(*), table_categories(*)').eq('tournament_id', tournamentId)
       ]);
 

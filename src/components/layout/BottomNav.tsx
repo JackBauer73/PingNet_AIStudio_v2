@@ -19,12 +19,13 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../supabase';
 import { useTournament } from '../../hooks/useTournament';
+import Logo from './Logo';
 
 const primaryNavigation = [
   { name: 'Dashboard', href: '/organizer', icon: LayoutDashboard },
   { name: 'Pointage J-J', href: '/organizer/checkin', icon: UserCheck },
   { name: 'Poules', href: '/organizer/pools', icon: Grid3X3 },
-  { name: 'Tableau', href: '/organizer/bracket', icon: Trophy },
+  { name: 'Phase Finale', href: '/organizer/bracket', icon: Trophy },
 ];
 
 export default function BottomNav() {
@@ -36,12 +37,12 @@ export default function BottomNav() {
   const handleLogout = async () => {
     setIsMenuOpen(false);
     await supabase.auth.signOut();
-    navigate('/login');
+    navigate('/');
   };
 
   const menuItems = [
     { name: 'Gestion des Tables', href: '/organizer/tables', icon: Table, description: 'Suivi et affectation des tables' },
-    { name: 'Reporting Score / Direct', href: '/organizer/scores', icon: QrCode, description: 'Saisie des scores et tables' },
+    { name: 'Live Score', href: '/organizer/scores', icon: QrCode, description: 'Saisie des scores et tables' },
     { name: 'Historique des tournois', href: '/organizer/archives', icon: History, description: 'Rapports et anciens tournois' },
     { name: 'Paramètres', href: '/organizer/settings', icon: Settings, description: 'Gestion des séries de jeu' },
   ];
@@ -111,11 +112,9 @@ export default function BottomNav() {
               {/* Header inside Menu */}
               <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-800">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center border border-indigo-500/20 text-indigo-400 font-bold">
-                    TT
-                  </div>
+                  <Logo className="w-10 h-10" />
                   <div>
-                    <h3 className="font-bold text-base leading-tight">TournoisTT Menu</h3>
+                    <h3 className="font-bold text-base leading-tight">Ping Manager Menu</h3>
                     {tournament && (
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full mt-1">
                         <Calendar className="w-3 h-3" />

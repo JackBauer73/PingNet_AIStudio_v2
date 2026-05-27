@@ -6,6 +6,7 @@ export function useTournament() {
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [stats, setStats] = useState({ players: 0, matchesDone: 0, matchesTotal: 0 });
   const [loading, setLoading] = useState(true);
+  const [allTournaments, setAllTournaments] = useState<Tournament[]>([]);
 
   const loadStats = async (tId: string) => {
     const [playersCount, matchesStats] = await Promise.all([
@@ -33,57 +34,52 @@ export function useTournament() {
   const loadTournament = async () => {
     try {
       setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const savedId = localStorage.getItem('selected_tournament_id');
 
-      // Check URL and path for tournament selection
-      const searchParams = new URLSearchParams(window.location.search);
-      const urlTournamentId = searchParams.get('t') || searchParams.get('tournamentId');
+      let fetchedTournament: Tournament | null = null;
+      let fetchedList: Tournament[] = [];
 
-      let pathTournamentId: string | null = null;
-      const pathParts = window.location.pathname.split('/');
-      const playerIndex = pathParts.indexOf('player');
-      if (playerIndex !== -1 && pathParts[playerIndex + 1]) {
-        const potentialId = pathParts[playerIndex + 1];
-        if (potentialId !== 'login' && potentialId !== 'auth' && potentialId.length === 36) {
-          pathTournamentId = potentialId;
+      if (session?.user) {
+        // Organizer mode: only see tournaments belonging to this club
+        const { data, error } = await supabase
+          .from('tournaments')
+          .select('*')
+          .eq('organizer_id', session.user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        fetchedList = data || [];
+
+        if (fetchedList.length > 0) {
+          const matched = savedId ? fetchedList.find(t => t.id === savedId) : null;
+          fetchedTournament = matched || fetchedList[0];
+          localStorage.setItem('selected_tournament_id', fetchedTournament.id);
+        }
+      } else {
+        // Public mode: list all tournaments in the system across clubs
+        const { data, error } = await supabase
+          .from('tournaments')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        fetchedList = data || [];
+
+        if (fetchedList.length > 0) {
+          const matched = savedId ? fetchedList.find(t => t.id === savedId) : null;
+          fetchedTournament = matched || fetchedList[0];
+          if (fetchedTournament) {
+            localStorage.setItem('selected_tournament_id', fetchedTournament.id);
+          }
         }
       }
 
-      // Check active auth session
-      const { data: { user } } = await supabase.auth.getUser();
-
-      let query = supabase.from('tournaments').select('*');
-      let hasFilter = false;
-
-      if (urlTournamentId) {
-        query = query.eq('id', urlTournamentId);
-        hasFilter = true;
-      } else if (pathTournamentId) {
-        query = query.eq('id', pathTournamentId);
-        hasFilter = true;
-      } else if (user) {
-        query = query.eq('organizer_id', user.id);
-        hasFilter = true;
-      }
-
-      if (!hasFilter) {
-        setTournament(null);
-        setStats({ players: 0, matchesDone: 0, matchesTotal: 0 });
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await query
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (error) throw error;
-      
-      if (data) {
-        setTournament(data);
-        await loadStats(data.id);
+      setAllTournaments(fetchedList);
+      setTournament(fetchedTournament);
+      if (fetchedTournament) {
+        await loadStats(fetchedTournament.id);
       } else {
-        setTournament(null);
         setStats({ players: 0, matchesDone: 0, matchesTotal: 0 });
       }
     } catch (err) {
@@ -93,11 +89,16 @@ export function useTournament() {
     }
   };
 
+  const selectTournament = async (id: string) => {
+    localStorage.setItem('selected_tournament_id', id);
+    await loadTournament();
+  };
+
   useEffect(() => {
     loadTournament();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, _session) => {
-      await loadTournament();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      loadTournament();
     });
 
     return () => {
@@ -126,5 +127,5 @@ export function useTournament() {
     };
   }, [tournament?.id]);
 
-  return { tournament, stats, loading, refresh: loadTournament };
+  return { tournament, stats, loading, allTournaments, selectTournament, refresh: loadTournament };
 }

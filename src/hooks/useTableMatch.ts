@@ -167,8 +167,7 @@ export function useTableMatch(tableNumber: number) {
       .on('postgres_changes', { 
         event: '*', 
         schema: 'public', 
-        table: 'matches',
-        filter: `table_number=eq.${tableNumber}`
+        table: 'matches'
       }, () => fetchTableMatch(true))
       .on('postgres_changes', { 
         event: '*', 

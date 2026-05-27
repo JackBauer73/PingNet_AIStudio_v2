@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabase';
 import { useTournament } from '../../hooks/useTournament';
 import { 
@@ -19,6 +20,7 @@ import toast from 'react-hot-toast';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function Tables() {
+  const navigate = useNavigate();
   const { tournament } = useTournament();
   const [pools, setPools] = useState<any[]>([]);
   const [matches, setMatches] = useState<any[]>([]);
@@ -27,7 +29,10 @@ export default function Tables() {
   const [movingTable, setMovingTable] = useState<number | null>(null);
 
   const fetchTablesData = async (silent = false) => {
-    if (!tournament?.id) return;
+    if (!tournament?.id) {
+      setLoading(false);
+      return;
+    }
     try {
       if (!silent) setLoading(true);
 
@@ -225,6 +230,26 @@ export default function Tables() {
       toast.error('Erreur lors du lancement du match.');
     }
   };
+
+  if (!tournament) {
+    return (
+      <div className="p-4 sm:p-8 max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[50vh] text-center">
+        <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-500 mb-4 border border-indigo-100 shadow-sm">
+          <Grid3X3 className="w-8 h-8" />
+        </div>
+        <h3 className="text-lg font-bold text-slate-900 mb-2">Aucun tournoi actif</h3>
+        <p className="text-sm text-slate-500 max-w-md mb-6">
+          Vous n'avez pas encore créé ou sélectionné de tournoi. Créez ou sélectionnez-en un dans le Tableau de Bord pour gérer les tables.
+        </p>
+        <button
+          onClick={() => navigate('/organizer')}
+          className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-indigo-700 transition active:scale-95 duration-100"
+        >
+          Aller au Tableau de Bord
+        </button>
+      </div>
+    );
+  }
 
   if (loading) {
     return (

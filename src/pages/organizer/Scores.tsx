@@ -1,15 +1,37 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTournament } from '../../hooks/useTournament';
 import { useMatches } from '../../hooks/useMatches';
-import { Clock, AlertTriangle, ExternalLink } from 'lucide-react';
+import { Clock, AlertTriangle, ExternalLink, QrCode } from 'lucide-react';
 
 export default function Scores() {
+  const navigate = useNavigate();
   const { tournament } = useTournament();
   const { matches, loading } = useMatches(tournament?.id);
 
   const activeMatches = matches.filter(m => m.status === 'in_progress');
 
-  if (loading) return <div className="p-8 text-center">Chargement...</div>;
+  if (!tournament) {
+    return (
+      <div className="p-4 sm:p-8 max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[50vh] text-center">
+        <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-500 mb-4 border border-indigo-100 shadow-sm">
+          <QrCode className="w-8 h-8" />
+        </div>
+        <h3 className="text-lg font-bold text-slate-900 mb-2">Aucun tournoi actif</h3>
+        <p className="text-sm text-slate-500 max-w-md mb-6">
+          Vous n'avez pas encore créé ou sélectionné de tournoi. Créez ou sélectionnez-en un dans le Tableau de Bord pour suivre le direct.
+        </p>
+        <button
+          onClick={() => navigate('/organizer')}
+          className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-indigo-700 transition active:scale-95 duration-100"
+        >
+          Aller au Tableau de Bord
+        </button>
+      </div>
+    );
+  }
+
+  if (loading) return <div className="p-8 text-center text-slate-400">Chargement...</div>;
 
   return (
     <div className="p-4 sm:p-8 max-w-6xl mx-auto">

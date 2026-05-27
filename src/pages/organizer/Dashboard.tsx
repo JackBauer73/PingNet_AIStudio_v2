@@ -237,7 +237,8 @@ export default function Dashboard() {
       cash: true,
       check: false,
       transfer: false,
-      onSite: true
+      onSite: true,
+      registration_periods: {} as Record<string, { start: string; end: string }>
     }
   });
 
@@ -295,6 +296,14 @@ export default function Dashboard() {
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
   };
 
+  const getFormattedDayDate = (baseDateStr: string, dayNum: number) => {
+    if (!baseDateStr) return '';
+    const base = new Date(baseDateStr);
+    if (isNaN(base.getTime())) return '';
+    base.setDate(base.getDate() + (dayNum - 1));
+    return base.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  };
+
   const [creating, setCreating] = useState(false);
 
   const handleAddCategorySubmit = (e: React.FormEvent) => {
@@ -344,6 +353,7 @@ export default function Dashboard() {
 
   const openEditTournamentModal = () => {
     if (!tournament) return;
+    const payMethods: any = tournament.payment_methods || {};
     setNewTournament({
       name: tournament.name,
       date: tournament.date || new Date().toISOString().split('T')[0],
@@ -357,12 +367,13 @@ export default function Dashboard() {
       max_categories_per_day: tournament.max_categories_per_day || 3,
       players_per_pool: tournament.players_per_pool || 3,
       mode: (tournament.score_mode || 'players') as any,
-      payment_methods: tournament.payment_methods || {
-        cb: false,
-        cash: true,
-        check: false,
-        transfer: false,
-        onSite: true
+      payment_methods: {
+        cb: !!payMethods.cb,
+        cash: payMethods.cash !== false,
+        check: !!payMethods.check,
+        transfer: !!payMethods.transfer,
+        onSite: payMethods.onSite !== false,
+        registration_periods: payMethods.registration_periods || {}
       }
     });
 
@@ -401,6 +412,20 @@ export default function Dashboard() {
       return;
     }
 
+    // Validation des périodes d'inscription par journée
+    const daysCountForVal = getTournamentDaysCount();
+    for (let i = 1; i <= daysCountForVal; i++) {
+      const period = newTournament.payment_methods.registration_periods?.[i.toString()];
+      if (!period || !period.start || !period.end) {
+        toast.error(`Veuillez configurer les dates d'ouverture et de clôture d'inscription pour la Journée ${i}.`);
+        return;
+      }
+      if (new Date(period.end) < new Date(period.start)) {
+        toast.error(`La clôture d'inscription de la Journée ${i} doit être après son ouverture.`);
+        return;
+      }
+    }
+
     setCreating(true);
     const toastId = toast.loading('Mise à jour du tournoi et des tableaux...');
 
@@ -412,7 +437,7 @@ export default function Dashboard() {
         description: newTournament.description.trim() || null,
         date: newTournament.date,
         end_date: newTournament.end_date,
-        starts_at: newTournament.starts_at ? new Date(newTournament.starts_at).toISOString() : null,
+        starts_at: null,
         nb_tables: Number(newTournament.nb_tables),
         sets_to_win: Number(newTournament.sets_to_win),
         points_per_set: Number(newTournament.points_per_set),
@@ -544,6 +569,20 @@ export default function Dashboard() {
       return;
     }
 
+    // Validation des périodes d'inscription par journée
+    const daysCountForVal = getTournamentDaysCount();
+    for (let i = 1; i <= daysCountForVal; i++) {
+      const period = newTournament.payment_methods.registration_periods?.[i.toString()];
+      if (!period || !period.start || !period.end) {
+        toast.error(`Veuillez configurer les dates d'ouverture et de clôture d'inscription pour la Journée ${i}.`);
+        return;
+      }
+      if (new Date(period.end) < new Date(period.start)) {
+        toast.error(`La clôture d'inscription de la Journée ${i} doit être après son ouverture.`);
+        return;
+      }
+    }
+
     setCreating(true);
     const toastId = toast.loading('Création atomique du tournoi et des tableaux...');
 
@@ -558,7 +597,7 @@ export default function Dashboard() {
         description: newTournament.description.trim() || null,
         date: newTournament.date,
         end_date: newTournament.end_date,
-        starts_at: newTournament.starts_at ? new Date(newTournament.starts_at).toISOString() : null,
+        starts_at: null,
         nb_tables: Number(newTournament.nb_tables),
         sets_to_win: Number(newTournament.sets_to_win),
         points_per_set: Number(newTournament.points_per_set),
@@ -721,15 +760,83 @@ export default function Dashboard() {
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-1">Heure de début officiel (Starts at)</label>
-                      <input 
-                        type="datetime-local"
-                        required 
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-semibold text-sm"
-                        value={newTournament.starts_at}
-                        onChange={e => setNewTournament({...newTournament, starts_at: e.target.value})}
-                      />
+                    {/* Heure de début officiel supprimée, remplacée par les dates de début et fin d'inscription en ligne par jour */}
+                    <div className="md:col-span-2 space-y-4 bg-slate-50/70 p-5 rounded-3xl border border-slate-150">
+                      <h4 className="text-xs font-black uppercase text-indigo-700 tracking-widest flex items-center gap-1.5 pl-1">
+                        <Calendar className="w-3.5 h-3.5" /> Périodes d'Inscription en ligne par Journée
+                      </h4>
+                      <p className="text-[11px] text-slate-400 mt-0.5 pl-1">Configurez les plages d'ouvertures et de fermetures de l'inscription pour vos séries selon leur journée.</p>
+                      
+                      <div className="space-y-4 pt-1">
+                        {Array.from({ length: getTournamentDaysCount() }, (_, i) => {
+                          const dayNum = i + 1;
+                          const period = newTournament.payment_methods.registration_periods?.[dayNum.toString()] || { start: '', end: '' };
+                          return (
+                            <div key={dayNum} className="bg-white p-4 rounded-2xl border border-slate-200 grid grid-cols-1 md:grid-cols-2 gap-4 items-center shadow-sm">
+                              <div className="md:col-span-2 flex items-center gap-2 border-b border-slate-100 pb-2">
+                                <span className="inline-flex items-center justify-center w-5.5 h-5.5 rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-black">
+                                  J{dayNum}
+                                </span>
+                                <span className="font-extrabold text-xs text-slate-800">
+                                  Journée {dayNum} {getFormattedDayDate(newTournament.date, dayNum) ? `(${getFormattedDayDate(newTournament.date, dayNum)})` : ''}
+                                </span>
+                              </div>
+
+                              <div>
+                                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Début de l'inscription</label>
+                                <input 
+                                  type="datetime-local"
+                                  required
+                                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-bold text-xs text-slate-800"
+                                  value={period.start || ''}
+                                  onChange={e => {
+                                    const updatedPeriods = {
+                                      ...(newTournament.payment_methods.registration_periods || {}),
+                                      [dayNum.toString()]: {
+                                        ...period,
+                                        start: e.target.value
+                                      }
+                                    };
+                                    setNewTournament({
+                                      ...newTournament,
+                                      payment_methods: {
+                                        ...newTournament.payment_methods,
+                                        registration_periods: updatedPeriods
+                                      }
+                                    });
+                                  }}
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5 ml-1">Fin de l'inscription</label>
+                                <input 
+                                  type="datetime-local"
+                                  required
+                                  className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-bold text-xs text-slate-800"
+                                  value={period.end || ''}
+                                  onChange={e => {
+                                    const updatedPeriods = {
+                                      ...(newTournament.payment_methods.registration_periods || {}),
+                                      [dayNum.toString()]: {
+                                        ...period,
+                                        end: e.target.value
+                                      }
+                                    };
+                                    setNewTournament({
+                                      ...newTournament,
+                                      payment_methods: {
+                                        ...newTournament.payment_methods,
+                                        registration_periods: updatedPeriods
+                                      }
+                                    });
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
 
                     <div className="md:col-span-2">
@@ -1289,7 +1396,7 @@ export default function Dashboard() {
               <Trophy className="w-10 h-10" />
             </div>
             <h1 className="text-4xl font-black text-slate-950 tracking-tight">
-              {tournament?.status === 'archived' ? 'Précédent Tournoi Archivé !' : 'Bienvenue sur Ping Manager v2'}
+              {tournament?.status === 'archived' ? 'Précédent Tournoi Archivé !' : 'Bienvenue sur Ping Manager'}
             </h1>
             <p className="text-slate-500 mt-4 max-w-xl mx-auto text-sm leading-relaxed">
               {tournament?.status === 'archived' 

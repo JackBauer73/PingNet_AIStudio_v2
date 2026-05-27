@@ -14,14 +14,15 @@ import {
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useTournament } from '../../hooks/useTournament';
+import Logo from './Logo';
 
 const navigation = [
   { name: 'Dashboard', href: '/organizer', icon: LayoutDashboard },
   { name: 'Pointage J-J', href: '/organizer/checkin', icon: UserCheck },
   { name: 'Poules', href: '/organizer/pools', icon: Grid3X3 },
-  { name: 'Tables', href: '/organizer/tables', icon: Table },
-  { name: 'Tableau', href: '/organizer/bracket', icon: Trophy },
-  { name: 'Direct', href: '/organizer/scores', icon: QrCode },
+  { name: 'Phase Finale', href: '/organizer/bracket', icon: Trophy },
+  { name: 'Gestion des Tables', href: '/organizer/tables', icon: Table },
+  { name: 'Live Score', href: '/organizer/scores', icon: QrCode },
   { name: 'Historique', href: '/organizer/archives', icon: History },
   { name: 'Paramètres', href: '/organizer/settings', icon: Settings },
 ];
@@ -35,18 +36,16 @@ export default function Sidebar() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    navigate('/login');
+    navigate('/');
   };
 
   return (
     <div className="hidden lg:flex flex-col w-64 bg-slate-900 text-white min-h-screen border-r border-slate-800 shrink-0">
       <div className="p-6">
-        <div className="flex items-center gap-3 px-2">
-          <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center">
-            <span className="font-bold text-lg text-white font-mono">TT</span>
-          </div>
+        <Link to="/" className="flex items-center gap-3 px-2 hover:opacity-90 transition-opacity">
+          <Logo className="w-9 h-9" />
           <div className="flex flex-col">
-            <span className="text-xl font-bold tracking-tight">TournoisTT</span>
+            <span className="text-xl font-bold tracking-tight">Ping Manager</span>
             {tournament && (
               <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-indigo-400 bg-indigo-500/10 px-2 py-0.5 rounded-full mt-1 w-max">
                 <Calendar className="w-3 h-3" />
@@ -54,7 +53,7 @@ export default function Sidebar() {
               </span>
             )}
           </div>
-        </div>
+        </Link>
       </div>
 
       <nav className="flex-1 px-4 space-y-1 mt-4">
@@ -92,6 +91,9 @@ export default function Sidebar() {
           <LogOut className="w-5 h-5" />
           Déconnexion
         </button>
+        <div className="mt-3 text-center text-[10px] font-mono text-slate-500 select-none">
+          v0.6.3
+        </div>
       </div>
     </div>
   );

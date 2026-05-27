@@ -355,7 +355,7 @@ export default function TableView() {
       </main>
 
       <footer className="mt-8 text-center text-slate-500 pb-4">
-        <p className="text-[10px] font-bold uppercase tracking-widest opacity-50">TournoisTT • Système de score temps réel</p>
+        <p className="text-[10px] font-bold uppercase tracking-widest opacity-50">Ping Manager • Système de score temps réel</p>
       </footer>
     </div>
   );
