@@ -3,8 +3,8 @@
 This document keeps track of all released versions and updates of Ping Manager, adhering strictly to **Semantic Versioning (SemVer)**: `MAJOR.MINOR.PATCH`.
 
 ## Configuration active
-- **Version actuelle :** `0.6.3`
-- **Statut :** Intégration du logo flambant officiel de Ping Manager
+- **Version actuelle :** `0.6.4`
+- **Statut :** Vue consultable passive des scores & tables en direct sans accès en écriture
 - **Date :** 2026-05-27
 
 ---
@@ -18,7 +18,14 @@ This document keeps track of all released versions and updates of Ping Manager, 
 
 ## Historique des versions
 
-### v0.6.3 (2026-05-27) - *Version Actuelle*
+### v0.6.4 (2026-05-27) - *Version Actuelle*
+Consultation publique passive des tables et scores en direct pour les spectateurs et joueurs avec restriction d'accès aux modifications.
+
+#### New Features & Access Controls
+- **Page de scores live publique (/live-scores) :** Création d'une interface de consultation élégante, passive (lecture seule), permettant d'apprécier les scores en temps réel sans possibilité de cliquer pour modifier.
+- **Redirection directe :** Mise à jour du bouton public de la Landing Page pour rediriger vers cette interface de consultation au lieu des écrans réservés aux organisateurs.
+
+### v0.6.3 (2026-05-27)
 Intégration et ajustement du logo officiel flambant de l'application **Ping Manager** (le trophée en flammes) sur l'ensemble de l'écosystème numérique.
 
 #### Visual/Asset Enhancements

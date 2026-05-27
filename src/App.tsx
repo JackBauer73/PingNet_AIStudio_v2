@@ -11,6 +11,7 @@ import Archives from './pages/organizer/Archives';
 import PrintQR from './pages/organizer/PrintQR';
 import TableView from './pages/player/TableView';
 import Landing from './pages/player/Landing';
+import LiveScores from './pages/player/LiveScores';
 import OrganizerLayout from './components/layout/OrganizerLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
@@ -61,6 +62,7 @@ export default function App() {
         
         {/* Public Landing & Register Route */}
         <Route path="/" element={<Landing />} />
+        <Route path="/live-scores" element={<LiveScores />} />
       </Routes>
     </BrowserRouter>
   );

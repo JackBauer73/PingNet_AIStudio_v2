@@ -1162,7 +1162,7 @@ export default function Landing() {
             {tournament && ['pools', 'bracket', 'in_progress'].includes(tournament.status) && (
               <div className="mt-8">
                 <button
-                  onClick={() => navigate('/organizer/scores')}
+                  onClick={() => navigate('/live-scores')}
                   className="px-6 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-xl shadow-indigo-100 hover:shadow-indigo-200 transition-all flex items-center gap-2 active:scale-95"
                 >
                   <Sparkles className="w-5 h-5" />
@@ -1509,7 +1509,7 @@ export default function Landing() {
           <p className="text-xs">© 2026 Ping Manager. Conçu pour simplifier l'arbitrage et le suivi des tournois.</p>
           <div className="flex gap-6 text-xs font-bold">
             <span className="text-white hover:text-[#f97316] cursor-pointer">Français</span>
-            <span className="text-slate-400">v0.6.3</span>
+            <span className="text-slate-400">v0.6.4</span>
           </div>
         </div>
       </footer>
