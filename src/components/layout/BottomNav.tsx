@@ -36,8 +36,12 @@ export default function BottomNav() {
 
   const handleLogout = async () => {
     setIsMenuOpen(false);
-    await supabase.auth.signOut();
+    // Naviguer d'abord pour sortir des routes protégées AVANT signOut(),
+    // sinon ProtectedRoute.onAuthStateChange redirige vers /?login=true et
+    // ouvre le modal de connexion, donnant l'impression de ne pas pouvoir se déconnecter.
+    localStorage.removeItem('selected_tournament_id');
     navigate('/');
+    await supabase.auth.signOut();
   };
 
   const menuItems = [

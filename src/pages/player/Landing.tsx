@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTournament } from '../../hooks/useTournament';
 import { usePlayers } from '../../hooks/usePlayers';
-import { supabase } from '../../supabase';
+import { supabase, isSupabaseConfigured } from '../../supabase';
 import { Trophy, Calendar, MapPin, Users, HeartHandshake, LogIn, ChevronRight, Sparkles, CheckCircle2, UserPlus, Info, Search, ArrowLeft, Loader2, Check, ArrowRight, Zap, Smartphone, Layers, Activity } from 'lucide-react';
 import { fetchPlayerByLicence } from '../../services/ffttApi';
 import Logo from '../../components/layout/Logo';
@@ -1468,6 +1468,12 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0a1729] text-slate-900 dark:text-slate-100 font-sans selection:bg-[#f97316] selection:text-white">
+      {!isSupabaseConfigured && (
+        <div className="bg-[#f97316] text-white text-xs md:text-sm py-3 px-4 shadow-md sticky top-0 z-50 text-center font-bold flex items-center justify-center gap-2.5">
+          <Info className="w-4 h-4 shrink-0" />
+          <span>Configuration Supabase manquante ou non valide. Veuillez paramétrer vos variables d'environnement (VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY) dans vos Secrets pour activer la base de données de Ping Manager.</span>
+        </div>
+      )}
       {/* Header/Nav */}
       <header className="border-b border-slate-100 dark:border-white/10 bg-white/85 dark:bg-[#0a1729]/85 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
@@ -1509,7 +1515,7 @@ export default function Landing() {
           <p className="text-xs">© 2026 Ping Manager. Conçu pour simplifier l'arbitrage et le suivi des tournois.</p>
           <div className="flex gap-6 text-xs font-bold">
             <span className="text-white hover:text-[#f97316] cursor-pointer">Français</span>
-            <span className="text-slate-400">v0.6.4</span>
+            <span className="text-slate-400">v0.6.6</span>
           </div>
         </div>
       </footer>

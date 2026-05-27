@@ -35,8 +35,12 @@ export default function Sidebar() {
   const { tournament } = useTournament();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    // Naviguer d'abord pour sortir des routes protégées AVANT signOut(),
+    // sinon ProtectedRoute.onAuthStateChange redirige vers /?login=true et
+    // ouvre le modal de connexion, donnant l'impression de ne pas pouvoir se déconnecter.
+    localStorage.removeItem('selected_tournament_id');
     navigate('/');
+    await supabase.auth.signOut();
   };
 
   return (
@@ -92,7 +96,7 @@ export default function Sidebar() {
           Déconnexion
         </button>
         <div className="mt-3 text-center text-[10px] font-mono text-slate-500 select-none">
-          v0.6.4
+          v0.6.6
         </div>
       </div>
     </div>

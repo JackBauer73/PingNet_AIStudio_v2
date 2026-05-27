@@ -7,13 +7,17 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
   const [authenticated, setAuthenticated] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Utiliser UNIQUEMENT onAuthStateChange comme source de vérité.
+    // INITIAL_SESSION est émis immédiatement par Supabase avec la session courante,
+    // ce qui évite la race condition de getSession() appelé séparément :
+    // entre navigate('/organizer') et le mount de ProtectedRoute,
+    // getSession() pouvait retourner null → redirection vers /?login=true
+    // alors que l'utilisateur venait juste de se connecter.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setAuthenticated(!!session);
-      setLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthenticated(!!session);
+      if (event === 'INITIAL_SESSION') {
+        setLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();

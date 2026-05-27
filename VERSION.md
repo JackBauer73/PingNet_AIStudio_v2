@@ -3,8 +3,8 @@
 This document keeps track of all released versions and updates of Ping Manager, adhering strictly to **Semantic Versioning (SemVer)**: `MAJOR.MINOR.PATCH`.
 
 ## Configuration active
-- **Version actuelle :** `0.6.4`
-- **Statut :** Vue consultable passive des scores & tables en direct sans accès en écriture
+- **Version actuelle :** `0.6.6`
+- **Statut :** Refactorisation de ProtectedRoute et renforcement de l'authentification multi-comptes
 - **Date :** 2026-05-27
 
 ---
@@ -18,7 +18,22 @@ This document keeps track of all released versions and updates of Ping Manager, 
 
 ## Historique des versions
 
-### v0.6.4 (2026-05-27) - *Version Actuelle*
+### v0.6.6 (2026-05-27) - *Version Actuelle*
+Refactorisation de la route protégée `ProtectedRoute.tsx` et correction définitive des redirections de session intempestives lors du processus d'authentification et de déconnexion multi-comptes.
+
+#### Bug Fixes & Improvements
+- **Refactorisation de ProtectedRoute :** Utilisation de l'événement `INITIAL_SESSION` de `onAuthStateChange` comme unique source de vérité au chargement, évitant l'appel asynchrone concurrencial de `getSession()` qui causait une fausse redirection vers `/?login=true` après connexion.
+- **Robustesse de useTournament :** Consolidation des changements de session avec isolation des comptes et suppression locale des données du tournoi de l'ancienne session en prévision d'une nouvelle connexion.
+
+### v0.6.5 (2026-05-27)
+Résolution de bugs d'authentification Supabase et de persistence liés au multi-comptes et à la navigation lors de la déconnexion.
+
+#### Bug Fixes & Improvements
+- **Race Condition de Session Supabase :** Introduction de `sessionOverride` dans le hook `useTournament.ts` lors des événements de `onAuthStateChange` pour éliminer le délai d'obtention de la session fraîche sans appels de race conditions indésirables.
+- **Pollution de Session Multi-comptes :** Nettoyage automatique de la valeur `selected_tournament_id` dans le `localStorage` dès le déclenchement de l'événement de déconnexion (`SIGNED_OUT`) ou du clic d'action de déconnexion dans les menus de navigation (`Sidebar.tsx` et `BottomNav.tsx`).
+- **Modal de Connexion non sollicité :** Inversion de l'ordre d'appel asynchrone dans `handleLogout` de la barre latérale et la navigation mobile. L'application redirige désormais en premier lieu vers la route publique `/` pour sortir des routes protégées avant d'émettre le `auth.signOut()` de Supabase, évitant la réouverture automatique du formulaire d'identification.
+
+### v0.6.4 (2026-05-27)
 Consultation publique passive des tables et scores en direct pour les spectateurs et joueurs avec restriction d'accès aux modifications.
 
 #### New Features & Access Controls

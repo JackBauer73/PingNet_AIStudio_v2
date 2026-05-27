@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../supabase';
+import { Session } from '@supabase/supabase-js';
+import { supabase, isSupabaseConfigured } from '../supabase';
 import { Tournament } from '../types';
 
 export function useTournament() {
@@ -9,6 +10,9 @@ export function useTournament() {
   const [allTournaments, setAllTournaments] = useState<Tournament[]>([]);
 
   const loadStats = async (tId: string) => {
+    if (!isSupabaseConfigured) {
+      return;
+    }
     const [playersCount, matchesStats] = await Promise.all([
       supabase
         .from('registrations')
@@ -31,10 +35,18 @@ export function useTournament() {
     });
   };
 
-  const loadTournament = async () => {
+  // sessionOverride : session directement passée depuis onAuthStateChange pour éviter
+  // la race condition avec getSession() qui peut retourner null juste après un SIGNED_IN
+  const loadTournament = async (sessionOverride?: Session | null) => {
+    if (!isSupabaseConfigured) {
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
+      const session = sessionOverride !== undefined
+        ? sessionOverride
+        : (await supabase.auth.getSession()).data.session;
       const savedId = localStorage.getItem('selected_tournament_id');
 
       let fetchedTournament: Tournament | null = null;
@@ -95,10 +107,19 @@ export function useTournament() {
   };
 
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      setLoading(false);
+      return;
+    }
     loadTournament();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      loadTournament();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Nettoyer le localStorage dès la déconnexion pour éviter la pollution entre comptes
+      if (event === 'SIGNED_OUT') {
+        localStorage.removeItem('selected_tournament_id');
+      }
+      // Passer la session directement pour éviter la race condition avec getSession()
+      loadTournament(session ?? null);
     });
 
     return () => {
@@ -107,7 +128,7 @@ export function useTournament() {
   }, []);
 
   useEffect(() => {
-    if (!tournament?.id) return;
+    if (!isSupabaseConfigured || !tournament?.id) return;
 
     const randomSuffix = Math.random().toString(36).substring(2, 10);
     const channel = supabase
