@@ -11,7 +11,7 @@ import toast from 'react-hot-toast';
 import AuthModal from '../../components/auth/AuthModal';
 
 export default function Landing() {
-  const { tournament, stats, loading, allTournaments, selectTournament, refresh } = useTournament();
+  const { tournament, stats, loading, allTournaments, selectTournament, refresh } = useTournament({ forcePublic: true });
   const [activeTournamentId, setActiveTournamentId] = useState<string | null>(null);
   const { players, addPlayer } = usePlayers(tournament?.id);
   const navigate = useNavigate();
@@ -1515,7 +1515,7 @@ export default function Landing() {
           <p className="text-xs">© 2026 Ping Manager. Conçu pour simplifier l'arbitrage et le suivi des tournois.</p>
           <div className="flex gap-6 text-xs font-bold">
             <span className="text-white hover:text-[#f97316] cursor-pointer">Français</span>
-            <span className="text-slate-400">v0.6.6</span>
+            <span className="text-slate-400">v0.6.7</span>
           </div>
         </div>
       </footer>

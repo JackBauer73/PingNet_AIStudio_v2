@@ -3,7 +3,12 @@ import { Session } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../supabase';
 import { Tournament } from '../types';
 
-export function useTournament() {
+interface UseTournamentOptions {
+  forcePublic?: boolean;
+}
+
+export function useTournament(options: UseTournamentOptions = {}) {
+  const { forcePublic = false } = options;
   const [tournament, setTournament] = useState<Tournament | null>(null);
   const [stats, setStats] = useState({ players: 0, matchesDone: 0, matchesTotal: 0 });
   const [loading, setLoading] = useState(true);
@@ -47,12 +52,15 @@ export function useTournament() {
       const session = sessionOverride !== undefined
         ? sessionOverride
         : (await supabase.auth.getSession()).data.session;
-      const savedId = localStorage.getItem('selected_tournament_id');
+
+      // Utiliser deux clés de stockage local différentes pour cloisonner mode public et mode admin/organisateur
+      const storageKey = forcePublic ? 'public_selected_tournament_id' : 'organizer_selected_tournament_id';
+      const savedId = localStorage.getItem(storageKey);
 
       let fetchedTournament: Tournament | null = null;
       let fetchedList: Tournament[] = [];
 
-      if (session?.user) {
+      if (session?.user && !forcePublic) {
         // Organizer mode: only see tournaments belonging to this club
         const { data, error } = await supabase
           .from('tournaments')
@@ -66,7 +74,7 @@ export function useTournament() {
         if (fetchedList.length > 0) {
           const matched = savedId ? fetchedList.find(t => t.id === savedId) : null;
           fetchedTournament = matched || fetchedList[0];
-          localStorage.setItem('selected_tournament_id', fetchedTournament.id);
+          localStorage.setItem(storageKey, fetchedTournament.id);
         }
       } else {
         // Public mode: list all tournaments in the system across clubs
@@ -82,7 +90,7 @@ export function useTournament() {
           const matched = savedId ? fetchedList.find(t => t.id === savedId) : null;
           fetchedTournament = matched || fetchedList[0];
           if (fetchedTournament) {
-            localStorage.setItem('selected_tournament_id', fetchedTournament.id);
+            localStorage.setItem(storageKey, fetchedTournament.id);
           }
         }
       }
@@ -102,7 +110,8 @@ export function useTournament() {
   };
 
   const selectTournament = async (id: string) => {
-    localStorage.setItem('selected_tournament_id', id);
+    const storageKey = forcePublic ? 'public_selected_tournament_id' : 'organizer_selected_tournament_id';
+    localStorage.setItem(storageKey, id);
     await loadTournament();
   };
 
@@ -116,6 +125,8 @@ export function useTournament() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       // Nettoyer le localStorage dès la déconnexion pour éviter la pollution entre comptes
       if (event === 'SIGNED_OUT') {
+        localStorage.removeItem('organizer_selected_tournament_id');
+        localStorage.removeItem('public_selected_tournament_id');
         localStorage.removeItem('selected_tournament_id');
       }
       // Passer la session directement pour éviter la race condition avec getSession()

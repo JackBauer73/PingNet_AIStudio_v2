@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 export default function LiveScores() {
   const navigate = useNavigate();
-  const { tournament } = useTournament();
+  const { tournament } = useTournament({ forcePublic: true });
   const { matches, loading, refresh } = useMatches(tournament?.id);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTableFilter, setSelectedTableFilter] = useState<string>('all');

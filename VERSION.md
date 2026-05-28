@@ -3,9 +3,9 @@
 This document keeps track of all released versions and updates of Ping Manager, adhering strictly to **Semantic Versioning (SemVer)**: `MAJOR.MINOR.PATCH`.
 
 ## Configuration active
-- **Version actuelle :** `0.6.6`
-- **Statut :** Refactorisation de ProtectedRoute et renforcement de l'authentification multi-comptes
-- **Date :** 2026-05-27
+- **Version actuelle :** `0.6.7`
+- **Statut :** Scission de useTournament entre les modes Public et Organisateur
+- **Date :** 2026-05-28
 
 ---
 
@@ -18,14 +18,15 @@ This document keeps track of all released versions and updates of Ping Manager, 
 
 ## Historique des versions
 
-### v0.6.6 (2026-05-27) - *Version Actuelle*
-Refactorisation de la route protégée `ProtectedRoute.tsx` et correction définitive des redirections de session intempestives lors du processus d'authentification et de déconnexion multi-comptes.
+### v0.6.7 (2026-05-28) - *Version Actuelle*
+Scission de l'état `useTournament` pour distinguer le filtre de club de l'organisateur connecté et l'affichage exhaustif des tournois publics sur la Landing Page et autres vues publiques.
 
 #### Bug Fixes & Improvements
-- **Refactorisation de ProtectedRoute :** Utilisation de l'événement `INITIAL_SESSION` de `onAuthStateChange` comme unique source de vérité au chargement, évitant l'appel asynchrone concurrencial de `getSession()` qui causait une fausse redirection vers `/?login=true` après connexion.
-- **Robustesse de useTournament :** Consolidation des changements de session avec isolation des comptes et suppression locale des données du tournoi de l'ancienne session en prévision d'une nouvelle connexion.
+- **Scission de useTournament :** Introduction de l'option `forcePublic` pour contourner la session d'organisateur et lister l'ensemble des tournois du système sur la Landing Page publique.
+- **Ségrégation du Stockage Local :** Utilisation de clés autonomes `public_selected_tournament_id` et `organizer_selected_tournament_id` dans le localStorage pour éviter tout mélange d'indexation de tournois.
+- **Compatibilité des Pages Publiques :** Intégration du mode public forcé dans la page d'accueil (`Landing.tsx`) et la vue des scores en direct (`LiveScores.tsx`).
 
-### v0.6.5 (2026-05-27)
+### v0.6.6 (2026-05-27)
 Résolution de bugs d'authentification Supabase et de persistence liés au multi-comptes et à la navigation lors de la déconnexion.
 
 #### Bug Fixes & Improvements

@@ -39,6 +39,8 @@ export default function BottomNav() {
     // Naviguer d'abord pour sortir des routes protégées AVANT signOut(),
     // sinon ProtectedRoute.onAuthStateChange redirige vers /?login=true et
     // ouvre le modal de connexion, donnant l'impression de ne pas pouvoir se déconnecter.
+    localStorage.removeItem('organizer_selected_tournament_id');
+    localStorage.removeItem('public_selected_tournament_id');
     localStorage.removeItem('selected_tournament_id');
     navigate('/');
     await supabase.auth.signOut();
