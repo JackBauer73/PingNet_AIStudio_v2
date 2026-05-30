@@ -3,10 +3,12 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTournament } from '../../hooks/useTournament';
 import { usePlayers } from '../../hooks/usePlayers';
 import { supabase, isSupabaseConfigured } from '../../supabase';
-import { Trophy, Calendar, MapPin, Users, HeartHandshake, LogIn, ChevronRight, Sparkles, CheckCircle2, UserPlus, Info, Search, ArrowLeft, Loader2, Check, ArrowRight, Zap, Smartphone, Layers, Activity } from 'lucide-react';
+import { Trophy, Calendar, MapPin, Users, HeartHandshake, LogIn, ChevronRight, Sparkles, CheckCircle2, UserPlus, Info, Search, ArrowLeft, Loader2, Check, ArrowRight, Zap, Smartphone, Layers, Activity, Key, CheckCircle, Clock, UserCheck, Copy, Mail } from 'lucide-react';
 import { fetchPlayerByLicence } from '../../services/ffttApi';
+import { sendPlayerEmail } from '../../services/emailService';
 import Logo from '../../components/layout/Logo';
 import { motion } from 'motion/react';
+import { QRCodeSVG } from 'qrcode.react';
 import toast from 'react-hot-toast';
 import AuthModal from '../../components/auth/AuthModal';
 
@@ -24,7 +26,10 @@ export default function Landing() {
     serie: 'Série A',
     points: 500,
     licenceNumber: '',
+    email: '',
+    phone: '',
   });
+  const [selectedSeries, setSelectedSeries] = useState<string[]>([]);
   const [licenceInput, setLicenceInput] = useState('');
   const [searchingLicence, setSearchingLicence] = useState(false);
   const [ffttPlayer, setFfttPlayer] = useState<any | null>(null);
@@ -33,6 +38,12 @@ export default function Landing() {
   const [categories, setCategories] = useState<any[]>([]);
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [profileSearch, setProfileSearch] = useState('');
+
+  // States pour la recherche et pointage via Token
+  const [tokenInput, setTokenInput] = useState('');
+  const [tokenPlayerData, setTokenPlayerData] = useState<any | null>(null);
+  const [tokenRegsData, setTokenRegsData] = useState<any[]>([]);
+  const [tokenLoading, setTokenLoading] = useState(false);
 
   // States pour la fenêtre modale d'affichage de réussite/erreur de validation
   const [modalState, setModalState] = useState<{
@@ -47,6 +58,8 @@ export default function Landing() {
       playerPoints?: number;
       requiredRange?: string;
       reason?: string;
+      token?: string;
+      playerEmail?: string | null;
     };
   }>({
     isOpen: false,
@@ -64,6 +77,158 @@ export default function Landing() {
       navigate('/', { replace: true });
     }
   }, [location, navigate]);
+
+  const fetchPlayerByToken = async (tokenStr: string) => {
+    if (!tokenStr.trim()) return;
+    setTokenLoading(true);
+    try {
+      const { data: tokenRow, error: tError } = await supabase
+        .from('player_tokens')
+        .select('player_id, tournament_id')
+        .eq('token', tokenStr.trim())
+        .maybeSingle();
+
+      if (tError) throw tError;
+
+      if (!tokenRow) {
+        setTokenPlayerData(null);
+        setTokenRegsData([]);
+        toast.error("Aucun profil joueur associé à ce jeton (token).");
+        return;
+      }
+
+      const { data: playerData, error: pError } = await supabase
+        .from('players')
+        .select('*')
+        .eq('id', tokenRow.player_id)
+        .maybeSingle();
+
+      if (pError) throw pError;
+
+      if (!playerData) {
+        setTokenPlayerData(null);
+        setTokenRegsData([]);
+        toast.error("Données joueur introuvables.");
+        return;
+      }
+
+      setTokenPlayerData(playerData);
+
+      const { data: regs, error: rError } = await supabase
+        .from('registrations')
+        .select(`
+          id,
+          dossard,
+          checked_in,
+          paid,
+          status,
+          table_category_id,
+          table_categories (
+            id,
+            name,
+            day_number,
+            min_points,
+            max_points,
+            start_time
+          )
+        `)
+        .eq('player_id', playerData.id)
+        .eq('tournament_id', tokenRow.tournament_id);
+
+      if (rError) throw rError;
+      setTokenRegsData(regs || []);
+      toast.success(`👤 Profil chargé : ${playerData.first_name} ${playerData.last_name}`);
+
+      // Auto check-in si pointage=1 est présent dans l'URL (provenance scannée du QR Code)
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('pointage') === '1' && regs && regs.length > 0) {
+        const uncheckedRegs = regs.filter(r => !r.checked_in);
+        if (uncheckedRegs.length > 0) {
+          const regIds = uncheckedRegs.map(r => r.id);
+          const { error: updateError } = await supabase
+            .from('registrations')
+            .update({
+              checked_in: true,
+              status: 'validated'
+            })
+            .in('id', regIds);
+
+          if (updateError) throw updateError;
+          
+          toast.success("✨ Présence validée avec succès par QR Code ! ✓", { duration: 5000 });
+          
+          // Recharger les inscriptions mises à jour
+          const { data: updatedRegs } = await supabase
+            .from('registrations')
+            .select(`
+              id,
+              dossard,
+              checked_in,
+              paid,
+              status,
+              table_category_id,
+              table_categories (
+                id,
+                name,
+                day_number,
+                min_points,
+                max_points,
+                start_time
+              )
+            `)
+            .eq('player_id', playerData.id)
+            .eq('tournament_id', tokenRow.tournament_id);
+          
+          setTokenRegsData(updatedRegs || []);
+          refresh();
+        } else {
+          toast.success("✓ Votre présence est déjà validée pour ce tournoi !");
+        }
+        // Nettoyage de l'URL pour ne garder que le jeton
+        navigate(`/?token=${tokenStr.trim()}`, { replace: true });
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Erreur lors du chargement des données.");
+    } finally {
+      setTokenLoading(false);
+    }
+  };
+
+  const handleTokenSelfCheckin = async () => {
+    if (!tokenPlayerData || tokenRegsData.length === 0) return;
+    setTokenLoading(true);
+    try {
+      const regIds = tokenRegsData.map(r => r.id);
+      const { error } = await supabase
+        .from('registrations')
+        .update({
+          checked_in: true,
+          status: 'validated'
+        })
+        .in('id', regIds);
+
+      if (error) throw error;
+      
+      toast.success("Votre présence a été validée avec succès ! ✓");
+      await fetchPlayerByToken(tokenInput);
+      refresh();
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Erreur lors de la validation autonome.");
+    } finally {
+      setTokenLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const urlToken = params.get('token');
+    if (urlToken) {
+      setTokenInput(urlToken);
+      fetchPlayerByToken(urlToken);
+    }
+  }, [location]);
 
   const handleOrganizerClick = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -89,14 +254,15 @@ export default function Landing() {
         const points = data.classement || 500;
         // Trouver la catégorie qui correspond au classement du licencié
         const matched = categories.find(c => points >= (c.min_points ?? 500) && points <= (c.max_points ?? 3000));
-        setFormData({
+        setFormData(prev => ({
+          ...prev,
           lastName: data.nom || '',
           firstName: data.prenom || '',
           club: data.club || '',
           serie: matched ? matched.name : (categories[0]?.name || 'Série A'),
           points: points,
           licenceNumber: data.licence || licenceInput.trim(),
-        });
+        }));
         toast.success(`👤 Profil FFTT importé : ${data.prenom} ${data.nom}`);
       }
     } catch (err: any) {
@@ -154,31 +320,33 @@ export default function Landing() {
       return;
     }
 
+    if (!formData.email?.trim() || !formData.phone?.trim()) {
+      toast.error('Veuillez renseigner votre email et numéro de téléphone portable.');
+      return;
+    }
+
+    if (selectedSeries.length === 0) {
+      toast.error('Veuillez cocher au moins un tableau pour valider votre inscription.');
+      return;
+    }
+
     // Récupération des points (selon saisie manuelle ou import FFTT)
     const playerPoints = manualEntry 
       ? Number(formData.points || 500) 
       : (ffttPlayer?.classement || 500);
 
-    const selectedCat = categories.find(c => c.name === formData.serie);
+    const selectedCats = categories.filter(c => selectedSeries.includes(c.name));
+    const maxPerDay = Number((tournament as any).max_categories_per_day) || 3;
+    const sameDayCounts: Record<string, number> = {};
 
-    if (selectedCat && selectedCat.is_closed) {
-      setModalState({
-        isOpen: true,
-        type: 'error',
-        title: 'Tableau Clôturé 🔒',
-        message: `Les inscriptions pour le tableau "${selectedCat.name}" sont désormais clôturées par l'organisateur. Il n'est plus possible de s'y inscrire.`,
-        details: {
-          playerName: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
-          licence: !manualEntry ? licenceInput : 'Saisie manuelle',
-          categoryName: selectedCat.name,
-          reason: `Ce tableau est clôturé (pointage clos et poules en cours).`
-        }
-      });
-      return;
-    }
+    // Validation préalable de chaque tableau sélectionné
+    for (const selectedCat of selectedCats) {
+      if (selectedCat.is_closed) {
+        toast.error(`Le tableau "${selectedCat.name}" est clos.`);
+        return;
+      }
 
-    // ── VALIDATION DES DATES D'INSCRIPTION DE LA JOURNÉE ──
-    if (selectedCat && tournament) {
+      // Validation temporelle d'inscription par journée
       const payMethods: any = tournament.payment_methods || {};
       const regPeriods = payMethods.registration_periods || {};
       const dayPeriod = regPeriods[selectedCat.day_number?.toString() || '1'];
@@ -189,164 +357,35 @@ export default function Landing() {
         
         if (now < start) {
           const formattedStart = start.toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
-          setModalState({
-            isOpen: true,
-            type: 'error',
-            title: 'Inscriptions non ouvertes ⏳',
-            message: `Les inscriptions pour la Journée ${selectedCat.day_number} n'ouvriront que le ${formattedStart}.`,
-            details: {
-              playerName: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
-              licence: !manualEntry ? licenceInput : 'Saisie manuelle',
-              categoryName: selectedCat.name,
-              reason: `Date d'ouverture des inscriptions : ${formattedStart}`
-            }
-          });
+          toast.error(`Les inscriptions pour la Journée ${selectedCat.day_number} n'ouvriront que le ${formattedStart}.`);
           return;
         }
         
         if (now > end) {
           const formattedEnd = end.toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
-          setModalState({
-            isOpen: true,
-            type: 'error',
-            title: 'Inscriptions clôturées 🔒',
-            message: `Les inscriptions pour la Journée ${selectedCat.day_number} se sont terminées le ${formattedEnd}.`,
-            details: {
-              playerName: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
-              licence: !manualEntry ? licenceInput : 'Saisie manuelle',
-              categoryName: selectedCat.name,
-              reason: `Date limite de clôture : ${formattedEnd}`
-            }
-          });
+          toast.error(`Les inscriptions pour la Journée ${selectedCat.day_number} se sont terminées le ${formattedEnd}.`);
           return;
         }
       }
-    }
 
-    // ── VALIDATION DE LA LIMITE DE TABLEAUX PAR JOURNÉE ──
-    if (selectedCat && tournament) {
-      try {
-        const tournamentDataRaw: any = tournament;
-        const maxPerDay = Number(tournamentDataRaw.max_categories_per_day) || 3;
-        
-        if (maxPerDay < 100) { // Sauf si illimité
-          // Récupérer les inscriptions du joueur pour ce tournoi
-          const { data: existingRegs, error: fetchErr } = await supabase
-            .from('registrations')
-            .select(`
-              table_categories ( name ),
-              players ( first_name, last_name )
-            `)
-            .eq('tournament_id', tournament.id);
-
-          if (!fetchErr && existingRegs && existingRegs.length > 0) {
-            const mappedRegs = existingRegs
-              .filter((r: any) => {
-                const p = Array.isArray(r.players) ? r.players[0] : r.players;
-                return p && 
-                  p.first_name.toLowerCase() === formData.firstName.trim().toLowerCase() && 
-                  p.last_name.toLowerCase() === formData.lastName.trim().toLowerCase();
-              })
-              .map((r: any) => {
-                const c = Array.isArray(r.table_categories) ? r.table_categories[0] : r.table_categories;
-                return {
-                  serie: c?.name || ''
-                };
-              });
-
-            // Vérifier si déjà inscrit à ce tableau précisément
-            const isAlreadyRegistered = mappedRegs.some(reg => reg.serie === selectedCat.name);
-            if (isAlreadyRegistered) {
-              setModalState({
-                isOpen: true,
-                type: 'error',
-                title: 'Déjà inscrit(e) ❌',
-                message: `Vous êtes déjà inscrit(e) au tableau "${selectedCat.name}".`,
-                details: {
-                  playerName: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
-                  licence: !manualEntry ? licenceInput : 'Saisie manuelle',
-                  categoryName: selectedCat.name,
-                  reason: `Votre inscription pour ce tableau est déjà validée ou en attente d'approbation.`
-                }
-              });
-              return;
-            }
-
-            const sameDayRegs = mappedRegs.filter(reg => {
-              const cat = categories.find(c => c.name === reg.serie);
-              return cat && Number(cat.day_number) === Number(selectedCat.day_number);
-            });
-
-            if (sameDayRegs.length >= maxPerDay) {
-              setModalState({
-                isOpen: true,
-                type: 'error',
-                title: 'Limite d’inscriptions atteinte ❌',
-                message: `L'organisateur de l'événement limite les inscriptions à un maximum de ${maxPerDay} tableau(x) par joueur et par journée de compétition.`,
-                details: {
-                  playerName: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
-                  licence: !manualEntry ? licenceInput : 'Saisie manuelle',
-                  categoryName: selectedCat.name,
-                  reason: `Vous êtes déjà inscrit(e) aux tableaux suivants pour la Journée ${selectedCat.day_number} : ${sameDayRegs.map(r => r.serie).join(', ')}.`
-                }
-              });
-              return;
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Erreur lors de la validation des limites par journée:', err);
-      }
-    }
-
-    // ── VALIDATION DES LIMITES DE POINTS DU TABLEAU ──
-    if (selectedCat) {
+      // Validation des limites de points
       const minP = selectedCat.min_points ?? 500;
       const maxP = selectedCat.max_points ?? 3000;
-
       if (playerPoints < minP || playerPoints > maxP) {
-        // Validation échouée : Affichage de la fenêtre modale d'erreur explicite
-        setModalState({
-          isOpen: true,
-          type: 'error',
-          title: 'Inscription Refusée ❌',
-          message: `Votre classement FFTT (${playerPoints} pts) ne vous permet pas de vous inscrire dans le tableau "${selectedCat.name}".`,
-          details: {
-            playerName: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
-            licence: !manualEntry ? licenceInput : 'Saisie manuelle',
-            categoryName: selectedCat.name,
-            playerPoints: playerPoints,
-            requiredRange: `${minP} à ${maxP} pts`,
-            reason: playerPoints > maxP 
-              ? `Votre classement (${playerPoints} pts) dépasse la limite autorisée de ce tableau (maximum ${maxP} pts).`
-              : `Votre classement (${playerPoints} pts) est inférieur au minimum requis pour ce tableau (minimum ${minP} pts).`
-          }
-        });
+        toast.error(`Classement insuffisant : vos points (${playerPoints} pts) ne vous permettent pas d'accéder au tableau "${selectedCat.name}" (requis: ${minP} à ${maxP} pts).`);
         return;
       }
 
-      // ── VALIDATION DU GENRE (Optionnel / Si configuré) ──
+      // Validation du genre (Optionnel)
       if (selectedCat.gender_restriction && selectedCat.gender_restriction !== 'ALL') {
-        const playerGender = ffttPlayer?.sexe; // 'M' ou 'F'
-        if (playerGender && playerGender !== selectedCat.gender_restriction) {
-          const requiredLabel = selectedCat.gender_restriction === 'F' ? 'Féminin 🚺' : 'Masculin 🚹';
-          setModalState({
-            isOpen: true,
-            type: 'error',
-            title: 'Restriction de Genre ❌',
-            message: `Ce tableau est exclusivement réservé aux compétiteurs de genre ${requiredLabel}.`,
-            details: {
-              playerName: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
-              licence: !manualEntry ? licenceInput : 'Saisie manuelle',
-              categoryName: selectedCat.name,
-              reason: `Votre fiche FFTT indique le genre "${playerGender === 'F' ? 'Féminin' : 'Masculin'}", mais ce tableau requiert le genre "${selectedCat.gender_restriction === 'F' ? 'Féminin' : 'Masculin'}".`
-            }
-          });
+        const playerGender = ffttPlayer?.sexe || 'M';
+        if (playerGender !== selectedCat.gender_restriction) {
+          toast.error(`Le tableau "${selectedCat.name}" est exclusivement réservé au sexe : ${selectedCat.gender_restriction === 'F' ? 'Féminin' : 'Masculin'}.`);
           return;
         }
       }
 
-      // ── VALIDATION DE LA CATÉGORIE D'ÂGE (Optionnel / Si configuré) ──
+      // Validation de la catégorie d'âge (Optionnel)
       if (selectedCat.age_categories && 
           selectedCat.age_categories !== 'Toutes catégories' && 
           selectedCat.age_categories.toLowerCase() !== 'toutes' && 
@@ -360,60 +399,102 @@ export default function Landing() {
         });
         
         if (!isEligible) {
-          setModalState({
-            isOpen: true,
-            type: 'error',
-            title: 'Restriction d’Âge ❌',
-            message: `Ce tableau est réservé aux catégories d'âge : ${selectedCat.age_categories}.`,
-            details: {
-              playerName: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
-              licence: !manualEntry ? licenceInput : 'Saisie manuelle',
-              categoryName: selectedCat.name,
-              reason: `Votre fiche FFTT indique la catégorie d'âge "${ffttPlayer.categorie}", mais ce tableau requiert : "${selectedCat.age_categories}".`
-            }
-          });
+          toast.error(`Restriction d'âge : le tableau "${selectedCat.name}" requiert la catégorie d'âge "${selectedCat.age_categories}".`);
           return;
         }
+      }
+
+      // Validation cumulée par journée
+      const dayNumStr = selectedCat.day_number.toString();
+      sameDayCounts[dayNumStr] = (sameDayCounts[dayNumStr] || 0) + 1;
+
+      // On compte également les inscriptions déjà enregistrées en base
+      const alreadyRegCount = players.filter(p => {
+        const isSelf = (p.licence_number && formData.licenceNumber && p.licence_number.trim() === formData.licenceNumber.trim()) ||
+          (p.first_name.toLowerCase() === formData.firstName.trim().toLowerCase() && p.last_name.toLowerCase() === formData.lastName.trim().toLowerCase());
+        if (!isSelf) return false;
+        const cObj = categories.find(cat => cat.name === p.serie);
+        return cObj && Number(cObj.day_number) === Number(selectedCat.day_number);
+      }).length;
+
+      if ((sameDayCounts[dayNumStr] + alreadyRegCount) > maxPerDay) {
+        toast.error(`Limite de tableaux dépassée : Vous ne pouvez pas cumuler plus de ${maxPerDay} tableau(x) pour la Journée ${selectedCat.day_number}. (Actuel : ${alreadyRegCount} inscrit, ${sameDayCounts[dayNumStr]} sélectionné(s))`);
+        return;
       }
     }
 
     setSubmitting(true);
-    const toastId = toast.loading('Inscription en cours...');
+    const toastId = toast.loading('Validation des inscriptions...');
     try {
-      const result = await addPlayer({
-        tournament_id: tournament.id,
-        first_name: formData.firstName.trim(),
-        last_name: formData.lastName.trim(),
-        phone: null,
-        club: formData.club.trim() || null,
-        serie: formData.serie,
-        checked_in: null, // Inscriptions publiques : initialement inscrites (non pointées)
-        licence_number: formData.licenceNumber ? formData.licenceNumber.trim() : null,
-        points: manualEntry 
-          ? Number(formData.points || 500) 
-          : (ffttPlayer?.classement || ffttPlayer?.initial || ffttPlayer?.mensuel || 500),
-      });
-      
-      if (!result) {
-        // Doublon détecté (géré par usePlayers qui renvoie null)
+      let firstRegPlayer: any = null;
+      let countSuccess = 0;
+
+      for (const serieName of selectedSeries) {
+        const result = await addPlayer({
+          tournament_id: tournament.id,
+          first_name: formData.firstName.trim(),
+          last_name: formData.lastName.trim(),
+          phone: formData.phone.trim() || null,
+          email: formData.email.trim() || null,
+          club: formData.club.trim() || null,
+          serie: serieName,
+          checked_in: null, // Initialement inscrit non pointé
+          licence_number: formData.licenceNumber ? formData.licenceNumber.trim() : null,
+          points: playerPoints,
+        });
+
+        if (result) {
+          countSuccess++;
+          if (!firstRegPlayer) firstRegPlayer = result;
+        }
+      }
+
+      if (countSuccess === 0) {
         setSubmitting(false);
         toast.dismiss(toastId);
         return;
       }
 
-      toast.success('🎉 Inscription validée !', { id: toastId });
+      const playerToken = firstRegPlayer?.token || 'Jeton-Généré';
+
+      toast.success(`🎉 Inscription validée dans ${countSuccess} tableau(x) !`, { id: toastId });
       
-      // Affichage de la fenêtre modale de réussite
+      // Déclenchement automatique de l'e-mail de confirmation si renseigné
+      if (formData.email.trim() && firstRegPlayer) {
+        const directUrl = `${window.location.origin}/?token=${playerToken}`;
+        sendPlayerEmail({
+          playerId: firstRegPlayer.player_id || '',
+          firstName: formData.firstName.trim(),
+          lastName: formData.lastName.trim(),
+          email: formData.email.trim(),
+          token: playerToken,
+          tournamentName: tournament?.name || 'Tournoi de Tennis de Table',
+          directUrl: directUrl
+        }).then((res) => {
+          if (res.success) {
+            toast.success('✉️ E-mail de confirmation envoyé automatiquement !');
+          } else {
+            console.warn("L'e-mail automatique n'a pas pu être envoyé:", res.error || res.reason);
+          }
+        }).catch((err) => {
+          console.error("Erreur lors de l'envoi de l'e-mail automatique:", err);
+        });
+      }
+
+      // Affichage de la fenêtre modale de réussite avec le TOKEN secret du joueur
       setModalState({
         isOpen: true,
         type: 'success',
-        title: 'Inscription Validée ! 🎉',
-        message: `Félicitations ! Votre inscription au tableau "${formData.serie}" a été enregistrée avec succès. Nous avons hâte de vous voir sur l'aire de jeu !`,
+        title: 'Inscriptions Validées ! 🎉',
+        message: `Félicitations ! Vos inscriptions aux ${countSuccess} tableau(x) de compétition ont été confirmées. Votre jeton joueur unique pour tester le pointage et suivre vos matchs a été créé d'office.`,
         details: {
           playerName: `${formData.firstName.trim()} ${formData.lastName.trim()}`,
           licence: formData.licenceNumber || (!manualEntry ? licenceInput : 'Saisie manuelle'),
-          categoryName: formData.serie,
-          playerPoints: playerPoints
+          categoryName: selectedSeries.join(', '),
+          playerPoints: playerPoints,
+          reason: `Secret Jeton (Token) : ${playerToken}`,
+          token: playerToken,
+          playerEmail: formData.email.trim() || null
         }
       });
 
@@ -425,13 +506,16 @@ export default function Landing() {
         serie: categories[0]?.name || 'Série A', 
         points: 500,
         licenceNumber: '',
+        email: '',
+        phone: '',
       });
+      setSelectedSeries([]);
       setLicenceInput('');
       setFfttPlayer(null);
       refresh();
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || "Erreur lors de l'inscription", { id: toastId });
+      toast.error(err.message || "Erreur technique lors de l'inscription", { id: toastId });
       setModalState({
         isOpen: true,
         type: 'error',
@@ -1276,33 +1360,79 @@ export default function Landing() {
                         </div>
                       </div>
 
-                      <div>
+                      <div className="space-y-2">
                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
-                          Tableau / Série d’éligibilité attribuée d'office
+                          Sélectionnez vos Tableaux (Inscriptions Multiples possibles)
                         </label>
-                        <select
-                          className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-semibold text-sm text-slate-800"
-                          value={formData.serie}
-                          onChange={e => setFormData({ ...formData, serie: e.target.value })}
-                        >
+                        <div className="bg-slate-50 border border-slate-100 p-3 rounded-2xl space-y-2 max-h-[220px] overflow-y-auto">
                           {categories.length > 0 ? (
-                            categories.map((cat, idx) => (
-                              <option key={idx} value={cat.name} disabled={cat.is_closed}>
-                                {cat.name} ({cat.min_points} - {cat.max_points} pts) - {cat.price}€ {cat.is_closed ? '🔒 [CLÔTURÉ]' : ''}
-                              </option>
-                            ))
+                            categories.map((cat, idx) => {
+                              const isEligible = (ffttPlayer?.classement || 500) >= (cat.min_points ?? 500) && (ffttPlayer?.classement || 500) <= (cat.max_points ?? 3000);
+                              const isChecked = selectedSeries.includes(cat.name);
+                              return (
+                                <label key={idx} className={`flex items-start gap-3 p-2.5 rounded-xl border transition-all cursor-pointer ${
+                                  !isEligible ? 'opacity-40 cursor-not-allowed bg-slate-100 border-transparent' :
+                                  cat.is_closed ? 'opacity-40 cursor-not-allowed bg-red-55/30 border-red-100' :
+                                  isChecked ? 'bg-indigo-50/50 border-indigo-200 shadow-sm' : 'bg-white border-slate-200 hover:bg-slate-100/50'
+                                }`}>
+                                  <input
+                                    type="checkbox"
+                                    disabled={!isEligible || cat.is_closed}
+                                    checked={isChecked}
+                                    onChange={() => {
+                                      if (isChecked) {
+                                        setSelectedSeries(selectedSeries.filter(s => s !== cat.name));
+                                      } else {
+                                        setSelectedSeries([...selectedSeries, cat.name]);
+                                      }
+                                    }}
+                                    className="mt-1 h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-350 cursor-pointer"
+                                  />
+                                  <div className="font-sans text-xs">
+                                    <p className="font-bold text-slate-900">{cat.name}</p>
+                                    <p className="text-[10px] text-slate-500 mt-0.5">
+                                      Journée {cat.day_number} • {cat.min_points} à {cat.max_points} pts • {cat.price}€
+                                      {cat.is_closed ? ' 🔒 (Tableau clos)' : ''}
+                                      {!isEligible ? ' ⚠️ (Classement incomaptible)' : ''}
+                                    </p>
+                                  </div>
+                                </label>
+                              );
+                            })
                           ) : (
-                            <>
-                              <option value="Série A">Série A (Toutes catégories)</option>
-                              <option value="Série B">Série B (-1300 pts)</option>
-                              <option value="Série C">Série C (-900 pts)</option>
-                              <option value="Jeunes">Cadets / Minimes</option>
-                            </>
+                            <p className="text-xs text-slate-400">Aucun tableau disponible.</p>
                           )}
-                        </select>
+                        </div>
                       </div>
 
-
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                            Email de Contact
+                          </label>
+                          <input
+                            type="email"
+                            required
+                            placeholder="Ex: joueur@gmail.com"
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 hover:bg-slate-100/50 focus:bg-white rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-semibold text-sm transition-all text-slate-800"
+                            value={formData.email || ''}
+                            onChange={e => setFormData({ ...formData, email: e.target.value })}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                            Téléphone Portable
+                          </label>
+                          <input
+                            type="tel"
+                            required
+                            placeholder="Ex: 0612345678"
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 hover:bg-slate-100/50 focus:bg-white rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-semibold text-sm transition-all text-slate-800"
+                            value={formData.phone || ''}
+                            onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                          />
+                        </div>
+                      </div>
 
                       <div className="flex gap-2 pt-2">
                         <button
@@ -1310,6 +1440,7 @@ export default function Landing() {
                           onClick={() => {
                             setFfttPlayer(null);
                             setLicenceInput('');
+                            setSelectedSeries([]);
                           }}
                           className="px-4 py-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 font-bold rounded-xl transition-all text-xs flex items-center gap-1.5"
                           title="Saisir un autre numéro"
@@ -1320,9 +1451,9 @@ export default function Landing() {
                         <button
                           type="submit"
                           disabled={submitting}
-                          className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold rounded-xl shadow-lg shadow-indigo-100 active:scale-[0.98] transition-all text-sm flex items-center justify-center gap-1.5"
+                          className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-extrabold rounded-xl shadow-lg shadow-indigo-100 active:scale-[0.98] transition-all text-sm flex items-center justify-center gap-1.5 cursor-pointer"
                         >
-                          {submitting ? 'Validation...' : 'Confirmer mon inscription 🎯'}
+                          {submitting ? 'Validation...' : 'Confirmer mes inscriptions 🎯'}
                         </button>
                       </div>
                     </form>
@@ -1385,34 +1516,87 @@ export default function Landing() {
                       />
                     </div>
 
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Série / Catégorie d’éligibilité</label>
-                      <select
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-semibold text-sm text-slate-800"
-                        value={formData.serie}
-                        onChange={e => setFormData({ ...formData, serie: e.target.value })}
-                      >
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                          Email de Contact
+                        </label>
+                        <input
+                          type="email"
+                          required
+                          placeholder="Ex: joueur@gmail.com"
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-100 hover:bg-slate-100/50 focus:bg-white rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-semibold text-sm transition-all text-slate-800"
+                          value={formData.email || ''}
+                          onChange={e => setFormData({ ...formData, email: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                          Téléphone Portable
+                        </label>
+                        <input
+                          type="tel"
+                          required
+                          placeholder="Ex: 0612345678"
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-100 hover:bg-slate-100/50 focus:bg-white rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 font-semibold text-sm transition-all text-slate-800"
+                          value={formData.phone || ''}
+                          onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                        Sélectionnez vos Tableaux (Inscriptions Multiples)
+                      </label>
+                      <div className="bg-slate-50 border border-slate-100 p-3 rounded-2xl space-y-2 max-h-[220px] overflow-y-auto">
                         {categories.length > 0 ? (
-                          categories.map((cat, idx) => (
-                            <option key={idx} value={cat.name} disabled={cat.is_closed}>
-                              {cat.name} ({cat.min_points} - {cat.max_points} pts) - {cat.price}€ {cat.is_closed ? '🔒 [CLÔTURÉ]' : ''}
-                            </option>
-                          ))
+                          categories.map((cat, idx) => {
+                            const isEligible = formData.points >= (cat.min_points ?? 500) && formData.points <= (cat.max_points ?? 3000);
+                            const isChecked = selectedSeries.includes(cat.name);
+                            return (
+                              <label key={idx} className={`flex items-start gap-3 p-2.5 rounded-xl border transition-all cursor-pointer ${
+                                !isEligible ? 'opacity-40 cursor-not-allowed bg-slate-100 border-transparent' :
+                                cat.is_closed ? 'opacity-40 cursor-not-allowed bg-red-55/30 border-red-100' :
+                                isChecked ? 'bg-indigo-50/50 border-indigo-200 shadow-sm' : 'bg-white border-slate-200 hover:bg-slate-100/50'
+                              }`}>
+                                <input
+                                  type="checkbox"
+                                  disabled={!isEligible || cat.is_closed}
+                                  checked={isChecked}
+                                  onChange={() => {
+                                    if (isChecked) {
+                                      setSelectedSeries(selectedSeries.filter(s => s !== cat.name));
+                                    } else {
+                                      setSelectedSeries([...selectedSeries, cat.name]);
+                                    }
+                                  }}
+                                  className="mt-1 h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-350 cursor-pointer"
+                                />
+                                <div className="font-sans text-xs">
+                                  <p className="font-bold text-slate-900">{cat.name}</p>
+                                  <p className="text-[10px] text-slate-500 mt-0.5">
+                                    Journée {cat.day_number} • {cat.min_points} à {cat.max_points} pts • {cat.price}€
+                                    {cat.is_closed ? ' 🔒 (Tableau clos)' : ''}
+                                    {!isEligible ? ' ⚠️ (Classement incompatible)' : ''}
+                                  </p>
+                                </div>
+                              </label>
+                            );
+                          })
                         ) : (
-                          <>
-                            <option value="Série A">Série A (Toutes catégories)</option>
-                            <option value="Série B">Série B (-1300 pts)</option>
-                            <option value="Série C">Série C (-900 pts)</option>
-                            <option value="Jeunes">Cadets / Minimes</option>
-                          </>
+                          <p className="text-xs text-slate-400">Aucun tableau disponible.</p>
                         )}
-                      </select>
+                      </div>
                     </div>
 
                     <div className="flex gap-2 pt-2">
                       <button
                         type="button"
-                        onClick={() => setManualEntry(false)}
+                        onClick={() => {
+                          setManualEntry(false);
+                          setSelectedSeries([]);
+                        }}
                         className="px-4 py-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 font-bold rounded-xl transition-all text-xs flex items-center gap-1.5"
                       >
                         <ArrowLeft className="w-4 h-4" />
@@ -1421,9 +1605,9 @@ export default function Landing() {
                       <button
                         type="submit"
                         disabled={submitting}
-                        className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold rounded-xl shadow-lg shadow-indigo-100 active:scale-[0.98] transition-all text-sm flex items-center justify-center"
+                        className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold rounded-xl shadow-lg shadow-indigo-100 active:scale-[0.98] transition-all text-sm flex items-center justify-center cursor-pointer"
                       >
-                        {submitting ? 'Validation...' : 'Valider mon inscription 🏓'}
+                        {submitting ? 'Validation...' : 'Valider mes inscriptions 🏓'}
                       </button>
                     </div>
                   </form>
@@ -1460,6 +1644,113 @@ export default function Landing() {
               </div>
             )}
           </motion.div>
+
+          {/* ESPACE POINTAGE ET TEST DU TOKEN JOUEUR (Nouveauté v0.5.1) */}
+          <div className="bg-white p-7 rounded-[2rem] border border-slate-150 shadow-xl mt-6">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 bg-[#f97316]/10 rounded-xl flex items-center justify-center text-[#f97316]">
+                <Key className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-base text-slate-900">🔑 Mon Jeton Joueur (Token)</h3>
+                <p className="text-slate-400 text-xs">Testez votre pointage ou validez votre présence</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Saisissez ou collez votre token joueur"
+                  className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 focus:bg-white rounded-xl outline-none focus:ring-2 focus:ring-[#f97316] font-mono text-xs text-slate-800 transition-all font-semibold"
+                  value={tokenInput}
+                  onChange={e => setTokenInput(e.target.value)}
+                />
+                <button
+                  onClick={() => fetchPlayerByToken(tokenInput)}
+                  disabled={tokenLoading || !tokenInput.trim()}
+                  className="px-4 py-2.5 bg-[#f97316] hover:bg-[#e26210] disabled:opacity-40 text-white font-bold rounded-xl text-xs transition-all flex items-center gap-1 cursor-pointer"
+                >
+                  {tokenLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Search className="w-3.5 h-3.5"/>}
+                  Rechercher
+                </button>
+              </div>
+
+              {tokenPlayerData && (
+                <div className="bg-slate-50 border border-slate-150 p-4 rounded-xl space-y-3 font-sans text-left">
+                  <div className="flex justify-between items-start border-b border-slate-200 pb-2">
+                    <div>
+                      <p className="text-sm font-black text-slate-900">
+                        {tokenPlayerData.first_name} {tokenPlayerData.last_name}
+                      </p>
+                      <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">{tokenPlayerData.club || "Club Libre"}</p>
+                    </div>
+                    <span className="text-xs font-black text-[#f97316] bg-[#f97316]/10 px-2 py-0.5 rounded-full">
+                      {tokenPlayerData.points || 500} pts
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Inscriptions & Pointage</p>
+                    {tokenRegsData.length === 0 ? (
+                      <p className="text-xs text-slate-400 italic">Aucun tableau actif.</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {tokenRegsData.map((reg, idx) => {
+                          const cat = reg.table_categories;
+                          return (
+                            <div key={idx} className="flex justify-between items-center text-xs bg-white border border-slate-100 p-2 rounded-lg">
+                              <div>
+                                <span className="font-bold text-slate-800">{cat?.name || reg.table_category_id}</span>
+                                <span className="text-[9px] text-slate-400 block">Journée {cat?.day_number} • Dossard: {reg.dossard || 'En cours'}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                {reg.checked_in ? (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                                    <CheckCircle className="w-3 h-3" /> Présent
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                                    <Clock className="w-3 h-3" /> Absent
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="border-t border-slate-200/60 pt-3 mt-3 flex flex-col items-center">
+                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest self-start mb-2">Mon QR Code de Pointage</p>
+                    <div className="bg-white p-2.5 rounded-xl border border-slate-100 flex flex-col items-center justify-center">
+                      <QRCodeSVG
+                        value={`${window.location.origin}/?token=${tokenInput}&pointage=1`}
+                        size={120}
+                        level="H"
+                        includeMargin={true}
+                        className="rounded-lg shadow-sm"
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-400 text-center mt-2 leading-relaxed font-medium">
+                      📲 Présentez ce QR Code à l'accueil pour valider directement votre présence à votre arrivée au gymnase.
+                    </p>
+                  </div>
+
+                  {tokenRegsData.some(r => !r.checked_in) && (
+                    <button
+                      onClick={handleTokenSelfCheckin}
+                      className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl transition-all text-xs flex items-center justify-center gap-1 cursor-pointer mt-2"
+                    >
+                      <UserCheck className="w-3.5 h-3.5" />
+                      Confirmer mon Pointage / Présence ✓
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </section>
       </div>
@@ -1515,7 +1806,7 @@ export default function Landing() {
           <p className="text-xs">© 2026 Ping Manager. Conçu pour simplifier l'arbitrage et le suivi des tournois.</p>
           <div className="flex gap-6 text-xs font-bold">
             <span className="text-white hover:text-[#f97316] cursor-pointer">Français</span>
-            <span className="text-slate-400">v0.6.7</span>
+            <span className="text-slate-400">v0.7.4</span>
           </div>
         </div>
       </footer>
@@ -1524,10 +1815,10 @@ export default function Landing() {
       {modalState.isOpen && (
         <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div 
-            className="bg-white rounded-[2rem] border border-slate-100 shadow-2xl max-w-lg w-full overflow-hidden p-8 relative transform transition-all animate-in fade-in zoom-in-95 duration-250"
+            className="bg-white rounded-3xl border border-slate-100 shadow-xl max-w-md w-full overflow-hidden p-5 sm:p-6 relative transform transition-all animate-in fade-in zoom-in-95 duration-200"
             id="validation-result-modal"
           >
-            <div className="text-center space-y-4">
+            <div className="text-center space-y-2.5">
               {modalState.type === 'success' ? (
                 <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
                   <CheckCircle2 className="w-10 h-10" />
@@ -1538,16 +1829,16 @@ export default function Landing() {
                 </div>
               )}
 
-              <h3 className="text-2xl font-black text-slate-900 tracking-tight">
+              <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">
                 {modalState.title}
               </h3>
               
-              <p className="text-sm font-semibold text-slate-500 leading-relaxed px-2">
+              <p className="text-xs font-semibold text-slate-500 leading-relaxed px-1">
                 {modalState.message}
               </p>
 
               {modalState.details && (
-                <div className="bg-slate-50 border border-slate-100/80 rounded-2xl p-5 text-left space-y-3 mt-6">
+                <div className="bg-slate-50 border border-slate-100/80 rounded-2xl p-4 text-left space-y-2.5 mt-4 text-xs">
                   <div className="grid grid-cols-2 gap-y-3 text-xs">
                     <div>
                       <span className="block font-bold text-slate-400 uppercase tracking-widest text-[9px] mb-0.5">Joueur</span>
@@ -1573,25 +1864,74 @@ export default function Landing() {
                         <span className="font-extrabold text-slate-700 text-sm">{modalState.details.requiredRange}</span>
                       </div>
                     )}
+                    {modalState.details.playerEmail && (
+                      <div className="col-span-2 border-t border-slate-200/50 pt-3">
+                        <span className="block font-bold text-slate-400 uppercase tracking-widest text-[9px] mb-0.5">Contact E-mail</span>
+                        <span className="font-extrabold text-slate-800 text-sm select-all">{modalState.details.playerEmail}</span>
+                      </div>
+                    )}
                   </div>
 
-                  {modalState.details.reason && (
-                    <div className="bg-rose-50/70 border border-rose-100/60 p-3.5 rounded-xl text-rose-700 text-xs font-semibold leading-relaxed mt-2.5">
-                      ⚠️ {modalState.details.reason}
+                  {modalState.details.token ? (
+                    <div className="mt-4 space-y-3 pt-3 border-t border-slate-200/50 flex flex-col items-center">
+                      <div className="bg-white p-3.5 rounded-2xl border border-slate-100 flex flex-col items-center justify-center shadow-inner">
+                        <QRCodeSVG
+                          value={`${window.location.origin}/?token=${modalState.details.token}&pointage=1`}
+                          size={150}
+                          level="H"
+                          includeMargin={true}
+                          className="rounded-lg"
+                        />
+                        <span className="text-[10px] font-black tracking-widest text-indigo-700 uppercase mt-2.5">
+                          QR CODE DE POINTAGE
+                        </span>
+                      </div>
+                      
+                      <div className="text-center bg-indigo-50/50 border border-indigo-100/60 p-3 rounded-xl text-[11px] text-slate-600 font-semibold leading-relaxed">
+                        📸 Prenez une capture d’écran de ce <strong>QR Code</strong> et présentez-le à l’accueil à votre arrivée au gymnase pour valider directement votre présence.
+                      </div>
+
+                      <div className="space-y-1 w-full text-left">
+                        <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                          Votre Jeton Joueur (Secret)
+                        </label>
+                        <div className="flex gap-2">
+                          <code className="flex-1 font-mono text-[11px] font-black text-indigo-700 select-all overflow-x-auto py-2 px-3 bg-slate-50 border border-indigo-100 rounded-xl flex items-center">
+                            {modalState.details.token}
+                          </code>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(modalState.details.token || '');
+                              toast.success('🔑 Jeton copié !');
+                            }}
+                            className="px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all flex items-center justify-center cursor-pointer shadow-md"
+                            title="Copier le Jeton"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
+                  ) : (
+                    modalState.details.reason && (
+                      <div className="bg-rose-50/70 border border-rose-100/60 p-3.5 rounded-xl text-rose-700 text-xs font-semibold leading-relaxed mt-2.5">
+                        ⚠️ {modalState.details.reason}
+                      </div>
+                    )
                   )}
                 </div>
               )}
             </div>
 
-            <div className="mt-8 flex gap-3">
+            <div className="mt-5 flex gap-3">
               <button
                 type="button"
                 onClick={() => setModalState(prev => ({ ...prev, isOpen: false }))}
-                className={`w-full py-4 rounded-xl font-extrabold text-sm transition-all text-white shadow-lg active:scale-[0.98] ${
+                className={`w-full py-3 rounded-xl font-bold text-sm transition-all text-white shadow-md active:scale-[0.98] ${
                   modalState.type === 'success' 
-                    ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100' 
-                    : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100'
+                    ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-50' 
+                    : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-50'
                 }`}
               >
                 Compris 🏓

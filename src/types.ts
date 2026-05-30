@@ -55,6 +55,8 @@ export interface Player {
   first_name: string;
   last_name: string;
   phone: string | null;
+  email?: string | null;
+  token?: string | null;
   club: string | null;
   serie: string;
   checked_in?: boolean;

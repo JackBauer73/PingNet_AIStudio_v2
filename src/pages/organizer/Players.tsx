@@ -29,6 +29,7 @@ import { supabase } from '../../supabase';
 import { fetchPlayerByLicence } from '../../services/ffttApi';
 import { assignDossard } from '../../services/dossardService';
 import { sendPlayerCredentials } from '../../services/smsService';
+import { sendPlayerEmail } from '../../services/emailService';
 import toast from 'react-hot-toast';
 
 const SERIES = ['NC', 'P12', 'P11', 'P10', 'D9', 'D8', 'D7', 'R6', 'R5', 'R4', 'N3', 'N2', 'N1'];
@@ -365,33 +366,79 @@ export default function Players() {
     }
   };
 
-  // Ré-envoi manuel des identifiants par SMS
+  // Ré-envoi manuel des identifiants (SMS et/ou E-mail)
   const handleResendSms = async (player: any) => {
-    if (!player.phone) {
-      toast.error("Aucun numéro de téléphone configuré pour ce joueur.");
+    if (!player.phone && !player.email) {
+      toast.error("Aucun canal de contact (téléphone ou e-mail) configuré.");
       return;
     }
     
     setSendingSmsId(player.id);
-    const toastId = toast.loading(`Envoi du SMS contenant les identifiants de score à ${player.first_name}...`);
+    const media: string[] = [];
+    if (player.phone) media.push("SMS");
+    if (player.email) media.push("E-mail");
+    
+    const toastId = toast.loading(`Envoi des identifiants par ${media.join(' & ')} à ${player.first_name}...`);
     
     try {
-      const smsResult = await sendPlayerCredentials({
-        playerId: player.id,
-        firstName: player.first_name,
-        lastName: player.last_name,
-        phone: player.phone,
-        dossard: player.dossard || undefined
-      });
+      let smsSuccess = false;
+      let emailSuccess = false;
 
-      if (smsResult.success) {
-        toast.success(`SMS envoyé avec succès !`, { id: toastId });
-      } else {
-        toast.error(`Échec d’envoi : ${smsResult.reason || 'Erreur lors de la transmission'}`, { id: toastId });
+      // 1. Envoi par SMS s'il y a un numéro
+      if (player.phone) {
+        const smsResult = await sendPlayerCredentials({
+          playerId: player.player_id || player.id,
+          firstName: player.first_name,
+          lastName: player.last_name,
+          phone: player.phone,
+          dossard: player.dossard || undefined
+        });
+        smsSuccess = smsResult.success;
+      }
+
+      // 2. Envoi par E-mail s'il y a une adresse e-mail
+      if (player.email) {
+        const directUrl = `${window.location.origin}/?token=${player.token || ''}`;
+        const emailResult = await sendPlayerEmail({
+          playerId: player.player_id || player.id,
+          firstName: player.first_name,
+          lastName: player.last_name,
+          email: player.email,
+          token: player.token || '',
+          tournamentName: tournament?.name || 'Tournoi de Tennis de Table',
+          directUrl: directUrl,
+          dossard: player.dossard || undefined
+        });
+        emailSuccess = emailResult.success;
+      }
+
+      // Message de confirmation combiné
+      if (player.phone && player.email) {
+        if (smsSuccess && emailSuccess) {
+          toast.success(`Identifiants renvoyés par SMS et E-mail !`, { id: toastId });
+        } else if (smsSuccess) {
+          toast.success(`SMS envoyé, mais échec sur l'E-mail.`, { id: toastId });
+        } else if (emailSuccess) {
+          toast.success(`E-mail de confirmation envoyé, mais échec sur le SMS.`, { id: toastId });
+        } else {
+          toast.error(`Échec d'envoi (SMS & E-mail).`, { id: toastId });
+        }
+      } else if (player.phone) {
+        if (smsSuccess) {
+          toast.success(`SMS envoyé avec succès !`, { id: toastId });
+        } else {
+          toast.error(`Échec d'envoi du SMS.`, { id: toastId });
+        }
+      } else if (player.email) {
+        if (emailSuccess) {
+          toast.success(`E-mail de confirmation envoyé avec succès !`, { id: toastId });
+        } else {
+          toast.error(`Échec d'envoi de l'E-mail.`, { id: toastId });
+        }
       }
     } catch (err: any) {
       console.error(err);
-      toast.error(`Erreur d’envoi de SMS: ${err.message}`, { id: toastId });
+      toast.error(`Erreur lors du renvoi: ${err.message}`, { id: toastId });
     } finally {
       setSendingSmsId(null);
     }
@@ -1021,21 +1068,25 @@ export default function Players() {
                       })()}
                     </td>
  
-                    {/* Colonne IDENTIFIANTS SMS DE SCORE */}
+                    {/* Colonne IDENTIFIANTS SMS ET/OU EMAIL DE SCORE */}
                     <td className="px-6 py-4 text-center">
                       {player.checked_in ? (
-                        player.phone ? (
+                        (player.phone || player.email) ? (
                           <button
                             onClick={() => handleResendSms(player)}
                             disabled={sendingSmsId === player.id}
                             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-lg transition-all active:scale-98 disabled:opacity-50 cursor-pointer"
+                            title={
+                              player.phone && player.email ? "Envoyer par SMS et E-mail/SMTP" :
+                              player.phone ? "Envoyer par SMS uniquement" : "Envoyer par E-mail/SMTP uniquement"
+                            }
                           >
                             <Send className={`w-3.5 h-3.5 ${sendingSmsId === player.id ? 'animate-pulse text-indigo-500' : 'text-slate-400'}`} />
                             Renvoyer identifiants
                           </button>
                         ) : (
                           <span className="text-[10px] text-rose-500 font-semibold bg-rose-50 border border-rose-100 px-2 py-1 rounded-md inline-flex items-center gap-1 leading-none">
-                            <AlertCircle className="w-3.5 h-3.5" /> Pas de téléphone
+                            <AlertCircle className="w-3.5 h-3.5" /> Pas de contact
                           </span>
                         )
                       ) : (

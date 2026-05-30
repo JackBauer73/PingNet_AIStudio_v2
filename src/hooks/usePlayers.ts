@@ -33,6 +33,7 @@ export function usePlayers(tournamentId?: string) {
             first_name,
             last_name,
             phone,
+            email,
             club,
             licence_number,
             points,
@@ -53,6 +54,19 @@ export function usePlayers(tournamentId?: string) {
       const { data, error } = await query;
 
       if (error) throw error;
+
+      // Récupérer les tokens correspondants pour ce tournoi
+      const { data: tokenData, error: tokenError } = await supabase
+        .from('player_tokens')
+        .select('player_id, token')
+        .eq('tournament_id', tournamentId);
+      
+      const tokensByPlayerId = new Map<string, string>();
+      if (!tokenError && tokenData) {
+        tokenData.forEach(t => {
+          tokensByPlayerId.set(t.player_id, t.token);
+        });
+      }
 
       // 1. Pour assurer la cohérence si l'unicité du dossard est portée sur une seule inscription
       // on résout globalement le dossard par joueur physique dans le tournoi.
@@ -75,6 +89,8 @@ export function usePlayers(tournamentId?: string) {
           first_name: pObj?.first_name || '',
           last_name: pObj?.last_name || '',
           phone: r.phone_used || pObj?.phone || null,
+          email: pObj?.email || null,
+          token: r.player_id ? tokensByPlayerId.get(r.player_id) || null : null,
           club: pObj?.club || null,
           serie: cObj?.name || '',
           checked_in: r.checked_in || false,
@@ -113,7 +129,8 @@ export function usePlayers(tournamentId?: string) {
 
       // 2. Trouver ou créer le joueur physique dans 'players'
       let playerId = '';
-      let pQuery = supabase.from('players').select('id');
+      const generatedToken = crypto.randomUUID ? crypto.randomUUID() : (Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15));
+      let pQuery = supabase.from('players').select('id, email');
       if (playerForm.licence_number && playerForm.licence_number.trim() !== '') {
         pQuery = pQuery.eq('licence_number', playerForm.licence_number.trim());
       } else {
@@ -123,14 +140,19 @@ export function usePlayers(tournamentId?: string) {
       }
 
       const { data: existingPlayers } = await pQuery;
+      let playerEmail = playerForm.email || null;
+
       if (existingPlayers && existingPlayers.length > 0) {
         playerId = existingPlayers[0].id;
-        // Optionnel : actualiser ses points/club/téléphone
+        playerEmail = playerForm.email || existingPlayers[0].email || null;
+        
+        // Mettre à jour ses points/club/téléphone/email s'ils ont changé ou sont manquants
         await supabase
           .from('players')
           .update({
             club: playerForm.club?.trim() || null,
             phone: playerForm.phone || null,
+            email: playerEmail,
             points: playerForm.points,
           })
           .eq('id', playerId);
@@ -143,6 +165,7 @@ export function usePlayers(tournamentId?: string) {
             last_name: playerForm.last_name.trim(),
             club: playerForm.club?.trim() || null,
             phone: playerForm.phone || null,
+            email: playerEmail,
             licence_number: playerForm.licence_number?.trim() || null,
             points: playerForm.points
           })
@@ -151,6 +174,29 @@ export function usePlayers(tournamentId?: string) {
 
         if (insertPErr) throw insertPErr;
         playerId = newP.id;
+      }
+
+      // Vérifier ou insérer dans player_tokens
+      const { data: existingTokenRow } = await supabase
+        .from('player_tokens')
+        .select('token')
+        .eq('player_id', playerId)
+        .eq('tournament_id', playerForm.tournament_id)
+        .maybeSingle();
+
+      let playerToken = '';
+      if (existingTokenRow) {
+        playerToken = existingTokenRow.token;
+      } else {
+        // Générer et insérer un nouveau token
+        playerToken = playerForm.token || generatedToken;
+        await supabase
+          .from('player_tokens')
+          .insert({
+            player_id: playerId,
+            tournament_id: playerForm.tournament_id,
+            token: playerToken
+          });
       }
 
       // 3. Vérifier si l'inscription existe déjà à cette catégorie
@@ -208,6 +254,8 @@ export function usePlayers(tournamentId?: string) {
         first_name: regPObj?.first_name || '',
         last_name: regPObj?.last_name || '',
         phone: reg.phone_used || regPObj?.phone || null,
+        email: regPObj?.email || playerEmail || null,
+        token: playerToken || null,
         club: regPObj?.club || null,
         serie: regCObj?.name || '',
         checked_in: reg.checked_in || false,

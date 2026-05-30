@@ -279,4 +279,42 @@ BEGIN
 END $$;
 
 
+-- ==========================================
+-- POLITIQUES DE SÉCURITÉ (RLS) COMPLÉMENTAIRES
+-- Pour permettre l'inscription anonyme et l'usage des Jeton Joueurs
+-- ==========================================
+
+-- A. Table des Joueurs (players) : doit pouvoir être alimentée de façon anonyme
+DROP POLICY IF EXISTS "Public Insert Players" ON players;
+DROP POLICY IF EXISTS "Public Update Players" ON players;
+CREATE POLICY "Public Insert Players" ON players FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public Update Players" ON players FOR UPDATE USING (true) WITH CHECK (true);
+
+-- B. Table des Jeton Joueurs (player_tokens) : doit pouvoir être gérée publiquement
+ALTER TABLE public.player_tokens ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public Read Player Tokens" ON public.player_tokens;
+DROP POLICY IF EXISTS "Public Insert Player Tokens" ON public.player_tokens;
+DROP POLICY IF EXISTS "Public Update Player Tokens" ON public.player_tokens;
+DROP POLICY IF EXISTS "Public Delete Player Tokens" ON public.player_tokens;
+
+CREATE POLICY "Public Read Player Tokens" ON public.player_tokens FOR SELECT USING (true);
+CREATE POLICY "Public Insert Player Tokens" ON public.player_tokens FOR INSERT WITH CHECK (true);
+CREATE POLICY "Public Update Player Tokens" ON public.player_tokens FOR UPDATE USING (true) WITH CHECK (true);
+CREATE POLICY "Public Delete Player Tokens" ON public.player_tokens FOR DELETE USING (true);
+
+-- C. Publication en temps réel pour player_tokens
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_rel pr 
+    JOIN pg_class c ON c.oid = pr.prrelid 
+    JOIN pg_publication p ON p.oid = pr.prpubid 
+    WHERE p.pubname = 'supabase_realtime' AND c.relname = 'player_tokens'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.player_tokens;
+  END IF;
+END $$;
+
+
+
 
