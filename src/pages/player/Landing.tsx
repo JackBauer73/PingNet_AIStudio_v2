@@ -41,9 +41,6 @@ export default function Landing() {
 
   // States pour la recherche et pointage via Token
   const [tokenInput, setTokenInput] = useState('');
-  const [tokenPlayerData, setTokenPlayerData] = useState<any | null>(null);
-  const [tokenRegsData, setTokenRegsData] = useState<any[]>([]);
-  const [tokenLoading, setTokenLoading] = useState(false);
 
   // States pour la fenêtre modale d'affichage de réussite/erreur de validation
   const [modalState, setModalState] = useState<{
@@ -78,157 +75,28 @@ export default function Landing() {
     }
   }, [location, navigate]);
 
-  const fetchPlayerByToken = async (tokenStr: string) => {
-    if (!tokenStr.trim()) return;
-    setTokenLoading(true);
-    try {
-      const { data: tokenRow, error: tError } = await supabase
-        .from('player_tokens')
-        .select('player_id, tournament_id')
-        .eq('token', tokenStr.trim())
-        .maybeSingle();
-
-      if (tError) throw tError;
-
-      if (!tokenRow) {
-        setTokenPlayerData(null);
-        setTokenRegsData([]);
-        toast.error("Aucun profil joueur associé à ce jeton (token).");
-        return;
-      }
-
-      const { data: playerData, error: pError } = await supabase
-        .from('players')
-        .select('*')
-        .eq('id', tokenRow.player_id)
-        .maybeSingle();
-
-      if (pError) throw pError;
-
-      if (!playerData) {
-        setTokenPlayerData(null);
-        setTokenRegsData([]);
-        toast.error("Données joueur introuvables.");
-        return;
-      }
-
-      setTokenPlayerData(playerData);
-
-      const { data: regs, error: rError } = await supabase
-        .from('registrations')
-        .select(`
-          id,
-          dossard,
-          checked_in,
-          paid,
-          status,
-          table_category_id,
-          table_categories (
-            id,
-            name,
-            day_number,
-            min_points,
-            max_points,
-            start_time
-          )
-        `)
-        .eq('player_id', playerData.id)
-        .eq('tournament_id', tokenRow.tournament_id);
-
-      if (rError) throw rError;
-      setTokenRegsData(regs || []);
-      toast.success(`👤 Profil chargé : ${playerData.first_name} ${playerData.last_name}`);
-
-      // Auto check-in si pointage=1 est présent dans l'URL (provenance scannée du QR Code)
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('pointage') === '1' && regs && regs.length > 0) {
-        const uncheckedRegs = regs.filter(r => !r.checked_in);
-        if (uncheckedRegs.length > 0) {
-          const regIds = uncheckedRegs.map(r => r.id);
-          const { error: updateError } = await supabase
-            .from('registrations')
-            .update({
-              checked_in: true,
-              status: 'validated'
-            })
-            .in('id', regIds);
-
-          if (updateError) throw updateError;
-          
-          toast.success("✨ Présence validée avec succès par QR Code ! ✓", { duration: 5000 });
-          
-          // Recharger les inscriptions mises à jour
-          const { data: updatedRegs } = await supabase
-            .from('registrations')
-            .select(`
-              id,
-              dossard,
-              checked_in,
-              paid,
-              status,
-              table_category_id,
-              table_categories (
-                id,
-                name,
-                day_number,
-                min_points,
-                max_points,
-                start_time
-              )
-            `)
-            .eq('player_id', playerData.id)
-            .eq('tournament_id', tokenRow.tournament_id);
-          
-          setTokenRegsData(updatedRegs || []);
-          refresh();
-        } else {
-          toast.success("✓ Votre présence est déjà validée pour ce tournoi !");
-        }
-        // Nettoyage de l'URL pour ne garder que le jeton
-        navigate(`/?token=${tokenStr.trim()}`, { replace: true });
-      }
-    } catch (err: any) {
-      console.error(err);
-      toast.error("Erreur lors du chargement des données.");
-    } finally {
-      setTokenLoading(false);
-    }
-  };
-
-  const handleTokenSelfCheckin = async () => {
-    if (!tokenPlayerData || tokenRegsData.length === 0) return;
-    setTokenLoading(true);
-    try {
-      const regIds = tokenRegsData.map(r => r.id);
-      const { error } = await supabase
-        .from('registrations')
-        .update({
-          checked_in: true,
-          status: 'validated'
-        })
-        .in('id', regIds);
-
-      if (error) throw error;
-      
-      toast.success("Votre présence a été validée avec succès ! ✓");
-      await fetchPlayerByToken(tokenInput);
-      refresh();
-    } catch (err: any) {
-      console.error(err);
-      toast.error("Erreur lors de la validation autonome.");
-    } finally {
-      setTokenLoading(false);
-    }
-  };
-
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const urlToken = params.get('token');
-    if (urlToken) {
-      setTokenInput(urlToken);
-      fetchPlayerByToken(urlToken);
+    if (urlToken && urlToken.trim()) {
+      let val = urlToken.trim();
+      if (val.includes('/player/')) {
+        val = val.split('/player/').pop() || val;
+      } else if (val.includes('?token=')) {
+        val = val.split('?token=').pop() || val;
+      }
+      if (val.includes('?')) {
+        val = val.split('?')[0];
+      }
+      if (val.endsWith('/')) {
+        val = val.slice(0, -1);
+      }
+      const clean = val.trim();
+      if (clean) {
+        navigate(`/player/${clean}`, { replace: true });
+      }
     }
-  }, [location]);
+  }, [location, navigate]);
 
   const handleOrganizerClick = async () => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -461,7 +329,7 @@ export default function Landing() {
       
       // Déclenchement automatique de l'e-mail de confirmation si renseigné
       if (formData.email.trim() && firstRegPlayer) {
-        const directUrl = `${window.location.origin}/?token=${playerToken}`;
+        const directUrl = `${window.location.origin}/player/${playerToken}`;
         sendPlayerEmail({
           playerId: firstRegPlayer.player_id || '',
           firstName: formData.firstName.trim(),
@@ -1665,90 +1533,55 @@ export default function Landing() {
                   className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 focus:bg-white rounded-xl outline-none focus:ring-2 focus:ring-[#f97316] font-mono text-xs text-slate-800 transition-all font-semibold"
                   value={tokenInput}
                   onChange={e => setTokenInput(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && tokenInput.trim()) {
+                      let val = tokenInput.trim();
+                      if (val.includes('/player/')) {
+                        val = val.split('/player/').pop() || val;
+                      } else if (val.includes('?token=')) {
+                        val = val.split('?token=').pop() || val;
+                      }
+                      if (val.includes('?')) {
+                        val = val.split('?')[0];
+                      }
+                      if (val.endsWith('/')) {
+                        val = val.slice(0, -1);
+                      }
+                      const clean = val.trim();
+                      if (clean) {
+                        navigate(`/player/${clean}`);
+                      }
+                    }
+                  }}
                 />
                 <button
-                  onClick={() => fetchPlayerByToken(tokenInput)}
-                  disabled={tokenLoading || !tokenInput.trim()}
-                  className="px-4 py-2.5 bg-[#f97316] hover:bg-[#e26210] disabled:opacity-40 text-white font-bold rounded-xl text-xs transition-all flex items-center gap-1 cursor-pointer"
+                  onClick={() => {
+                    if (tokenInput.trim()) {
+                      let val = tokenInput.trim();
+                      if (val.includes('/player/')) {
+                        val = val.split('/player/').pop() || val;
+                      } else if (val.includes('?token=')) {
+                        val = val.split('?token=').pop() || val;
+                      }
+                      if (val.includes('?')) {
+                        val = val.split('?')[0];
+                      }
+                      if (val.endsWith('/')) {
+                        val = val.slice(0, -1);
+                      }
+                      const clean = val.trim();
+                      if (clean) {
+                        navigate(`/player/${clean}`);
+                      }
+                    }
+                  }}
+                  disabled={!tokenInput.trim()}
+                  className="px-4 py-2.5 bg-[#f97316] hover:bg-[#e26210] disabled:opacity-40 text-white font-bold rounded-xl text-xs transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap"
                 >
-                  {tokenLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin"/> : <Search className="w-3.5 h-3.5"/>}
-                  Rechercher
+                  <Search className="w-3.5 h-3.5"/>
+                  Accéder
                 </button>
               </div>
-
-              {tokenPlayerData && (
-                <div className="bg-slate-50 border border-slate-150 p-4 rounded-xl space-y-3 font-sans text-left">
-                  <div className="flex justify-between items-start border-b border-slate-200 pb-2">
-                    <div>
-                      <p className="text-sm font-black text-slate-900">
-                        {tokenPlayerData.first_name} {tokenPlayerData.last_name}
-                      </p>
-                      <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wider">{tokenPlayerData.club || "Club Libre"}</p>
-                    </div>
-                    <span className="text-xs font-black text-[#f97316] bg-[#f97316]/10 px-2 py-0.5 rounded-full">
-                      {tokenPlayerData.points || 500} pts
-                    </span>
-                  </div>
-
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">Inscriptions & Pointage</p>
-                    {tokenRegsData.length === 0 ? (
-                      <p className="text-xs text-slate-400 italic">Aucun tableau actif.</p>
-                    ) : (
-                      <div className="space-y-1.5">
-                        {tokenRegsData.map((reg, idx) => {
-                          const cat = reg.table_categories;
-                          return (
-                            <div key={idx} className="flex justify-between items-center text-xs bg-white border border-slate-100 p-2 rounded-lg">
-                              <div>
-                                <span className="font-bold text-slate-800">{cat?.name || reg.table_category_id}</span>
-                                <span className="text-[9px] text-slate-400 block">Journée {cat?.day_number} • Dossard: {reg.dossard || 'En cours'}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                {reg.checked_in ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                                    <CheckCircle className="w-3 h-3" /> Présent
-                                  </span>
-                                ) : (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                                    <Clock className="w-3 h-3" /> Absent
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="border-t border-slate-200/60 pt-3 mt-3 flex flex-col items-center">
-                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest self-start mb-2">Mon QR Code de Pointage</p>
-                    <div className="bg-white p-2.5 rounded-xl border border-slate-100 flex flex-col items-center justify-center">
-                      <QRCodeSVG
-                        value={`${window.location.origin}/?token=${tokenInput}&pointage=1`}
-                        size={120}
-                        level="H"
-                        includeMargin={true}
-                        className="rounded-lg shadow-sm"
-                      />
-                    </div>
-                    <p className="text-[10px] text-slate-400 text-center mt-2 leading-relaxed font-medium">
-                      📲 Présentez ce QR Code à l'accueil pour valider directement votre présence à votre arrivée au gymnase.
-                    </p>
-                  </div>
-
-                  {tokenRegsData.some(r => !r.checked_in) && (
-                    <button
-                      onClick={handleTokenSelfCheckin}
-                      className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl transition-all text-xs flex items-center justify-center gap-1 cursor-pointer mt-2"
-                    >
-                      <UserCheck className="w-3.5 h-3.5" />
-                      Confirmer mon Pointage / Présence ✓
-                    </button>
-                  )}
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -1806,7 +1639,7 @@ export default function Landing() {
           <p className="text-xs">© 2026 Ping Manager. Conçu pour simplifier l'arbitrage et le suivi des tournois.</p>
           <div className="flex gap-6 text-xs font-bold">
             <span className="text-white hover:text-[#f97316] cursor-pointer">Français</span>
-            <span className="text-slate-400">v0.7.4</span>
+            <span className="text-slate-400">v0.9.4</span>
           </div>
         </div>
       </footer>
@@ -1876,19 +1709,19 @@ export default function Landing() {
                     <div className="mt-4 space-y-3 pt-3 border-t border-slate-200/50 flex flex-col items-center">
                       <div className="bg-white p-3.5 rounded-2xl border border-slate-100 flex flex-col items-center justify-center shadow-inner">
                         <QRCodeSVG
-                          value={`${window.location.origin}/?token=${modalState.details.token}&pointage=1`}
+                          value={`${window.location.origin}/player/${modalState.details.token}`}
                           size={150}
                           level="H"
                           includeMargin={true}
                           className="rounded-lg"
                         />
-                        <span className="text-[10px] font-black tracking-widest text-indigo-700 uppercase mt-2.5">
-                          QR CODE DE POINTAGE
+                        <span className="text-[10px] font-black tracking-widest text-[#f97316] uppercase mt-2.5">
+                          QR CODE ESPACE JOUEUR
                         </span>
                       </div>
                       
                       <div className="text-center bg-indigo-50/50 border border-indigo-100/60 p-3 rounded-xl text-[11px] text-slate-600 font-semibold leading-relaxed">
-                        📸 Prenez une capture d’écran de ce <strong>QR Code</strong> et présentez-le à l’accueil à votre arrivée au gymnase pour valider directement votre présence.
+                        📸 Prenez une capture d’écran de ce <strong>QR Code</strong> et présentez-le à l’accueil pour valider directement votre présence, ou utilisez-le pour accéder à votre espace personnalisé d'un simple scan.
                       </div>
 
                       <div className="space-y-1 w-full text-left">
@@ -1902,11 +1735,11 @@ export default function Landing() {
                           <button
                             type="button"
                             onClick={() => {
-                              navigator.clipboard.writeText(modalState.details.token || '');
-                              toast.success('🔑 Jeton copié !');
+                              navigator.clipboard.writeText(`${window.location.origin}/player/${modalState.details.token || ''}`);
+                              toast.success('🔗 Lien de votre espace joueur copié ! ✓');
                             }}
                             className="px-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-all flex items-center justify-center cursor-pointer shadow-md"
-                            title="Copier le Jeton"
+                            title="Copier le Lien"
                           >
                             <Copy className="w-4 h-4" />
                           </button>

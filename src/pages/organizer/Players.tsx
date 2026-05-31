@@ -22,7 +22,8 @@ import {
   Check,
   X,
   Lock as LockIcon,
-  Unlock
+  Unlock,
+  QrCode
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../supabase';
@@ -398,7 +399,7 @@ export default function Players() {
 
       // 2. Envoi par E-mail s'il y a une adresse e-mail
       if (player.email) {
-        const directUrl = `${window.location.origin}/?token=${player.token || ''}`;
+        const directUrl = `${window.location.origin}/player/${player.token || ''}`;
         const emailResult = await sendPlayerEmail({
           playerId: player.player_id || player.id,
           firstName: player.first_name,
@@ -558,6 +559,13 @@ export default function Players() {
             title="Actualiser la liste"
           >
             <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <button
+            onClick={() => navigate(`/organizer/checkin-scan/${tournament?.current_day || 1}`)}
+            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#0f1f3d] hover:bg-[#1f355c] text-white rounded-xl font-medium transition-all shadow-lg active:scale-95 cursor-pointer"
+          >
+            <QrCode className="w-5 h-5" />
+            Scanner QR
           </button>
           <button
             onClick={() => setShowAddForm(!showAddForm)}

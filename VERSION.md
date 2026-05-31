@@ -3,9 +3,9 @@
 This document keeps track of all released versions and updates of Ping Manager, adhering strictly to **Semantic Versioning (SemVer)**: `MAJOR.MINOR.PATCH`.
 
 ## Configuration active
-- **Version actuelle :** `0.7.4`
-- **Statut :** Intégration du QR Code pour le pointage des joueurs à l’arrivée + Pointage automatique intelligent au scan du QR Code
-- **Date :** 2026-05-30
+- **Version actuelle :** `0.9.4`
+- **Statut :** Suppression sécurisée en cascade du joueur et de son jeton si toutes ses inscriptions de tableaux sont supprimées.
+- **Date :** 2026-05-31
 
 ---
 
@@ -18,7 +18,43 @@ This document keeps track of all released versions and updates of Ping Manager, 
 
 ## Historique des versions
 
-### v0.7.4 (2026-05-30) - *Version Actuelle*
+### v0.9.4 (2026-05-31) - *Version Actuelle*
+Nettoyage automatique des comptes joueurs sans inscriptions :
+1. **Suppression sécurisée du profil :** Lors de la suppression d'une inscription de série du joueur, le système vérifie s'il reste d'autres séries d'inscrites pour ce joueur sur l'ensemble du tournoi.
+2. **Nettoyage des tables orphelines :** Si c'est sa dernière inscription (tous jours confondus), le profil physique du joueur (table `players`) ainsi que son jeton joueur (`player_tokens`) sont automatiquement supprimés de la base de données.
+3. **Retour visuel clair :** Un message de notification confirme à l'administrateur que le joueur a été intégralement retiré du tournoi.
+
+### v0.9.3 (2026-05-30)
+Contrôles d'ajustement interactifs pour l'impression des QR Codes :
+1. **Sélecteurs interactifs en temps réel :** Ajout de boutons d'incrémentation/décrémentation en haut de la page `PrintQR.tsx` permettant à l'organisateur de forcer le nombre de journées (de 1 à 10) et de tables (de 0 à 60).
+2. **Flexibilité accrue :** Résolution définitive du blocage si le tournoi a été configuré sans dates de fin valides ou si le nombre de tables en base de données ne correspond pas à l'installation réelle.
+
+### v0.9.2 (2026-05-30)
+Amélioration de la génération des QR codes multi-jours :
+1. **Génération QR par jour réel :** Calcul dynamique du nombre total de jours réels selon les dates du tournoi (`date` et `end_date`), combiné aux journées déclarées sur les catégories.
+2. **Garantie d'impression :** Assure qu'un QR code unique imprimable A4 d'accueil est généré pour chaque jour du tournoi, même si aucun tableau n'est encore configuré pour ce jour spécifique.
+
+### v0.9.1 (2026-05-30)
+Résolution des erreurs de routage sur collage d'URL :
+1. **Nettoyage Robuste de l'Input Jeton :** Extraction automatique du token brut lorsque le joueur saisit ou colle une URL complète (qu'il s'agisse de `/player/xxx`, `?token=xxx` ou contenant des paramètres ou ancres).
+2. **Compatibilité de Redirection :** Nettoyage identique lors des redirections de premier niveau si un lien de type ancien `?token=URL` est transmis par erreur au point d'entrée `/`.
+
+### v0.9.0 (2026-05-30)
+Ajout du Pointage Club sécurisé par QR Code et par Journée :
+1. **QR Code par Journée :** Intégration dans `PrintQR.tsx` d'un QR d'accueil imprimable de taille A4 par journée de compétition, listant les tableaux associés du jour.
+2. **Interface Pointage Club (`/organizer/checkin-scan/:dayNumber`) :** Création d'une interface sécurisée mobile-first permettant aux organisateurs de scanner le QR code d'un joueur, d'obtenir sa fiche profil et ses inscriptions du jour, et d'enregistrer d'un clic sa présence (checked_in) avec attribution automatique du dossard. Saisie manuelle de jetons disponible en secours.
+3. **Intégration d'accès rapide :** Bouton "Scanner QR" ajouté directement dans le bandeau supérieur de l'espace d'administration des joueurs (`Players.tsx`).
+4. **Nettoyage auto-checkin :** Suppression définitive du pointage automatique autonome par le joueur à l'ouverture du lien pour garantir que seuls les bénévoles/organisateurs du club valident la présence au gymnase.
+
+### v0.8.0 (2026-05-30)
+Création d'une page dédiée "Espace Joueur" sécurisée par jeton (`/player/:token`) :
+1. **Nouvelle architecture `/player/:token` :** Page publique autonome, isolée de l'administration, conçue mobile-first (responsive) avec animations fluides (`motion/react`) et design aux couleurs institutionnelles.
+2. **Suivi Live des Matchs & Poules :** Chargement en temps réel des informations du joueur, de ses inscriptions, des groupes de poules (avec mise en évidence), des matchs à venir avec affichage des tables, et résultats des tournois (sets et brackets traduits).
+3. **Mise à jour Realtime Supabase :** Abonnement aux canaux PostgreSQL pour rafraîchir dynamiquement les tableaux et les rencontres sans avoir besoin de recharger la page.
+4. **QR Code Unifié & Redirection :** QR Code pointant directement vers l'espace joueur (sans pointage autonome pour laisser le contrôle au club). Redirection automatique transparente des anciennes requêtes de type `/?token=xxx` vers la nouvelle page `/player/xxx`.
+5. **Intégration d'Emails :** Alignement de toutes les fonctions de routage et d'envoi d'e-mails pour pointer de manière dynamique vers `/player/:token`.
+
+### v0.7.4 (2026-05-30)
 Intégration d'un système de pointage moderne par scan de QR Code :
 1. **QR Code de Pointage :** Remplacement du bouton textuel de copie de lien autonome par un QR Code généré dynamiquement et disposé de manière centrale dans la modale de réussite d'inscription. Un texte explicatif invite le joueur à prendre une capture d'écran de son QR Code de pointage.
 2. **Scan Automatique & Intelligent :** Lorsqu'un organisateur ou un joueur scanne le QR Code à son arrivée, l'application effectue un pointage automatique de sa présence dans tous ses tableaux, affiche une notification festive "Présence validée avec succès par QR Code !" puis nettoie de manière transparente l'URL d'accès.

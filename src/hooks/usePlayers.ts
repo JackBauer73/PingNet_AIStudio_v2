@@ -278,6 +278,48 @@ export function usePlayers(tournamentId?: string) {
 
   const deletePlayer = async (id: string) => {
     try {
+      const reg = players.find(p => p.id === id);
+      if (reg) {
+        // Récupérer toutes les inscriptions pour ce joueur physique sur ce tournoi
+        const { data: siblingRegs, error: siblingErr } = await supabase
+          .from('registrations')
+          .select('id')
+          .eq('player_id', reg.player_id)
+          .eq('tournament_id', reg.tournament_id);
+
+        if (!siblingErr && siblingRegs) {
+          const otherRegsCount = siblingRegs.filter(s => s.id !== id).length;
+          if (otherRegsCount === 0) {
+            // C'est le dernier tableau du tournoi (peu importe le jour) : on nettoie tout
+            // 1. Supprimer l'inscription
+            const { error: regDelError } = await supabase
+              .from('registrations')
+              .delete()
+              .eq('id', id);
+
+            if (regDelError) throw regDelError;
+
+            // 2. Supprimer le token d'accueil du joueur
+            await supabase
+              .from('player_tokens')
+              .delete()
+              .eq('player_id', reg.player_id)
+              .eq('tournament_id', reg.tournament_id);
+
+            // 3. Supprimer le joueur physique
+            await supabase
+              .from('players')
+              .delete()
+              .eq('id', reg.player_id);
+
+            setPlayers(prev => prev.filter(p => p.id !== id));
+            toast.success('Dernière inscription supprimée : joueur retiré du tournoi ✓');
+            return;
+          }
+        }
+      }
+
+      // Deletion standard si d'autres inscriptions existent toujours
       const { error } = await supabase
         .from('registrations')
         .delete()

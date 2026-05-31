@@ -9,9 +9,11 @@ import Bracket from './pages/organizer/Bracket';
 import Scores from './pages/organizer/Scores';
 import Archives from './pages/organizer/Archives';
 import PrintQR from './pages/organizer/PrintQR';
+import CheckInScan from './pages/organizer/CheckInScan';
 import TableView from './pages/player/TableView';
 import Landing from './pages/player/Landing';
 import LiveScores from './pages/player/LiveScores';
+import PlayerSpace from './pages/player/PlayerSpace';
 import OrganizerLayout from './components/layout/OrganizerLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
@@ -58,7 +60,11 @@ export default function App() {
           <Route path="scores" element={<Scores />} />
           <Route path="archives" element={<Archives />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="checkin-scan/:dayNumber" element={<CheckInScan />} />
         </Route>
+        
+        {/* Public Player Space */}
+        <Route path="/player/:token" element={<PlayerSpace />} />
         
         {/* Public Landing & Register Route */}
         <Route path="/" element={<Landing />} />
