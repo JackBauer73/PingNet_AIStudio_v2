@@ -160,19 +160,29 @@ export default function CheckInScan() {
     setProcessing(true);
     
     try {
-      // Trouver la première inscription non pointée
-      const firstUncheck = playerRegs.find(r => !r.checked_in) || playerRegs[0];
+      // Filtrer les inscriptions qui concernent cette journée spécifique
+      const currentDayRegs = playerRegs.filter(r => (r.table_categories?.day_number || 1) === day);
+      if (currentDayRegs.length === 0) {
+        toast.error(`Le joueur n'a aucune inscription prévue pour la Journée ${day}`);
+        setScanMode('idle');
+        setProcessing(false);
+        return;
+      }
+
+      // Trouver la première inscription non pointée de la journée courante
+      const firstUncheck = currentDayRegs.find(r => !r.checked_in) || currentDayRegs[0];
       
       const result = await assignDossard({
         registrationId: firstUncheck.id,
         tournamentId: tournament?.id || playerRegs[0]?.tournament_id,
-        onlyThisRegistration: false // Pointer toutes les inscriptions de ce tournoi
+        onlyThisRegistration: false, // Groupe de pointage
+        dayNumber: day // Uniquement pour la journée courante !
       });
 
       const updatedInfo = {
         name: `${playerData.first_name} ${playerData.last_name}`,
         dossard: result.dossard,
-        tableaux: playerRegs.map(r => r.table_categories?.name).join(', '),
+        tableaux: currentDayRegs.map(r => r.table_categories?.name).join(', '),
         time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
       };
 

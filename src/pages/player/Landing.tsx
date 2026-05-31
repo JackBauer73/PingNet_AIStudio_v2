@@ -1639,7 +1639,7 @@ export default function Landing() {
           <p className="text-xs">© 2026 Ping Manager. Conçu pour simplifier l'arbitrage et le suivi des tournois.</p>
           <div className="flex gap-6 text-xs font-bold">
             <span className="text-white hover:text-[#f97316] cursor-pointer">Français</span>
-            <span className="text-slate-400">v0.9.4</span>
+            <span className="text-slate-400">v0.10.0</span>
           </div>
         </div>
       </footer>

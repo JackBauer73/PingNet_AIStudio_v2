@@ -3,8 +3,8 @@
 This document keeps track of all released versions and updates of Ping Manager, adhering strictly to **Semantic Versioning (SemVer)**: `MAJOR.MINOR.PATCH`.
 
 ## Configuration active
-- **Version actuelle :** `0.9.4`
-- **Statut :** Suppression sécurisée en cascade du joueur et de son jeton si toutes ses inscriptions de tableaux sont supprimées.
+- **Version actuelle :** `0.10.0`
+- **Statut :** Pointage et QR Codes individualisés par journée du tournoi dans l'Espace Joueur pour éviter le pointage involontaire des jours futurs.
 - **Date :** 2026-05-31
 
 ---
@@ -18,7 +18,13 @@ This document keeps track of all released versions and updates of Ping Manager, 
 
 ## Historique des versions
 
-### v0.9.4 (2026-05-31) - *Version Actuelle*
+### v0.10.0 (2026-05-31) - *Version Actuelle*
+Pointage et QR Codes spécifiques par journée :
+1. **QR Codes de pointage par Journée :** Dans l'Espace Joueur, le joueur dispose désormais d'un QR code distinct pour chaque journée de tournoi où il a au moins un tableau. Les codes d'embarquement intègrent le paramètre de requête `?day=X`.
+2. **Scan intelligent restrictif (Jour J uniquement) :** Lorsque l'organisateur scanne à l'accueil via l'appareil de pointage de la Journée X, le scanneur n'émerge et ne valide **uniquement** que ses catégories de la Journée X. Les inscriptions des journées futures (comme la Journée Y où le joueur n'est peut-être pas présent) restent sagement non pointées.
+3. **Pavage transparent et intuitif :** Des onglets fluides et réactifs permettent d'interchanger instantanément de QR Code dans l'Espace Joueur.
+
+### v0.9.4 (2026-05-31)
 Nettoyage automatique des comptes joueurs sans inscriptions :
 1. **Suppression sécurisée du profil :** Lors de la suppression d'une inscription de série du joueur, le système vérifie s'il reste d'autres séries d'inscrites pour ce joueur sur l'ensemble du tournoi.
 2. **Nettoyage des tables orphelines :** Si c'est sa dernière inscription (tous jours confondus), le profil physique du joueur (table `players`) ainsi que son jeton joueur (`player_tokens`) sont automatiquement supprimés de la base de données.

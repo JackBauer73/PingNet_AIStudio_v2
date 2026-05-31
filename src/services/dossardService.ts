@@ -5,9 +5,10 @@ interface AssignDossardParams {
   tournamentId: string;   // ID du tournoi
   userId?: string;        // ID utilisateur/licence (obsolète mais gardé pour compatibilité de signature)
   onlyThisRegistration?: boolean; // Pointage individuel ou groupe
+  dayNumber?: number; // Journée spécifique pour filtrer le groupe de pointage !
 }
 
-export async function assignDossard({ registrationId, tournamentId, onlyThisRegistration = true }: AssignDossardParams) {
+export async function assignDossard({ registrationId, tournamentId, onlyThisRegistration = true, dayNumber }: AssignDossardParams) {
   try {
     // 1. Récupérer l'inscription concernée pour identifier le joueur physique
     const { data: currentReg, error: fetchRegError } = await supabase
@@ -26,7 +27,7 @@ export async function assignDossard({ registrationId, tournamentId, onlyThisRegi
     // 2. Trouver toutes les inscriptions de ce même joueur physique dans le tournoi
     const { data: matchedRegs, error: matchError } = await supabase
       .from('registrations')
-      .select('id, dossard, checked_in')
+      .select('id, dossard, checked_in, table_categories(day_number)')
       .eq('tournament_id', tournamentId)
       .eq('player_id', playerId);
 
@@ -97,6 +98,27 @@ export async function assignDossard({ registrationId, tournamentId, onlyThisRegi
 
       if (updateRegError) {
         throw updateRegError;
+      }
+    } else if (dayNumber) {
+      // On ne pointe que ses inscriptions correspondantes à cette journée spécifique !
+      const regsToUpdate = (matchedRegs as any[]).filter(r => {
+        const dNum = r.table_categories?.day_number || 1;
+        return dNum === dayNumber;
+      });
+
+      if (regsToUpdate.length > 0) {
+        const { error: updateAllError } = await supabase
+          .from('registrations')
+          .update({
+            checked_in: true,
+            paid: true,
+            status: 'validated'
+          })
+          .in('id', regsToUpdate.map(r => r.id));
+
+        if (updateAllError) {
+          throw updateAllError;
+        }
       }
     } else {
       // On pointe toutes ses inscriptions sur le tournoi

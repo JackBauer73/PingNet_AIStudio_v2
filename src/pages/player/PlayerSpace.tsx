@@ -37,6 +37,18 @@ export default function PlayerSpace() {
   const [pools, setPools] = useState<any[]>([]);
   const [poolPlayers, setPoolPlayers] = useState<any[]>([]);
   const [matches, setMatches] = useState<any[]>([]);
+  const [selectedQRDay, setSelectedQRDay] = useState<number | null>(null);
+
+  // Journées uniques auxquelles le joueur participe
+  const qrDays: number[] = Array.from<number>(
+    new Set<number>(registrations.map(r => (r.table_categories?.day_number as number) || 1))
+  ).sort((a: number, b: number) => a - b);
+
+  useEffect(() => {
+    if (qrDays.length > 0 && selectedQRDay === null) {
+      setSelectedQRDay(qrDays[0]);
+    }
+  }, [registrations, qrDays, selectedQRDay]);
 
   const fetchPlayerSpaceData = async () => {
     if (!token) {
@@ -362,26 +374,55 @@ export default function PlayerSpace() {
           transition={{ duration: 0.3, delay: 0.1 }}
           className="bg-white rounded-[1.5rem] border border-slate-150 p-6 shadow-xl shadow-slate-100/50 flex flex-col items-center text-center space-y-4"
         >
-          <div className="flex items-center gap-2 self-start border-b border-slate-100 pb-3 w-full">
-            <QrCode className="w-5 h-5 text-indigo-600" />
-            <h3 className="font-extrabold text-sm text-slate-900 uppercase tracking-wider">Mon QR de Pointage</h3>
+          <div className="flex flex-col gap-1 self-start border-b border-slate-100 pb-3 w-full">
+            <div className="flex items-center gap-2">
+              <QrCode className="w-5 h-5 text-indigo-600" />
+              <h3 className="font-extrabold text-sm text-slate-900 uppercase tracking-wider">Mes QR de Pointage par Jour</h3>
+            </div>
+            <p className="text-[10px] text-slate-400 font-bold text-left uppercase tracking-wider">
+              Présentez le code correspondant au jour de la compétition
+            </p>
           </div>
 
-          <div className="bg-white p-3.5 rounded-2xl border border-slate-100 flex flex-col items-center justify-center shadow-inner mt-2">
+          {/* Onglets interactifs des journées */}
+          {qrDays.length > 1 && (
+            <div className="flex gap-2 bg-slate-100 p-1.5 rounded-2xl w-full border border-slate-200">
+              {qrDays.map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setSelectedQRDay(d)}
+                  className={`flex-1 py-2 px-3 rounded-xl text-xs font-black transition-all cursor-pointer active:scale-95 ${
+                    (selectedQRDay || qrDays[0]) === d
+                      ? 'bg-slate-900 text-white shadow-md'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Journée {d}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="bg-white p-4 rounded-3xl border border-slate-100 flex flex-col items-center justify-center shadow-lg hover:shadow-xl transition-all border-dashed border-2 border-indigo-200 mt-2">
             <QRCodeSVG
-              value={`${window.location.origin}/player/${token}`}
-              size={170}
+              value={`${window.location.origin}/player/${token}?day=${selectedQRDay || qrDays[0] || 1}`}
+              size={180}
               level="H"
               includeMargin={true}
               className="rounded-xl"
             />
-            <span className="text-[10px] font-black tracking-widest text-[#f97316] uppercase mt-3">
-              QR CODE JOUEUR OFFICIEL
-            </span>
+            <div className="mt-3 flex flex-col gap-0.5">
+              <span className="text-[10px] font-black tracking-widest text-[#f97316] uppercase">
+                QR CODE SPECIFIQUE
+              </span>
+              <span className="text-[11px] font-mono font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-full uppercase">
+                JOURNÉE {selectedQRDay || qrDays[0] || 1}
+              </span>
+            </div>
           </div>
 
           <p className="text-xs text-slate-500 font-semibold leading-relaxed max-w-xs">
-            📲 Présentez ce QR Code à l'accueil à votre arrivée au gymnase. Les organisateurs scanneront ce code pour valider directement votre présence.
+            📲 Présentez ce QR Code spécifique de la **Journée {selectedQRDay || qrDays[0] || 1}** à votre arrivée au gymnase. Les organisateurs valideront vos séries pour ce jour précis, sans impacter les jours suivants !
           </p>
 
           <button
