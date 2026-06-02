@@ -3,9 +3,9 @@
 This document keeps track of all released versions and updates of Ping Manager, adhering strictly to **Semantic Versioning (SemVer)**: `MAJOR.MINOR.PATCH`.
 
 ## Configuration active
-- **Version actuelle :** `0.10.0`
-- **Statut :** Pointage et QR Codes individualisés par journée du tournoi dans l'Espace Joueur pour éviter le pointage involontaire des jours futurs.
-- **Date :** 2026-05-31
+- **Version actuelle :** `0.14.7`
+- **Statut :** Résolution ultime et définitive de la double programmation de table de marque pour les inscriptions multi-séries. Les mobilisations d'un joueur physique dans plusieurs poules de tableaux distincts ne s'écrasent plus l'une l'autre, et la table de la nouvelle série n'est pas auto-affectée en présence de joueurs occupés.
+- **Date :** 2026-06-01
 
 ---
 
@@ -18,7 +18,134 @@ This document keeps track of all released versions and updates of Ping Manager, 
 
 ## Historique des versions
 
-### v0.10.0 (2026-05-31) - *Version Actuelle*
+### v0.14.7 (2026-06-01) - *Version Actuelle*
+Résolution de la faille de mémoire de la map de double présence en multi-séries :
+1. **Zéro écrasement de clé :** Modification de la map `mobilizedPlayers` pour stocker des listes (tableaux) de mobilisations actives par identifiant physique du joueur, empêchant l'écrasement des sessions sur d'autres tables de marque.
+2. **Alerte de double programmation réactive :** Affichage d’alertes de conflit instantanées et blocage d’enchaînement de matchs ou de lancements pour les deux tables de marque physiques.
+3. **Guard d'affectation automatique à la génération :** Durant la génération de poules d'autres tableaux, vérification réactive de la présence de joueurs physiques déjà occupés afin de ne pas affecter de table matérielle de marque par défaut à la nouvelle poule tant que le joueur est mobilisé ailleurs.
+
+### v0.14.6 (2026-06-01)
+Contrôle de chevauchement multidirectionnel de joueur mobilisé de poule :
+1. **Verrouillage de l'onglet Poules :** Intégration de la map globale de mobilisation dans les actions de `Pools.tsx` (attribution, déplacement et lancements de matchs uniques ou globaux de poules).
+2. **Intelligence d'enchaînement d'arbitrage :** Le hook `useTableMatch` vérifie en temps réel les joueurs mobilisés sur les autres tables pour ignorer et reporter les matchs dont l'un des joueurs est occupé ailleurs.
+3. **Double présence éradiquée :** Un joueur actif sur une table ne peut plus se retrouver inscrit sur une autre table en simultané par aucun canal d'action.
+
+### v0.14.5 (2026-06-01)
+Contrôle exhaustif des conflits de présence et double programmation en poules :
+1. **Contrôle d'attribution globale :** Blocage de l'assignation d'une poule à une table si l'un de ses joueurs est déjà affecté à une autre table de marque en cours (en tant que joueur actif de match de phase finale, ou joueur physique d'une autre poule).
+2. **Blocage au clic de lancement :** Interdiction stricte de lancer le match suivant en attente de poule si l'un des deux concurrents est actuellement mobilisé sur une autre table de marque, avec alerte Toast explicative mentionnant la table et le tournoi d'appartenance.
+3. **Optimisation visuelle Organisateur (Dropdown & Panel) :** Affichage d'une balise d'aperçu du joueur bloquant directement dans le sélecteur d'options par table (ex: `⚠️ Gabriel Faivre sur Table 8`), et intégration d'un bandeau d'alerte en temps réel sur la carte de marque si un joueur actif de la poule libre est mobilisé ailleurs.
+
+### v0.14.4 (2026-06-01)
+Optimisation de la rotation de matchs :
+1. **Zéro temps mort en poule :** Enchaînement systématique et direct du match suivant si la poule contient des matchs restants.
+2. **Priorité intelligente & plan B :** Le système privilégie d'abord un match où aucun des joueurs ne vient de jouer pour respecter le temps de repos. En cas d'impossibilité, le premier match en attente de la poule est instantanément sélectionné et démarré sur la table.
+
+### v0.14.3 (2026-06-01)
+Affichage dynamique et classement de poule sur l'écran table :
+1. **Suivi des matchs restants :** Si des matchs sont encore en attente ou en cours dans la poule actuelle de cette table, un bouton d'action orange "Mise à jour en auto" est proposé pour recharger et passer au match suivant. Les matchs restants sont listés en dessous.
+2. **Affichage du classement final :** Si tous les matchs de la poule sont terminés, la table affiche instantanément le tableau de classement complet en direct, calculé selon les règles officielles de la FFTT.
+
+### v0.14.2 (2026-06-01)
+Correction et validation stricte de l'écart de score de set :
+1. **Écart de 2 points obligatoire :** Enregistrement impossible des scores de set invalides (par exemple 11-10 ou 11-19). L'écart minimum réglementaire est contrôlé en temps réel sur la table de marque digitale.
+2. **Initialisation automatique et dynamique :** Le score de départ initial s'ajuste dynamiquement selon les paramètres spécifiques de score (points par set) configurés pour le tournoi (par exemple 11 points).
+
+### v0.14.1 (2026-06-01)
+Simplification majeure du flux de scoring pour table de ping-pong :
+1. **Zéro validation superflue :** Retrait de tout le processus de désignation du marqueur, du pointage de présence laborieux et des QR Codes de double validation.
+2. **Saisie directe instantanée :** Dès le QR Code de la table scanné, la feuille de match en direct est accessible à tous.
+3. **Meilleur des 3 sets gagnants :** Enregistrement des sets un à un. Dès que l'un des joueurs atteint le nombre de sets cibles (3 sets gagnés, soit 5 sets joués maximum), le match est automatiquement validé et archivé, et le déroulement du tournoi se poursuit sans friction.
+4. **Correction facile :** Ajout d'une option d'annulation ("Effacer le dernier set") directement sur l'écran de saisie pour rectifier immédiatement une erreur humaine.
+
+### v0.14.0 (2026-06-01)
+Mise en place des workflows et formulaires avancés de saisie sur table :
+1. **Désignation du Scorer :** Lorsque l'utilisateur lance une table, il choisit qui saisit les scores (Saisie sur place via la tablette principale, par l'un des joueurs sur son téléphone, ou par un joueur tiers indépendant). La saisie est automatiquement bloquée sur les autres terminaux.
+2. **Pointage obligatoire de présence :** Blocage de la feuille de score tant que les deux joueurs n'ont pas confirmé leur présence physique à la table pour lancer le match.
+3. **Validation co-signée sécurisée :** À la fin du match, les joueurs scannent un QR Code généré ou cliquent sur leur espace pour approuver ou contester (litige) le score. Un chrono de 120 secondes est activé pour l'auto-validation du score si l'un des joueurs est inactif.
+4. **Validation du classement de Poule :** Une fois tous les matchs de poules terminés, les participants confirment en ligne le classement calculé en temps réel sous peine d'auto-validation par timeout après 120s.
+
+### v0.13.2 (2026-06-01)
+Amélioration de l'affichage dans l'Espace Joueur :
+1. **Numéro de poule exact :** Calcul et affichage automatique du numéro de la poule (ex: "Poule 1", "Poule 2") au lieu du terme générique "Poule".
+2. **Notation compacte de bracket :** Utilisation de l'affichage fractionnaire pour le niveau de tableau final : `1/16`, `1/8`, `1/4`, `1/2` et `Finale`.
+
+### v0.13.1 (2026-06-01)
+Correction cosmétique d'affichage dans l'Espace Joueur :
+1. **Traduction française de la phase de poule :** Correction d'une anomalie de libellé où le mot anglais "Pool" stocké dans la base de données était affiché tel quel aux joueurs. Celui-ci est maintenant correctement traduit en français par "Poule" pour les matchs actifs et terminés.
+
+### v0.13.0 (2026-06-01)
+Résolution de l'affectation double (joueurs actifs simultanément sur 2 tables) :
+1. **Gestion en temps réel des doublons :** Les joueurs actifs sur d'autres tables sont détectés en temps réel lors du lancement ou de l'affectation d'un match (que ce soit pour une poule ou pour un match de phase finale).
+2. **Blocage au lancement :** Ajout de vérifications strictes bloquant le lancement d'une poule entière, d'un match de poule individuel, ou d'un match de phase finale si au moins l'un des deux concurrents est déjà en train de jouer un match actif sur une autre table, renvoyant un message Toast explicite avec le numéro de la table impactée.
+3. **Optimisation visuelle Organisateur (Dropdown) :** Ajout d'une balise d'alerte `⚠️ (Joueur déjà actif)` directement au sein des listes d'options du bouton "Assigner poule ou match" dans le panneau de Gestion des Tables.
+4. **Alertes de Phase Finale (Bracket) :** Intégration de bannières d'avertissement de double programmation réactives directement au sein des cases de matchs dans les vues Arbre (Tree) et Colonnes (Columns) de la Phase Finale, détaillant quel joueur est occupé et sur quelle table.
+
+### v0.12.2 (2026-05-31)
+Résolution de l'erreur React de doublons de clés dans les poules :
+1. **Filtrage strict par ID de poule :** Suppression d'un filtre contenant un OU inclusif (`s.pool_id === pool.id || playerIdsInPool.has(s.player_id)`) au profit d'un filtrage strict par ID de poule (`s.pool_id === pool.id`). 
+2. **Support des inscriptions multisérielles :** Permet aux joueurs inscrits sur plusieurs tableaux d'apparaître correctement et de façon stable dans les statistiques et résultats de chaque poule, excluant l'apparition en double de leurs lignes de classement causée par la présence d'autres catégories dans la même souscription.
+
+### v0.12.1 (2026-05-31)
+Résolution définitive et pérenne de l'ordre de passage officiel FFTT des matchs de poules :
+1. **Indexation temporelle à la génération :** Un déclencheur d'un intervalle de 1 seconde a été implémenté sur l'attribut `created_at` de chaque match généré. Cela garantit que PostgreSQL n'enregistre pas l'ensemble des matchs d'une même catégorie avec des timestamps strictement identiques, ce qui provoquait une réorganisation aléatoire des données par le moteur de base de données (le tri de secours par UUID d'enregistrement étant par essence aléatoire).
+2. **Tri dynamique intelligent côté client :** En renforcement de la solution BDD, le hook partagé `usePools` calcule désormais de façon autonome le classement par points de départ des compétiteurs de chaque poule, attribuant à chaque match son classement de passage strict officiel de la FFTT (poule de 3 ou poule de 4). Ainsi, tous les affichages, classements et lancements s'effectuent sans aucune défaillance de positionnement, même sur les bases de données d'anciens tournois.
+
+### v0.12.0 (2026-05-31)
+Ajout de la suppression et régénération dynamique des poules :
+1. **Bouton de suppression des poules :** Intégration d'un bouton rouge de suppression dans l'Espace Organisateur (gestion des poules) pour chaque tableau individuel, avec demande de confirmation sécurisée en ligne.
+2. **Nettoyage profond en BDD :** Retrait complet et propre des entrées de la table `matches`, libération en cascade des `pool_players`, et retrait de la table `pools` pour le tableau sélectionné.
+3. **Libération intelligente des tables physiques :** Les tables de tennis de table associées aux poules supprimées rebasculent automatiquement au statut `available` pour être disponibles immédiatement pour de futures attributions.
+
+### v0.11.5 (2026-05-31)
+Harmonisation de l'ordre de passage des matchs en poule de 3 :
+1. **Ordre standard FFTT unifié :** Correction d'un décalage d'ordre où l'affichage de simulation dans l'Espace Organisateur et l'insertion effective en base de données utilisaient deux séquences différentes. L'insertion en base génère désormais l'ordre officiel strict : Match 1 (`1 v 3`), Match 2 (`1 v 2`), et Match 3 (`2 v 3`).
+2. **Cohérence d'arbitrage :** Garantit la conformité avec les attentes des arbitres et des joueurs au moment du déroulement des premiers matchs.
+
+### v0.11.4 (2026-05-31)
+Résolution de la cohérence des dossiers pour les multi-inscriptions de la même journée :
+1. **Attribution unifiée du dossard :** Lorsqu’un joueur est inscrit dans plusieurs tableaux ayant lieu la même journée (ou globalement), le numéro de dossard qui lui est attribué est désormais inscrit de façon systématique sur toutes ses inscriptions pointées (`checked_in` à `true`).
+2. **Sécurité et dépointage individuel :** Si l'organisateur annule individuellement l'inscription ou le pointage d'un tableau spécifique, la colonne `dossard` de cette ligne repasse à `NULL` (conforme au fait qu'elle n'est plus pointée dans ce tableau), tout en gardant le dossard actif sur ses autres inscriptions validées.
+3. **Bypass de contrainte d'unicité obsolète :** Libération et documentation des index SQL de façon à ce que plusieurs inscriptions de l'Espace Organisateur associées au même joueur unique puissent porter le même numéro de dossard en toute sécurité.
+
+### v0.11.3 (2026-05-31)
+Résolution définitive des anomalies d'arbitrage sur l'Espace Organisateur :
+1. **Regroupement intelligent des multi-inscriptions :** Les compétiteurs inscrits à plusieurs tableaux de compétition n'apparaissent désormais plus en double dans l'Espace Organisateur en mode "Tous les Tableaux". Toutes leurs inscriptions respectives sont élégamment regroupées au sein d'une seule et même ligne de joueur physique unique.
+2. **Fin définitive des clés React dupliquées :** Cette modélisation unifiée corrige le problème des clés React dupliquées qui survenait en boucle lors du rendu global de l'interface d'arbitrage `Players.tsx`.
+3. **Affichage systématique des dossards attribués :** Le numéro de dossard attribué s'affiche maintenant à coup sûr de façon constante, que le joueur ait l'un de ses tableaux pointé ou non.
+4. **Ergonomie d'arbitrage augmentée (Micro-sélecteurs et micro-poubelles par série) :** Chaque tableau bénéficie d'un sélecteur de transfert et d'un bouton de suppression individuel astucieusement positionnés au sein de la ligne regroupée.
+
+### v0.11.2 (2026-05-31)
+Simplification et nettoyage de la page d'accueil publique :
+1. **Suppression du widget de recherche :** Retrait définitif du widget `<div id="checkin-lookup-widget">` ainsi que de son état de recherche associé `profileSearch` sur l'espace d'accueil public, afin d'éliminer toute distraction inutile pour les compétiteurs.
+2. **Clarté visuelle et performance :** Amélioration du temps de rendu de l'interface d'accueil en éliminant les boucles de filtrage superflues sur les joueurs inscrits.
+
+### v0.11.1 (2026-05-31)
+Rectification du compteur d'inscrits par tableau/catégorie :
+1. **Calcul global d'inscriptions par catégorie :** Remplacement de la formule restrictive filtrant sur les états de pointage (`p.checked_in !== false`). Désormais, le nombre de joueurs inscrits par tableau est fidèlement comptabilisé en comptant l'intégralité des inscriptions validées en base de données pour la catégorie, indépendamment du fait qu'ils aient un numéro de dossard ou qu'ils soient déjà pointés comme présents le jour J.
+2. **Alignement de la jauge et des places en temps réel :** La jauge visuelle et le compteur des places restantes ("X places libres") se mettent instantanément à jour avec cette valeur d'inscription globale et fiable.
+
+### v0.11.0 (2026-05-31)
+Indication globale et exacte du nombre de compétiteurs inscrits sur la vue publique du tournoi :
+1. **Statistique globale de participation re-calculée :** La statistique de participation affichait auparavant uniquement le nombre d'inscriptions pointées (présentes), ce qui masquait les joueurs enregistrés n'ayant pas encore procédé au pointage J-J. Désormais, le compteur de participation affiche de manière exhaustive le nombre de joueurs réels uniques déjà inscrits dans le tournoi, quel que soit leur état de pointage.
+2. **Abonnement temps réel robuste :** Intégration d'un canal de mise à jour instantanée branché sur la table `registrations` de Supabase afin de refléter en temps réel les nouveaux inscrits sans nécessiter un rechargement manuel de la page.
+
+### v0.10.3 (2026-05-31)
+Masquage du badge de dossard asymétrique dans l'Espace Joueur :
+1. **Suppression du badge asymétrique :** Les badges de numéro de dossard affichaient de façon asymétrique le dossard sur une seule série d'un joueur, car un joueur unique possède un seul dossard par tournoi attaché à sa première inscription en base. Pour éviter toute confusion (du type "Dossard en cours" affiché à côté des autres séries validées), les dossards ne sont plus affichés dans l'Espace Joueur tout en restant parfaitement opérationnels côté organisateur.
+
+### v0.10.2 (2026-05-31)
+Optimisation ergonomique de la modale d'affichage de statut d'inscription :
+1. **Marges de confort en hauteur :** Ajout de marges confortables en haut et en bas (`my-6` et `p-4` sur les petits écrans) pour éviter que la modale touche les bords horizontaux sur de petits écrans ou en mode paysage.
+2. **Défilement vertical sécurisé :** Remplacement de `overflow-hidden` par `overflow-y-auto` combiné avec une hauteur maximale intelligente (`max-h-[calc(100vh-3rem)] sm:max-h-[calc(100vh-5rem)]`) de façon à ce que le contenu volumineux (comme les longues fiches de détails d’inscription et le QR code de l’espace joueur) devienne élégamment défilable à l’intérieur de la boîte de dialogue lorsque nécessaire.
+
+### v0.10.1 (2026-05-31)
+Résolution de la validation croisée des journées de pointage par QR Code :
+1. **Extraction dynamique du jour scanné :** Le scanner identifie désormais s'il y a un paramètre de requête de journée (`?day=X`) encodé dans le QR Code.
+2. **Définition automatique de la journée d'évaluation :** Si le joueur présente un QR Code de la Journée 2 au comptoir alors que le scanner de la Journée 1 est configuré, l'évaluation et la validation se verrouillent intelligemment sur la Journée 2 (avec mise à jour immédiate de l'écran des fiches de l'organisateur) au lieu de chevaucher le jour du scanner.
+3. **Correction de la fusion des catégories :** Résolution définitive du cas où l'absence de vérification du format tableau/objet de Supabase entraînait un repli par défaut sur 1 qui validait toutes les inscriptions d'un coup.
+
+### v0.10.0 (2026-05-31)
 Pointage et QR Codes spécifiques par journée :
 1. **QR Codes de pointage par Journée :** Dans l'Espace Joueur, le joueur dispose désormais d'un QR code distinct pour chaque journée de tournoi où il a au moins un tableau. Les codes d'embarquement intègrent le paramètre de requête `?day=X`.
 2. **Scan intelligent restrictif (Jour J uniquement) :** Lorsque l'organisateur scanne à l'accueil via l'appareil de pointage de la Journée X, le scanneur n'émerge et ne valide **uniquement** que ses catégories de la Journée X. Les inscriptions des journées futures (comme la Journée Y où le joueur n'est peut-être pas présent) restent sagement non pointées.

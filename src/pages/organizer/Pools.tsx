@@ -28,9 +28,79 @@ export default function Pools() {
   const { pools, matches, standings, loading, refresh: refreshPools } = usePools(tournament?.id);
   const [generating, setGenerating] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
+  const [poolPlayers, setPoolPlayers] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [confirmingClosePools, setConfirmingClosePools] = useState(false);
   const [reassigningPool, setReassigningPool] = useState<string | null>(null);
+  const [confirmingDeletePools, setConfirmingDeletePools] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeletePools = async () => {
+    if (!tournament) return;
+    const currentCategoryObj = categories.find(c => c.name === selectedCategory);
+    if (!currentCategoryObj) {
+      toast.error('Aucune catégorie sélectionnée ou trouvée.');
+      return;
+    }
+
+    const targetPools = pools.filter(p => 
+      p.table_category_id === currentCategoryObj.id || p.name.startsWith(`${selectedCategory} - `)
+    );
+
+    const poolIds = targetPools.map(p => p.id);
+    if (poolIds.length === 0) {
+      toast.error('Aucune poule à supprimer.');
+      return;
+    }
+
+    setDeleting(true);
+    const toastId = toast.loading('Suppression des poules en cours...');
+    try {
+      // 1. Supprimer les matchs associés à ces pools
+      const { error: matchDelError } = await supabase
+        .from('matches')
+        .delete()
+        .in('pool_id', poolIds);
+
+      if (matchDelError) throw matchDelError;
+
+      // 2. Libérer les tables physiques occupées par ces pools
+      const tableNumbersToFree = targetPools
+        .map(p => (p as any).table_number)
+        .filter((n): n is number => n != null);
+
+      if (tableNumbersToFree.length > 0) {
+        await supabase
+          .from('tournament_tables')
+          .update({ status: 'available' })
+          .eq('tournament_id', tournament.id)
+          .in('table_number', tableNumbersToFree);
+      }
+
+      // 3. Supprimer les liaisons pool_players
+      await supabase
+        .from('pool_players')
+        .delete()
+        .in('pool_id', poolIds);
+
+      // 4. Supprimer les pools eux-mêmes
+      const { error: poolDelError } = await supabase
+        .from('pools')
+        .delete()
+        .in('id', poolIds);
+
+      if (poolDelError) throw poolDelError;
+
+      toast.success(`Les poules du tableau "${selectedCategory}" ont été supprimées.`, { id: toastId });
+      setConfirmingDeletePools(false);
+      refreshPools();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(`Erreur lors de la suppression : ${err.message || 'Erreur inconnue'}`, { id: toastId });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const isPoolFinished = (poolId: string) => {
     const pool = pools.find(p => p.id === poolId);
@@ -50,6 +120,17 @@ export default function Pools() {
     if (targetBusy) {
       toast.error(`La table ${newTableNumber} est déjà occupée par une autre poule.`);
       return;
+    }
+
+    // Vérifier si un des joueurs de la poule est déjà mobilisé sur une autre table
+    const playersInThisPool = poolPlayers.filter(pp => pp.pool_id === poolId).map(pp => pp.player_id);
+    for (const pId of playersInThisPool) {
+      const mobs = mobilizedPlayers.get(pId) || [];
+      const conflict = mobs.find(mob => Number(mob.tableNumber) !== Number(newTableNumber));
+      if (conflict) {
+        toast.error(`Impossible d'attribuer la table : ${conflict.playerName} est déjà mobilisé dans "${conflict.sourceName}" sur la Table ${conflict.tableNumber} (en tant que joueur ou arbitre) !`);
+        return;
+      }
     }
 
     try {
@@ -120,9 +201,79 @@ export default function Pools() {
     loadCats();
   }, [tournament?.id, tournament?.current_day]);
 
+  React.useEffect(() => {
+    if (!tournament?.id || pools.length === 0) {
+      setPoolPlayers([]);
+      return;
+    }
+    const loadPoolPlayers = async () => {
+      const poolIds = pools.map(p => p.id);
+      if (poolIds.length > 0) {
+        const { data: ppRes, error: ppErr } = await supabase
+          .from('pool_players')
+          .select('pool_id, player_id, players(*)')
+          .in('pool_id', poolIds);
+        if (!ppErr && ppRes) {
+          setPoolPlayers(ppRes);
+        }
+      }
+    };
+    loadPoolPlayers();
+  }, [pools, tournament?.id]);
+
   // Variables calculées pour la journée en cours
   const currentDay = tournament?.current_day || 1;
   const catsToday = categories.filter(c => (c.day_number || 1) === currentDay);
+
+  // Compile map of players currently mobilized on any table (due to active pool or current match)
+  const mobilizedPlayers = new Map<string, Array<{ sourceName: string; tableNumber: number; playerName: string }>>();
+  pools.forEach(p => {
+    if (p.status !== 'finished' && p.table_number) {
+      const playersInPool = poolPlayers.filter(pp => pp.pool_id === p.id);
+      playersInPool.forEach(pp => {
+        const pData = Array.isArray(pp.players) ? pp.players[0] : pp.players;
+        const pName = pData ? `${pData.first_name || ''} ${pData.last_name || ''}`.trim() : 'Joueur';
+        
+        const list = mobilizedPlayers.get(pp.player_id) || [];
+        list.push({
+          sourceName: p.name,
+          tableNumber: Number(p.table_number),
+          playerName: pName
+        });
+        mobilizedPlayers.set(pp.player_id, list);
+      });
+    }
+  });
+
+  matches.forEach(m => {
+    if (m.status === 'in_progress' && m.table_number) {
+      const tNum = Number(m.table_number);
+      if (m.player1_id) {
+        const p1Name = `${m.player1?.first_name || ''} ${m.player1?.last_name || ''}`.trim() || 'Joueur 1';
+        const list = mobilizedPlayers.get(m.player1_id) || [];
+        if (!list.some(x => x.tableNumber === tNum)) {
+          list.push({
+            sourceName: m.round === 'pool' ? 'Poule' : 'Match Phase Finale',
+            tableNumber: tNum,
+            playerName: p1Name
+          });
+          mobilizedPlayers.set(m.player1_id, list);
+        }
+      }
+      if (m.player2_id) {
+        const p2Name = `${m.player2?.first_name || ''} ${m.player2?.last_name || ''}`.trim() || 'Joueur 2';
+        const list = mobilizedPlayers.get(m.player2_id) || [];
+        if (!list.some(x => x.tableNumber === tNum)) {
+          list.push({
+            sourceName: m.round === 'pool' ? 'Poule' : 'Match Phase Finale',
+            tableNumber: tNum,
+            playerName: p2Name
+          });
+          mobilizedPlayers.set(m.player2_id, list);
+        }
+      }
+    }
+  });
 
   const handleGeneratePools = async () => {
     if (!tournament) return;
@@ -162,15 +313,50 @@ export default function Pools() {
       const poolsResult = generatePools(categoryPlayers, physicalTables, tournament.players_per_pool || 3);
       const poolsPlayers = poolsResult.map(p => p.players);
       
+      // Charger les poules actives d'autres tableaux pour exclure l'assignation automatique de table pour les joueurs déjà occupés
+      const { data: activeOtherPools } = await supabase
+        .from('pools')
+        .select('id, table_number')
+        .eq('tournament_id', tournament.id)
+        .not('table_number', 'is', null)
+        .neq('status', 'finished');
+
+      const occupiedPlayerIds = new Set<string>();
+      if (activeOtherPools && activeOtherPools.length > 0) {
+        const { data: activePP } = await supabase
+          .from('pool_players')
+          .select('player_id')
+          .in('pool_id', activeOtherPools.map(p => p.id));
+        activePP?.forEach(pp => {
+          occupiedPlayerIds.add(pp.player_id);
+        });
+      }
+
+      // Également des matches de phase finale actifs
+      const { data: activeBracketMatches } = await supabase
+        .from('matches')
+        .select('player1_id, player2_id')
+        .eq('tournament_id', tournament.id)
+        .eq('status', 'in_progress')
+        .is('pool_id', null);
+      activeBracketMatches?.forEach(m => {
+        if (m.player1_id) occupiedPlayerIds.add(m.player1_id);
+        if (m.player2_id) occupiedPlayerIds.add(m.player2_id);
+      });
+
       // La contrainte UNIQUE(tournament_id, name) en BDD bloque la double génération
       const { data: createdPools, error: poolError } = await supabase
         .from('pools')
-        .insert(poolsPlayers.map((_, i) => ({
-          tournament_id: tournament.id,
-          name: `${selectedCategory} - Poule ${i + 1}`,
-          table_number: poolsResult[i].table?.table_number ?? null,
-          table_category_id: currentCategoryObj?.id ?? null
-        })))
+        .insert(poolsPlayers.map((pPlayers, i) => {
+          const hasOccupiedPlayer = pPlayers.some(player => occupiedPlayerIds.has(player.player_id || player.id));
+          const assignedTableNum = hasOccupiedPlayer ? null : (poolsResult[i].table?.table_number ?? null);
+          return {
+            tournament_id: tournament.id,
+            name: `${selectedCategory} - Poule ${i + 1}`,
+            table_number: assignedTableNum,
+            table_category_id: currentCategoryObj?.id ?? null
+          };
+        }))
         .select();
 
       if (poolError) {
@@ -184,8 +370,8 @@ export default function Pools() {
       }
 
       // Marquer les tables assignées comme 'busy'
-      const assignedTableNums = poolsResult
-        .map(p => p.table?.table_number)
+      const assignedTableNums = createdPools
+        .map(p => p.table_number)
         .filter((n): n is number => n != null);
       if (assignedTableNums.length > 0) {
         await supabase
@@ -202,10 +388,14 @@ export default function Pools() {
       const { error: ppError } = await supabase.from('pool_players').insert(poolPlayersRows);
       if (ppError) throw ppError;
 
-      // 3. Générer les matchs round-robin
+      // 3. Générer les matchs round-robin avec timestamps décalés pour préserver l'ordre d'insertion en BDD
+      const baseTime = Date.now();
       const allMatches = createdPools.flatMap((pool, i) =>
         generatePoolMatches(poolsPlayers[i].map(p => p.player_id || p.id), pool.id, tournament.id)
-      );
+      ).map((match, idx) => ({
+        ...match,
+        created_at: new Date(baseTime + idx * 1000).toISOString()
+      }));
       const { error: matchError } = await supabase.from('matches').insert(allMatches);
       if (matchError) throw matchError;
 
@@ -272,6 +462,24 @@ export default function Pools() {
       // 3. Ne lancer QUE le premier match en attente de cette poule (règle 1 table = 1 match simultané par poule)
       const matchToLaunch = pendingPoolMatches[0];
 
+      // Vérifier si l'un de ces deux joueurs joue déjà ou est mobilisé ailleurs
+      if (matchToLaunch.player1_id) {
+        const mobs = mobilizedPlayers.get(matchToLaunch.player1_id) || [];
+        const conflict = mobs.find(mob => Number(mob.tableNumber) !== Number(tableToUse));
+        if (conflict) {
+          toast.error(`Impossible de lancer le match de poule : ${conflict.playerName} est déjà mobilisé dans "${conflict.sourceName}" sur la Table ${conflict.tableNumber} (en tant que joueur ou arbitre) !`);
+          return;
+        }
+      }
+      if (matchToLaunch.player2_id) {
+        const mobs = mobilizedPlayers.get(matchToLaunch.player2_id) || [];
+        const conflict = mobs.find(mob => Number(mob.tableNumber) !== Number(tableToUse));
+        if (conflict) {
+          toast.error(`Impossible de lancer le match de poule : ${conflict.playerName} est déjà mobilisé dans "${conflict.sourceName}" sur la Table ${conflict.tableNumber} (en tant que joueur ou arbitre) !`);
+          return;
+        }
+      }
+
       await supabase.from('matches').update({
         table_number: tableToUse,
         status: 'in_progress',
@@ -323,6 +531,24 @@ export default function Pools() {
         );
         if (tableOccupied) {
           toast.error(`La table ${tableToUse} de cette poule est actuellement occupée par un autre match en cours.`);
+          return;
+        }
+      }
+
+      // Vérifier si l'un de ces deux joueurs joue déjà ou est mobilisé ailleurs
+      if (matchObj.player1_id) {
+        const mobs = mobilizedPlayers.get(matchObj.player1_id) || [];
+        const conflict = mobs.find(mob => Number(mob.tableNumber) !== Number(tableToUse));
+        if (conflict) {
+          toast.error(`Impossible de lancer le match : ${conflict.playerName} est déjà mobilisé dans "${conflict.sourceName}" sur la Table ${conflict.tableNumber} (en tant que joueur ou arbitre) !`);
+          return;
+        }
+      }
+      if (matchObj.player2_id) {
+        const mobs = mobilizedPlayers.get(matchObj.player2_id) || [];
+        const conflict = mobs.find(mob => Number(mob.tableNumber) !== Number(tableToUse));
+        if (conflict) {
+          toast.error(`Impossible de lancer le match : ${conflict.playerName} est déjà mobilisé dans "${conflict.sourceName}" sur la Table ${conflict.tableNumber} (en tant que joueur ou arbitre) !`);
           return;
         }
       }
@@ -498,6 +724,40 @@ export default function Pools() {
             </div>
 
             <div className="flex items-center gap-4 flex-wrap">
+              {/* Bouton de Suppression des Poules */}
+              {confirmingDeletePools ? (
+                <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 animate-fade-in shadow-sm">
+                  <span className="text-xs font-bold text-slate-600 px-2.5">
+                    Supprimer définitivement ces poules et tous leurs matchs ?
+                  </span>
+                  <button
+                    id="btn-confirm-delete-pools"
+                    onClick={handleDeletePools}
+                    disabled={deleting}
+                    className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs rounded-xl transition-all shadow-sm cursor-pointer disabled:opacity-50"
+                  >
+                    {deleting ? 'Suppression...' : 'Oui, supprimer ✓'}
+                  </button>
+                  <button
+                    id="btn-cancel-delete-pools"
+                    onClick={() => setConfirmingDeletePools(false)}
+                    disabled={deleting}
+                    className="px-3.5 py-1.5 bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 font-bold text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              ) : (
+                <button
+                  id="btn-init-delete-pools"
+                  onClick={() => setConfirmingDeletePools(true)}
+                  disabled={deleting || generating}
+                  className="flex items-center gap-2 px-5 py-3 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200/80 rounded-2xl font-bold transition-all shadow-sm disabled:opacity-50 cursor-pointer text-xs"
+                >
+                  <span>🗑️ Supprimer les Poules</span>
+                </button>
+              )}
+
               {matches.filter(m => {
                 const pool = pools.find(p => p.id === m.pool_id);
                 return pool?.name.startsWith(`${selectedCategory} - `);
@@ -676,9 +936,8 @@ export default function Pools() {
                           </thead>
                           <tbody className="divide-y divide-slate-50">
                             {(() => {
-                              const playerIdsInPool = new Set(poolMatches.flatMap(m => [m.player1_id, m.player2_id]));
                               const poolStandings = standings
-                                .filter(s => s.pool_id === pool.id || playerIdsInPool.has(s.player_id))
+                                .filter(s => s.pool_id === pool.id)
                                 .sort((a, b) => a.standing_rank - b.standing_rank);
 
                               if (poolStandings.length === 0) {
@@ -816,11 +1075,8 @@ export default function Pools() {
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-left mb-8">
                     {pools.filter(p => p.name.startsWith(`${selectedCategory} - `)).map(pool => {
-                      const poolMatches = matches.filter(m => m.pool_id === pool.id);
-                      const playerIdsInPool = new Set(poolMatches.flatMap(m => [m.player1_id, m.player2_id]));
-
                       const poolQualified = standings
-                        .filter(s => (s.pool_id === pool.id || playerIdsInPool.has(s.player_id)) && (s.standing_rank <= 2))
+                        .filter(s => s.pool_id === pool.id && s.standing_rank <= 2)
                         .sort((a, b) => a.standing_rank - b.standing_rank);
                         
                       return (

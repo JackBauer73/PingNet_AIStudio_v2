@@ -101,6 +101,10 @@ export default function PlayerSpace() {
       setPlayer(playerRes.data);
       setTournament(tournamentRes.data);
 
+      // Stockage local de session pour les validations et scores
+      localStorage.setItem('currentPlayerToken', token);
+      localStorage.setItem('currentPlayerId', playerId);
+
       // Étape 3 — Charger les inscriptions avec catégories
       const { data: regs, error: regsError } = await supabase
         .from('registrations')
@@ -154,7 +158,7 @@ export default function PlayerSpace() {
       const { data: playerMatches, error: matchesError } = await supabase
         .from('matches')
         .select(`
-          id, round, status, table_number,
+          id, round, status, table_number, pool_id,
           bracket_position, bracket_round,
           winner_id, started_at, finished_at,
           player1_id, player2_id,
@@ -183,7 +187,7 @@ export default function PlayerSpace() {
       const { data: playerMatches } = await supabase
         .from('matches')
         .select(`
-          id, round, status, table_number,
+          id, round, status, table_number, pool_id,
           bracket_position, bracket_round,
           winner_id, started_at, finished_at,
           player1_id, player2_id,
@@ -260,11 +264,28 @@ export default function PlayerSpace() {
     if (!roundName) return 'Phase finale';
     const clean = roundName.toLowerCase();
     if (clean === 'final' || clean === 'finale') return 'Finale';
-    if (clean === 'semifinal' || clean === 'demi-finale' || clean === 'demi') return 'Demi-finale';
-    if (clean === 'quarterfinal' || clean === 'quart' || clean === 'quarts') return 'Quart de finale';
-    if (clean === 'eighthfinal' || clean === 'huitieme' || clean === 'huitièmes') return '8ème de finale';
-    if (clean === 'sixteenthfinal' || clean === 'seizieme' || clean === 'seizièmes') return '16ème de finale';
-    return `Tour de Bracket - ${roundName}`;
+    if (clean === 'semifinal' || clean === 'demi-finale' || clean === 'demi') return '1/2';
+    if (clean === 'quarterfinal' || clean === 'quart' || clean === 'quarts') return '1/4';
+    if (clean === 'eighthfinal' || clean === 'huitieme' || clean === 'huitièmes') return '1/8';
+    if (clean === 'sixteenthfinal' || clean === 'seizieme' || clean === 'seizièmes') return '1/16';
+    return roundName;
+  };
+
+  const getRoundLabel = (match: any, isUpcoming = false) => {
+    if (match.bracket_round) {
+      return translateBracketRound(match.bracket_round);
+    }
+    if (match.round === 'pool') {
+      const p = pools.find(pl => pl.id === match.pool_id);
+      if (p) {
+        if (p.name.includes(' - ')) {
+          return p.name.split(' - ').slice(-1)[0];
+        }
+        return p.name;
+      }
+      return 'Poule';
+    }
+    return match.round || (isUpcoming ? 'Poule - Tableau' : 'Tableau');
   };
 
   if (loading) {
@@ -474,17 +495,7 @@ export default function PlayerSpace() {
                           </p>
                         </div>
                         
-                        <div className="shrink-0 text-right">
-                          {reg.dossard ? (
-                            <span className="inline-flex items-center gap-0.5 bg-slate-50 text-slate-700 border border-slate-150 px-2 py-0.5 rounded-lg font-mono font-bold text-[10px]">
-                              N° {reg.dossard}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center text-[9px] font-semibold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded-lg border border-slate-100 italic">
-                              Dossard en cours
-                            </span>
-                          )}
-                        </div>
+                        {/* Remplacé / Supprimé badge dossard selon consigne utilisateur */}
                       </div>
 
                       {/* Barre d'état basse */}
@@ -609,7 +620,7 @@ export default function PlayerSpace() {
                       className="bg-white rounded-2xl border-2 border-indigo-100 shadow-md p-4 space-y-3 animate-pulse"
                     >
                       <div className="flex justify-between items-center bg-indigo-50/75 px-3 py-1.5 rounded-xl text-xs font-bold text-indigo-800">
-                        <span>{match.bracket_round ? translateBracketRound(match.bracket_round) : (match.round || 'Poule - Tableau')}</span>
+                        <span>{getRoundLabel(match, true)}</span>
                         {match.table_number && (
                           <span className="bg-indigo-600 text-white px-2 py-0.5 rounded-lg text-[10px] font-extrabold uppercase shrink-0">
                             Table {match.table_number}
@@ -677,7 +688,7 @@ export default function PlayerSpace() {
                     >
                       <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                         <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
-                          {match.bracket_round ? translateBracketRound(match.bracket_round) : (match.round || 'Tableau')}
+                          {getRoundLabel(match, false)}
                         </span>
                         
                         {isWinnerMe ? (
@@ -797,7 +808,7 @@ export default function PlayerSpace() {
         <p className="text-[11px] font-bold tracking-wide uppercase text-slate-400 shrink-0">Table Tennis Event Companion</p>
         <p className="text-[10px]">© 2026 Ping Manager. Conçu pour simplifier l'arbitrage et le suivi des tournois.</p>
         <div className="text-[10px] font-mono text-slate-400 mt-1">
-          v0.8.0
+          v0.13.2
         </div>
       </footer>
 

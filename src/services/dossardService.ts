@@ -63,76 +63,55 @@ export async function assignDossard({ registrationId, tournamentId, onlyThisRegi
       dejaPointe = false;
     }
 
-    // 4. Assigner le dossard sur UNE SEULE ligne de registrations pour respecter la clé unique (idx_registrations_dossard_tournament)
-    const targetRegIdToDossard = existingDossardReg ? existingDossardReg.id : registrationId;
+    // 4. Déterminer les inscriptions de la journée/globale qui doivent être pointées par cet appel
+    let regsToUpdateIds: string[] = [];
 
-    const { error: updateDossardError } = await supabase
-      .from('registrations')
-      .update({ dossard: dossard })
-      .eq('id', targetRegIdToDossard);
-
-    if (updateDossardError) {
-      throw updateDossardError;
-    }
-
-    // Nettoyer les autres lignes si jamais elles disposaient de dossards restants
-    const secondaryRegIdsToNull = matchedRegs.map(r => r.id).filter(id => id !== targetRegIdToDossard);
-    if (secondaryRegIdsToNull.length > 0) {
-      await supabase
-        .from('registrations')
-        .update({ dossard: null })
-        .in('id', secondaryRegIdsToNull);
-    }
-
-    // 5. Mettre à jour `checked_in`, `paid` et `status`
     if (onlyThisRegistration) {
-      // On ne pointe que le tableau concerné
-      const { error: updateRegError } = await supabase
-        .from('registrations')
-        .update({
-          checked_in: true,
-          paid: true,
-          status: 'validated'
-        })
-        .eq('id', registrationId);
-
-      if (updateRegError) {
-        throw updateRegError;
-      }
+      regsToUpdateIds = [registrationId];
     } else if (dayNumber) {
-      // On ne pointe que ses inscriptions correspondantes à cette journée spécifique !
       const regsToUpdate = (matchedRegs as any[]).filter(r => {
-        const dNum = r.table_categories?.day_number || 1;
+        const catObj = r.table_categories ? (Array.isArray(r.table_categories) ? r.table_categories[0] : r.table_categories) : null;
+        const dNum = catObj?.day_number || 1;
         return dNum === dayNumber;
       });
-
-      if (regsToUpdate.length > 0) {
-        const { error: updateAllError } = await supabase
-          .from('registrations')
-          .update({
-            checked_in: true,
-            paid: true,
-            status: 'validated'
-          })
-          .in('id', regsToUpdate.map(r => r.id));
-
-        if (updateAllError) {
-          throw updateAllError;
-        }
-      }
+      regsToUpdateIds = regsToUpdate.map(r => r.id);
     } else {
-      // On pointe toutes ses inscriptions sur le tournoi
-      const { error: updateAllError } = await supabase
+      regsToUpdateIds = matchedRegs.map(r => r.id);
+    }
+
+    // Le joueur physique possède le même numéro de dossard sur toutes ses inscriptions pointées
+    const alreadyCheckedInIds = matchedRegs.filter(r => r.checked_in).map(r => r.id);
+    const finalCheckedInIds = Array.from(new Set([...alreadyCheckedInIds, ...regsToUpdateIds]));
+
+    // 5. Mettre à jour l'ensemble des inscriptions validées avec le numéro de dossard
+    if (finalCheckedInIds.length > 0) {
+      const { error: updateCheckedError } = await supabase
         .from('registrations')
         .update({
           checked_in: true,
           paid: true,
-          status: 'validated'
+          status: 'validated',
+          dossard: dossard
         })
-        .in('id', matchedRegs.map(r => r.id));
+        .in('id', finalCheckedInIds);
 
-      if (updateAllError) {
-        throw updateAllError;
+      if (updateCheckedError) {
+        throw updateCheckedError;
+      }
+    }
+
+    // 6. Pour les inscriptions non pointées restantes, on s'assure que le dossard est NULL
+    const finalUncheckedIds = matchedRegs.map(r => r.id).filter(id => !finalCheckedInIds.includes(id));
+    if (finalUncheckedIds.length > 0) {
+      const { error: updateUncheckedError } = await supabase
+        .from('registrations')
+        .update({
+          dossard: null
+        })
+        .in('id', finalUncheckedIds);
+
+      if (updateUncheckedError) {
+        throw updateUncheckedError;
       }
     }
 

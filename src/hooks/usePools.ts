@@ -94,6 +94,46 @@ export function usePools(tournamentId?: string) {
       poolsRes?.forEach(pool => {
         const poolMatches = poolMatchesMap.get(pool.id) || [];
         const playersInPool = poolPlayers.filter(pp => pp.pool_id === pool.id);
+        
+        // Custom official FFTT Order Index calculation for each pool
+        const seededPlayers = playersInPool
+          .map(pp => playersById.get(pp.player_id))
+          .filter(Boolean)
+          .sort((a: any, b: any) => {
+            if (b.points !== a.points) {
+              return (b.points || 0) - (a.points || 0);
+            }
+            return a.id.localeCompare(b.id);
+          }) as any[];
+
+        const getPoolSequenceIndex = (m: Match) => {
+          if (!m.player1_id || !m.player2_id) return 999;
+          const idx1 = seededPlayers.findIndex(p => p.id === m.player1_id);
+          const idx2 = seededPlayers.findIndex(p => p.id === m.player2_id);
+          if (idx1 === -1 || idx2 === -1) return 999;
+          
+          const first = Math.min(idx1, idx2);
+          const second = Math.max(idx1, idx2);
+          const len = seededPlayers.length;
+
+          if (len === 3) {
+            if (first === 0 && second === 2) return 1; // 1 v 3
+            if (first === 0 && second === 1) return 2; // 1 v 2
+            if (first === 1 && second === 2) return 3; // 2 v 3
+          } else if (len === 4) {
+            if (first === 0 && second === 3) return 1; // 1 v 4
+            if (first === 1 && second === 2) return 2; // 2 v 3
+            if (first === 0 && second === 2) return 3; // 1 v 3
+            if (first === 1 && second === 3) return 4; // 2 v 4
+            if (first === 0 && second === 1) return 5; // 1 v 2
+            if (first === 2 && second === 3) return 6; // 3 v 4
+          }
+          return first * 10 + second;
+        };
+
+        poolMatches.sort((m1, m2) => getPoolSequenceIndex(m1) - getPoolSequenceIndex(m2));
+        poolMatchesMap.set(pool.id, poolMatches);
+
         const playersMap = new Map<string, any>();
 
         // Initialize all players belonging to this pool
@@ -182,8 +222,16 @@ export function usePools(tournamentId?: string) {
         });
       });
 
+      const reorderedMatches: Match[] = [];
+      poolsRes?.forEach(pool => {
+        const sortedPoolMatches = poolMatchesMap.get(pool.id) || [];
+        reorderedMatches.push(...sortedPoolMatches);
+      });
+      const orphanMatches = sortedMatches.filter(m => !m.pool_id);
+      reorderedMatches.push(...orphanMatches);
+
       setPools(poolsRes || []);
-      setMatches(sortedMatches);
+      setMatches(reorderedMatches);
       
       setStandings(calculatedStandings);
     } catch (error) {

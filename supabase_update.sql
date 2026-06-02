@@ -150,7 +150,9 @@ ALTER TABLE registrations
   ADD COLUMN IF NOT EXISTS paid BOOLEAN DEFAULT FALSE,
   ADD COLUMN IF NOT EXISTS checked_in BOOLEAN DEFAULT FALSE;
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_registrations_dossard_tournament
+-- Index pour accélérer les recherches de dossards par tournoi (enlevé de UNIQUE pour permettre le partage du dossard entre inscriptions du même joueur)
+DROP INDEX IF EXISTS idx_registrations_dossard_tournament;
+CREATE INDEX IF NOT EXISTS idx_registrations_dossard_tournament
   ON registrations(tournament_id, dossard)
   WHERE dossard IS NOT NULL;
 
@@ -314,6 +316,24 @@ BEGIN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.player_tokens;
   END IF;
 END $$;
+
+
+-- =========================================================================
+-- MISE JEU WORKFLOW DE SAISIE DE MATCH (PING MANAGER V2)
+-- =========================================================================
+
+ALTER TABLE public.matches
+  ADD COLUMN IF NOT EXISTS scorer_id               UUID REFERENCES public.players(id),
+  ADD COLUMN IF NOT EXISTS scorer_role             TEXT CHECK (scorer_role IN ('player','arbiter','third_player')),
+  ADD COLUMN IF NOT EXISTS p1_present              BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS p2_present              BOOLEAN DEFAULT FALSE,
+  ADD COLUMN IF NOT EXISTS awaiting_validation_since TIMESTAMPTZ;
+
+-- Ajout des validations du classement de poule sur la table pools
+ALTER TABLE public.pools
+  ADD COLUMN IF NOT EXISTS validated_by            JSONB DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS awaiting_validation_since TIMESTAMPTZ;
+
 
 
 

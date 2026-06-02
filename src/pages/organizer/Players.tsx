@@ -279,7 +279,7 @@ export default function Players() {
 
       const dossardId = result.dossard;
 
-      // 4. Mettre à jour checked_in: true et paid: true uniquement pour les inscriptions autorisées
+      // 4. Mettre à jour checked_in: true, paid: true et dossard uniquement pour les inscriptions autorisées
       const sameDayIds = allowedRegistrations.map(p => p.id);
       
       const { error: updateError } = await supabase
@@ -287,7 +287,8 @@ export default function Players() {
         .update({
           checked_in: true,
           paid: true,
-          status: 'validated'
+          status: 'validated',
+          dossard: dossardId
         })
         .in('id', sameDayIds);
 
@@ -331,13 +332,14 @@ export default function Players() {
 
     const toastId = toast.loading(`Annulation du pointage de ${player.serie}...`);
     try {
-      // On dépointe et annule le paiement UNIQUEMENT pour cette inscription dans registrations
+      // On dépointe et annule le paiement et le dossard UNIQUEMENT pour cette inscription dans registrations
       const { error: updateError } = await supabase
         .from('registrations')
         .update({
           checked_in: false,
           paid: false,
-          status: 'pending'
+          status: 'pending',
+          dossard: null
         })
         .eq('id', player.id);
 
@@ -517,6 +519,33 @@ export default function Players() {
 
     return true;
   });
+
+  const displayedPlayers = React.useMemo(() => {
+    if (selectedSerie !== 'all') {
+      return filteredPlayers.map(p => ({
+        ...p,
+        registrations: [p]
+      }));
+    }
+
+    const groups = new Map<string, any>();
+
+    filteredPlayers.forEach(p => {
+      const key = p.licence_number && p.licence_number.trim() !== '' 
+        ? `lic:${p.licence_number.trim()}` 
+        : `name:${p.first_name?.toLowerCase().trim()}_${p.last_name?.toLowerCase().trim()}`;
+      
+      if (!groups.has(key)) {
+        groups.set(key, {
+          ...p,
+          registrations: []
+        });
+      }
+      groups.get(key).registrations.push(p);
+    });
+
+    return Array.from(groups.values());
+  }, [filteredPlayers, selectedSerie]);
 
   if (!tournament) {
     return (
@@ -900,28 +929,30 @@ export default function Players() {
                     Chargement des participants en cours...
                   </td>
                 </tr>
-              ) : filteredPlayers.length === 0 ? (
+              ) : displayedPlayers.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-slate-450 font-medium italic">
                     Aucun joueur correspondant à vos filtres.
                   </td>
                 </tr>
               ) : (
-                filteredPlayers.map((player) => (
-                  <tr key={player.id} className={`hover:bg-slate-50/70 transition-colors group ${player.checked_in ? 'bg-emerald-50/5' : ''}`}>
-                    
-                    {/* Colonne JOUEUR / DOSSARD */}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        {(() => {
-                          const linkedDossard = players.find(p => (
-                            (p.licence_number && player.licence_number && p.licence_number === player.licence_number) ||
-                            ((!p.licence_number || !player.licence_number) && 
-                             p.first_name?.toLowerCase().trim() === player.first_name?.toLowerCase().trim() && 
-                             p.last_name?.toLowerCase().trim() === player.last_name?.toLowerCase().trim())
-                          ) && p.dossard)?.dossard;
+                displayedPlayers.map((player) => {
+                  const linkedDossard = players.find(p => (
+                    (p.licence_number && player.licence_number && p.licence_number === player.licence_number) ||
+                    ((!p.licence_number || !player.licence_number) && 
+                     p.first_name?.toLowerCase().trim() === player.first_name?.toLowerCase().trim() && 
+                     p.last_name?.toLowerCase().trim() === player.last_name?.toLowerCase().trim())
+                  ) && p.dossard)?.dossard || player.dossard;
 
-                          return player.checked_in && linkedDossard ? (
+                  const isSomeCheckedIn = player.registrations.some((r: any) => r.checked_in);
+
+                  return (
+                    <tr key={player.player_id || player.id} className={`hover:bg-slate-50/70 transition-colors group ${isSomeCheckedIn ? 'bg-emerald-50/5' : ''}`}>
+                      
+                      {/* Colonne JOUEUR / DOSSARD */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          {linkedDossard ? (
                             <button 
                               id={`player-dossard-badge-${player.id}`}
                               onClick={() => handleResetCheckIn(player)}
@@ -934,234 +965,238 @@ export default function Players() {
                             <div className="w-7 h-7 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-slate-400 font-bold text-[10px]">
                               —
                             </div>
-                          );
-                        })()}
-                        <div>
-                          <p className="font-extrabold text-slate-900 leading-tight">
-                            {player.last_name.toUpperCase()} {player.first_name}
-                          </p>
-                          <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400 font-medium font-mono">
-                            {player.licence_number && (
-                              <span>Licence: {player.licence_number}</span>
-                            )}
-                            {player.phone && (
-                              <>
-                                <span>•</span>
-                                <span className="flex items-center gap-0.5 text-slate-500">
-                                  <Smartphone className="w-3 h-3" /> {player.phone}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Colonne CLUB */}
-                    <td className="px-6 py-4 text-xs font-semibold text-slate-550 italic">
-                      {player.club || 'Sans club / Non licencié'}
-                    </td>
-
-                    {/* Colonne TABLEAU (SERIE) */}
-                    <td className="px-6 py-4">
-                      {(() => {
-                        const currentCat = categories.find(c => c.name === player.serie);
-                        const isOriginalClosed = currentCat?.is_closed;
-                        return (
-                          <select
-                            id={`player-serie-select-${player.id}`}
-                            value={player.serie}
-                            disabled={isOriginalClosed}
-                            onChange={async (e) => {
-                              const newSerieName = e.target.value;
-                              const newCat = categories.find(c => c.name === newSerieName);
-                              if (newCat?.is_closed) {
-                                toast.error(`Le tableau de destination "${newSerieName}" est clôturé 🔒. Impossible d'y transférer un joueur.`);
-                                return;
-                              }
-                              updatePlayerSerie(player.id, newSerieName, player.first_name, player.last_name);
-                            }}
-                            className={`font-black border text-[11px] px-2.5 py-1.5 rounded-xl outline-none transition-all shadow-sm max-w-[155px] truncate ${
-                              isOriginalClosed 
-                                ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' 
-                                : 'bg-indigo-50/60 hover:bg-slate-100 text-indigo-700 border-indigo-100/50 cursor-pointer focus:ring-2 focus:ring-indigo-400'
-                            }`}
-                            title={isOriginalClosed ? "Tableau clôturé (série non modifiable)" : "Modifier la série"}
-                          >
-                            {categories.map((c) => (
-                              <option key={c.id} value={c.name} className="text-slate-800 bg-white font-medium" disabled={c.is_closed}>
-                                {c.name} (J{c.day_number}) {c.is_closed ? '🔒 [CLOS]' : ''}
-                              </option>
-                            ))}
-                            {!categories.some((c) => c.name === player.serie) && (
-                              <option value={player.serie} className="text-slate-850 bg-white font-medium">
-                                {player.serie}
-                              </option>
-                            )}
-                          </select>
-                        );
-                      })()}
-                    </td>
- 
-                    {/* Colonne CLASSEMENT (POINTS) */}
-                    <td className="px-6 py-4">
-                      <span className="inline-flex text-[11px] font-bold tracking-wider font-mono px-2 py-1 bg-slate-50 border border-slate-150 rounded-lg text-slate-600">
-                        {player.points ?? '500'} pts
-                      </span>
-                    </td>
- 
-                    {/* Colonne POINTAGE J-J (RÈGLEMENT & DOSSARD) */}
-                    <td className="px-6 py-4 text-center">
-                      {(() => {
-                        const currentCat = categories.find(c => c.name === player.serie);
-                        const isOriginalClosed = currentCat?.is_closed;
-
-                        if (!player.checked_in) {
-                          if (isOriginalClosed) {
-                            return (
-                              <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 text-slate-400 border border-slate-200/60 text-xs font-bold rounded-lg justify-center shadow-inner">
-                                <LockIcon className="w-3.5 h-3.5" /> Clôturé 🔒 (Absent)
-                              </span>
-                            );
-                          }
-
-                          return (
-                            <div className="flex items-center justify-center gap-2">
-                              <button
-                                id={`checkin-cb-btn-${player.id}`}
-                                onClick={() => handleTableCheckIn(player)}
-                                className="px-3 py-1.5 text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm rounded-lg active:scale-95 transition-all cursor-pointer"
-                              >
-                                Pointer (CB)
-                              </button>
-                              <button
-                                id={`checkin-pay-btn-${player.id}`}
-                                onClick={() => handleTableCheckIn(player)}
-                                className="px-3.5 py-1.5 text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
-                              >
-                                <BadgeEuro className="w-4 h-4" /> Encaisser
-                              </button>
-                            </div>
-                          );
-                        } else {
-                          return (
-                            <div className="flex items-center justify-center gap-2">
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-700 border border-emerald-500/10 text-xs font-bold rounded-lg justify-center shadow-inner">
-                                <CheckCircle className="w-4 h-4 text-emerald-600" /> Pointé (Dossard #{
-                                  players.find(p => (
-                                    (p.licence_number && player.licence_number && p.licence_number === player.licence_number) ||
-                                    ((!p.licence_number || !player.licence_number) && 
-                                     p.first_name?.toLowerCase().trim() === player.first_name?.toLowerCase().trim() && 
-                                     p.last_name?.toLowerCase().trim() === player.last_name?.toLowerCase().trim())
-                                  ) && p.dossard)?.dossard || player.dossard
-                                })
-                              </span>
-                              {!isOriginalClosed ? (
-                                <button
-                                  id={`forfait-single-btn-${player.id}`}
-                                  onClick={() => handleCancelSingleCheckIn(player)}
-                                  className="p-1.5 px-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/50 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1 cursor-pointer"
-                                  title="Annuler le pointage / Forfait de ce tableau spécifique"
-                                >
-                                  <X className="w-3.5 h-3.5" /> Forfait
-                                </button>
-                              ) : (
-                                <span className="p-1.5 px-2 bg-slate-50 text-slate-400 border border-slate-200/50 rounded-lg text-[10px] font-semibold inline-flex items-center gap-1 cursor-not-allowed" title="Le tableau est clôturé (statut verrouillé)">
-                                  <LockIcon className="w-3 h-3 text-slate-300" /> Clôturé 🔒
-                                </span>
+                          )}
+                          <div>
+                            <p className="font-extrabold text-slate-900 leading-tight">
+                              {player.last_name.toUpperCase()} {player.first_name}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400 font-medium font-mono">
+                              {player.licence_number && (
+                                <span>Licence: {player.licence_number}</span>
+                              )}
+                              {player.phone && (
+                                <>
+                                  <span>•</span>
+                                  <span className="flex items-center gap-0.5 text-slate-500">
+                                    <Smartphone className="w-3 h-3" /> {player.phone}
+                                  </span>
+                                </>
                               )}
                             </div>
-                          );
-                        }
-                      })()}
-                    </td>
- 
-                    {/* Colonne IDENTIFIANTS SMS ET/OU EMAIL DE SCORE */}
-                    <td className="px-6 py-4 text-center">
-                      {player.checked_in ? (
-                        (player.phone || player.email) ? (
-                          <button
-                            onClick={() => handleResendSms(player)}
-                            disabled={sendingSmsId === player.id}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-lg transition-all active:scale-98 disabled:opacity-50 cursor-pointer"
-                            title={
-                              player.phone && player.email ? "Envoyer par SMS et E-mail/SMTP" :
-                              player.phone ? "Envoyer par SMS uniquement" : "Envoyer par E-mail/SMTP uniquement"
-                            }
-                          >
-                            <Send className={`w-3.5 h-3.5 ${sendingSmsId === player.id ? 'animate-pulse text-indigo-500' : 'text-slate-400'}`} />
-                            Renvoyer identifiants
-                          </button>
-                        ) : (
-                          <span className="text-[10px] text-rose-500 font-semibold bg-rose-50 border border-rose-100 px-2 py-1 rounded-md inline-flex items-center gap-1 leading-none">
-                            <AlertCircle className="w-3.5 h-3.5" /> Pas de contact
-                          </span>
-                        )
-                      ) : (
-                        <span className="text-[10px] text-slate-400 font-medium italic flex items-center gap-1 justify-center">
-                          <Clock className="w-3.5 h-3.5" /> En attente du pointage
-                        </span>
-                      )}
-                    </td>
- 
-                    {/* Colonne ACTIONS */}
-                    <td className="px-6 py-4 text-right">
-                      {(() => {
-                        const currentCat = categories.find(c => c.name === player.serie);
-                        const isOriginalClosed = currentCat?.is_closed;
-
-                        return (
-                          <div className="flex items-center justify-end gap-1.5">
-                            {confirmDeleteId === player.id ? (
-                              <div className="flex items-center gap-1 animate-fade-in">
-                                <button
-                                  onClick={async () => {
-                                    await deletePlayer(player.id);
-                                    setConfirmDeleteId(null);
-                                  }}
-                                  className="px-2.5 py-1 text-[10px] font-black bg-rose-600 text-white rounded-lg hover:bg-rose-700 active:scale-95 transition-all cursor-pointer shadow-sm"
-                                >
-                                  Confirmer 🗑️
-                                </button>
-                                <button
-                                  onClick={() => setConfirmDeleteId(null)}
-                                  className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
-                                  title="Annuler"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                onClick={() => {
-                                  if (isOriginalClosed) {
-                                    toast.error(`Le tableau "${player.serie}" est clôturé 🔒. Impossible de supprimer cette inscription.`);
-                                    return;
-                                  }
-                                  setConfirmDeleteId(player.id);
-                                  // Auto reset after 4 seconds
-                                  setTimeout(() => {
-                                    setConfirmDeleteId(prev => prev === player.id ? null : prev);
-                                  }, 4000);
-                                }}
-                                disabled={isOriginalClosed}
-                                className={`p-1.5 rounded-lg transition-all ${
-                                  isOriginalClosed 
-                                    ? 'text-slate-200 cursor-not-allowed' 
-                                    : 'text-slate-350 hover:text-rose-600 hover:bg-rose-50 cursor-pointer'
-                                }`}
-                                title={isOriginalClosed ? "Tableau clôturé (Suppression verrouillée)" : "Supprimer l'inscription"}
-                              >
-                                {isOriginalClosed ? <LockIcon className="w-4 h-4 text-slate-300" /> : <Trash2 className="w-4 h-4" />}
-                              </button>
-                            )}
                           </div>
-                        );
-                      })()}
-                    </td>
+                        </div>
+                      </td>
 
-                  </tr>
-                ))
+                      {/* Colonne CLUB */}
+                      <td className="px-6 py-4 text-xs font-semibold text-slate-550 italic">
+                        {player.club || 'Sans club / Non licencié'}
+                      </td>
+
+                      {/* Colonne TABLEAU (SERIE) */}
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col gap-2">
+                          {player.registrations.map((reg: any) => {
+                            const currentCat = categories.find(c => c.name === reg.serie);
+                            const isOriginalClosed = currentCat?.is_closed;
+
+                            return (
+                              <div key={reg.id} className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                                <select
+                                  id={`player-serie-select-${reg.id}`}
+                                  value={reg.serie}
+                                  disabled={isOriginalClosed}
+                                  onChange={async (e) => {
+                                    const newSerieName = e.target.value;
+                                    const newCat = categories.find(c => c.name === newSerieName);
+                                    if (newCat?.is_closed) {
+                                      toast.error(`Le tableau de destination "${newSerieName}" est clôturé 🔒. Impossible d'y transférer un joueur.`);
+                                      return;
+                                    }
+                                    updatePlayerSerie(reg.id, newSerieName, reg.first_name, reg.last_name);
+                                  }}
+                                  className={`font-black border text-[11px] px-2.5 py-1.5 rounded-xl outline-none transition-all shadow-sm max-w-[155px] truncate ${
+                                    isOriginalClosed 
+                                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' 
+                                      : 'bg-indigo-50/60 hover:bg-slate-100 text-indigo-700 border-indigo-100/50 cursor-pointer focus:ring-2 focus:ring-indigo-400'
+                                  }`}
+                                  title={isOriginalClosed ? "Tableau clôturé" : "Modifier la série"}
+                                >
+                                  {categories.map((c) => (
+                                    <option key={c.id} value={c.name} className="text-slate-800 bg-white font-medium" disabled={c.is_closed}>
+                                      {c.name} (J{c.day_number}) {c.is_closed ? '🔒 [CLOS]' : ''}
+                                    </option>
+                                  ))}
+                                  {!categories.some((c) => c.name === reg.serie) && (
+                                    <option value={reg.serie} className="text-slate-850 bg-white font-medium">
+                                      {reg.serie}
+                                    </option>
+                                  )}
+                                </select>
+
+                                {/* Action individuelle de corbeille 🗑️ à côté de chaque tableau */}
+                                {confirmDeleteId === reg.id ? (
+                                  <div className="flex items-center gap-1 animate-fade-in scale-90">
+                                    <button
+                                      onClick={async () => {
+                                        await deletePlayer(reg.id);
+                                        setConfirmDeleteId(null);
+                                      }}
+                                      className="px-2 py-1 text-[9px] font-black bg-rose-600 text-white rounded-lg hover:bg-rose-700 active:scale-95 transition-all cursor-pointer shadow-sm animate-pulse"
+                                    >
+                                      Confirmer 🗑️
+                                    </button>
+                                    <button
+                                      onClick={() => setConfirmDeleteId(null)}
+                                      className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    onClick={() => {
+                                      if (isOriginalClosed) {
+                                        toast.error(`Le tableau "${reg.serie}" est clôturé 🔒. Impossible de supprimer cette inscription.`);
+                                        return;
+                                      }
+                                      setConfirmDeleteId(reg.id);
+                                      setTimeout(() => {
+                                        setConfirmDeleteId(prev => prev === reg.id ? null : prev);
+                                      }, 4000);
+                                    }}
+                                    disabled={isOriginalClosed}
+                                    className={`p-1 rounded-lg transition-all ${
+                                      isOriginalClosed 
+                                        ? 'text-slate-200 cursor-not-allowed opacity-30' 
+                                        : 'text-slate-350 hover:text-rose-600 hover:bg-rose-50 cursor-pointer'
+                                    }`}
+                                    title={isOriginalClosed ? "Tableau clôturé d'origine" : "Supprimer cette inscription"}
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </td>
+
+                      {/* Colonne CLASSEMENT (POINTS) */}
+                      <td className="px-6 py-4">
+                        <span className="inline-flex text-[11px] font-bold tracking-wider font-mono px-2 py-1 bg-slate-50 border border-slate-150 rounded-lg text-slate-600">
+                          {player.points ?? '500'} pts
+                        </span>
+                      </td>
+
+                      {/* Colonne POINTAGE J-J (RÈGLEMENT & DOSSARD) */}
+                      <td className="px-6 py-4 text-center">
+                        {(() => {
+                          const uncheckedRegs = player.registrations.filter((r: any) => !r.checked_in);
+                          const checkedRegs = player.registrations.filter((r: any) => r.checked_in);
+
+                          if (uncheckedRegs.length > 0) {
+                            const regToCheckIn = uncheckedRegs[0];
+                            const currentCat = categories.find(c => c.name === regToCheckIn.serie);
+                            const isOriginalClosed = currentCat?.is_closed;
+
+                            if (isOriginalClosed) {
+                              return (
+                                <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 text-slate-400 border border-slate-200/60 text-xs font-bold rounded-lg justify-center shadow-inner">
+                                  <LockIcon className="w-3.5 h-3.5" /> Clôturé 🔒 (Absent)
+                                </span>
+                              );
+                            }
+
+                            return (
+                              <div className="flex flex-col items-center gap-1.5 justify-center">
+                                <div className="flex items-center justify-center gap-2">
+                                  <button
+                                    id={`checkin-cb-btn-${regToCheckIn.id}`}
+                                    onClick={() => handleTableCheckIn(regToCheckIn)}
+                                    className="px-3 py-1.5 text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm rounded-lg active:scale-95 transition-all cursor-pointer"
+                                  >
+                                    Pointer (CB)
+                                  </button>
+                                  <button
+                                    id={`checkin-pay-btn-${regToCheckIn.id}`}
+                                    onClick={() => handleTableCheckIn(regToCheckIn)}
+                                    className="px-3.5 py-1.5 text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
+                                  >
+                                    <BadgeEuro className="w-4 h-4" /> Encaisser
+                                  </button>
+                                </div>
+                                {checkedRegs.length > 0 && (
+                                  <span className="text-[10px] text-emerald-600 font-bold">
+                                    {checkedRegs.length} série(s) déjà pointée(s)
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          } else {
+                            const firstReg = player.registrations[0] || player;
+                            const isAnyClosed = player.registrations.some((r: any) => categories.find(c => c.name === r.serie)?.is_closed);
+
+                            return (
+                              <div className="flex items-center justify-center gap-2">
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-700 border border-emerald-500/10 text-xs font-bold rounded-lg justify-center shadow-inner">
+                                  <CheckCircle className="w-4 h-4 text-emerald-600" /> Pointé (Dossard #{linkedDossard})
+                                </span>
+                                {!isAnyClosed ? (
+                                  <button
+                                    id={`forfait-single-btn-${firstReg.id}`}
+                                    onClick={() => handleCancelSingleCheckIn(firstReg)}
+                                    className="p-1.5 px-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/50 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1 cursor-pointer"
+                                    title="Annuler le pointage / Forfait"
+                                  >
+                                    <X className="w-3.5 h-3.5" /> Forfait
+                                  </button>
+                                ) : (
+                                  <span className="p-1.5 px-2 bg-slate-50 text-slate-400 border border-slate-200/50 rounded-lg text-[10px] font-semibold inline-flex items-center gap-1 cursor-not-allowed" title="Le tableau est clôturé">
+                                    <LockIcon className="w-3 h-3 text-slate-300" /> Clôturé 🔒
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          }
+                        })()}
+                      </td>
+
+                      {/* Colonne IDENTIFIANTS SMS ET/OU EMAIL DE SCORE */}
+                      <td className="px-6 py-4 text-center">
+                        {isSomeCheckedIn ? (
+                          (player.phone || player.email) ? (
+                            <button
+                              onClick={() => handleResendSms(player.registrations[0] || player)}
+                              disabled={sendingSmsId === player.id}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-lg transition-all active:scale-98 disabled:opacity-50 cursor-pointer"
+                              title={
+                                player.phone && player.email ? "Envoyer par SMS et E-mail/SMTP" :
+                                player.phone ? "Envoyer par SMS uniquement" : "Envoyer par E-mail/SMTP uniquement"
+                              }
+                            >
+                              <Send className={`w-3.5 h-3.5 ${sendingSmsId === player.id ? 'animate-pulse text-indigo-500' : 'text-slate-400'}`} />
+                              Renvoyer identifiants
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-rose-500 font-semibold bg-rose-50 border border-rose-100 px-2 py-1 rounded-md inline-flex items-center gap-1 leading-none">
+                              <AlertCircle className="w-3.5 h-3.5" /> Pas de contact
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-medium italic flex items-center gap-1 justify-center">
+                            <Clock className="w-3.5 h-3.5" /> En attente du pointage
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Colonne ACTIONS (PROPRE ET DISCRETE) */}
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-slate-300 font-mono text-[9px] select-none">—</span>
+                      </td>
+
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

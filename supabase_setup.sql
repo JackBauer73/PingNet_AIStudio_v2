@@ -153,8 +153,9 @@ CREATE TABLE registrations (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Index unique pour les dossards par tournoi
-CREATE UNIQUE INDEX IF NOT EXISTS idx_registrations_dossard_tournament
+-- Index pour accélérer les recherches de dossards par tournoi (enlevé de UNIQUE pour permettre le partage de dossard)
+DROP INDEX IF EXISTS idx_registrations_dossard_tournament;
+CREATE INDEX IF NOT EXISTS idx_registrations_dossard_tournament
   ON registrations(tournament_id, dossard)
   WHERE dossard IS NOT NULL;
 

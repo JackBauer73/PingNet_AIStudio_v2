@@ -1,6 +1,6 @@
 export type TournamentStatus = 'draft' | 'open' | 'registration' | 'pools' | 'bracket' | 'in_progress' | 'finished' | 'closed' | 'archived';
 export type ScoreMode = 'referee' | 'players';
-export type MatchStatus = 'pending' | 'in_progress' | 'finished' | 'walkover';
+export type MatchStatus = 'pending' | 'in_progress' | 'awaiting_validation' | 'disputed' | 'finished' | 'walkover';
 export type RoundType = 'pool' | 'thirtysecondfinal' | 'sixteenthfinal' | 'eighthfinal' | 'quarterfinal' | 'semifinal' | 'final' | '3rd_place';
 
 export interface Tournament {
@@ -71,9 +71,11 @@ export interface Pool {
   id: string;
   tournament_id: string;
   name: string;
-  status: 'pending' | 'in_progress' | 'finished';
+  status: 'pending' | 'in_progress' | 'awaiting_validation' | 'finished';
   table_number?: number | null;
   table_category_id?: string | null;
+  validated_by?: string[] | null;
+  awaiting_validation_since?: string | null;
   created_at: string;
 }
 
@@ -104,6 +106,11 @@ export interface Match {
   validated_by_p2: boolean;
   started_at: string | null;
   finished_at: string | null;
+  scorer_id?: string | null;
+  scorer_role?: 'player' | 'arbiter' | 'third_player' | null;
+  p1_present?: boolean;
+  p2_present?: boolean;
+  awaiting_validation_since?: string | null;
   created_at: string;
   
   // Optional relations for UI

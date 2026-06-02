@@ -31,12 +31,20 @@ export default function CheckInScan() {
   const [scanMode, setScanMode] = useState<'idle' | 'scanning' | 'confirm' | 'success' | 'error'>('idle');
   const [tokenInput, setTokenInput] = useState('');
   const [scannedToken, setScannedToken] = useState<string | null>(null);
+  const [scannedDay, setScannedDay] = useState<number | null>(null);
   const [playerData, setPlayerData] = useState<any | null>(null);
   const [playerRegs, setPlayerRegs] = useState<any[]>([]); // registrations of the player for this tournament
   const [processing, setProcessing] = useState(false);
   const [lastCheckedIn, setLastCheckedIn] = useState<any | null>(null); // last player checked in
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const getCategory = (reg: any) => {
+    if (!reg) return null;
+    return Array.isArray(reg.table_categories) ? reg.table_categories[0] : reg.table_categories;
+  };
+
+  const activeDay = scannedDay !== null ? scannedDay : day;
 
   // Load last checked in from localStorage if available to keep state across refreshes
   useEffect(() => {
@@ -54,6 +62,14 @@ export default function CheckInScan() {
     if (!result) return;
     
     let token = result.trim();
+    let qDay: number | null = null;
+
+    if (token.includes('day=')) {
+      const match = token.match(/[?&]day=(\d+)/);
+      if (match) {
+        qDay = parseInt(match[1], 10);
+      }
+    }
     
     // Si c'est une URL complète (ex: https://domain.com/player/ABC1234), extraire le token
     if (token.includes('/player/')) {
@@ -65,6 +81,7 @@ export default function CheckInScan() {
       token = token.split('?')[0];
     }
     
+    setScannedDay(qDay);
     setScannedToken(token);
     loadPlayerByToken(token);
   };
@@ -160,10 +177,13 @@ export default function CheckInScan() {
     setProcessing(true);
     
     try {
-      // Filtrer les inscriptions qui concernent cette journée spécifique
-      const currentDayRegs = playerRegs.filter(r => (r.table_categories?.day_number || 1) === day);
+      // Filtrer les inscriptions qui concernent cette journée active
+      const currentDayRegs = playerRegs.filter(r => {
+        const cat = getCategory(r);
+        return (cat?.day_number || 1) === activeDay;
+      });
       if (currentDayRegs.length === 0) {
-        toast.error(`Le joueur n'a aucune inscription prévue pour la Journée ${day}`);
+        toast.error(`Le joueur n'a aucune inscription prévue pour la Journée ${activeDay}`);
         setScanMode('idle');
         setProcessing(false);
         return;
@@ -176,13 +196,13 @@ export default function CheckInScan() {
         registrationId: firstUncheck.id,
         tournamentId: tournament?.id || playerRegs[0]?.tournament_id,
         onlyThisRegistration: false, // Groupe de pointage
-        dayNumber: day // Uniquement pour la journée courante !
+        dayNumber: activeDay // Uniquement pour la journée active !
       });
 
       const updatedInfo = {
         name: `${playerData.first_name} ${playerData.last_name}`,
         dossard: result.dossard,
-        tableaux: currentDayRegs.map(r => r.table_categories?.name).join(', '),
+        tableaux: currentDayRegs.map(r => getCategory(r)?.name).filter(Boolean).join(', '),
         time: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
       };
 
@@ -198,6 +218,7 @@ export default function CheckInScan() {
         setPlayerData(null);
         setPlayerRegs([]);
         setScannedToken(null);
+        setScannedDay(null);
         setTokenInput('');
       }, 3000);
 
@@ -210,8 +231,14 @@ export default function CheckInScan() {
     }
   };
 
-  const dayRegs = playerRegs.filter(r => (r.table_categories?.day_number || 1) === day);
-  const otherRegs = playerRegs.filter(r => (r.table_categories?.day_number || 1) !== day);
+  const dayRegs = playerRegs.filter(r => {
+    const cat = getCategory(r);
+    return (cat?.day_number || 1) === activeDay;
+  });
+  const otherRegs = playerRegs.filter(r => {
+    const cat = getCategory(r);
+    return (cat?.day_number || 1) !== activeDay;
+  });
 
   return (
     <div className="min-h-screen bg-[#0f1f3d] text-white font-sans pb-12">
@@ -381,7 +408,7 @@ export default function CheckInScan() {
 
                 {/* Tableaux pour la Journée active */}
                 <div className="space-y-2">
-                  <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-400 text-left">Tableaux de la journée ({day})</h4>
+                  <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-400 text-left">Tableaux de la journée ({activeDay})</h4>
                   {dayRegs.length === 0 ? (
                     <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-amber-400 text-xs text-left font-semibold flex items-center gap-2">
                       <AlertCircle className="w-4 h-4 shrink-0" />
@@ -389,31 +416,34 @@ export default function CheckInScan() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {dayRegs.map((reg, idx) => (
-                        <div key={idx} className="bg-[#0d1b33] border border-indigo-950/60 rounded-xl p-3.5 flex justify-between items-center">
-                          <div className="text-left">
-                            <span className="font-black text-xs text-white flex items-center gap-1.5">
-                              <Trophy className="w-3.5 h-3.5 text-indigo-400" />
-                              {reg.table_categories?.name}
-                            </span>
-                            <span className="text-[9px] text-indigo-450 block font-bold mt-0.5 uppercase tracking-wide">
-                              Journée {reg.table_categories?.day_number} {reg.table_categories?.start_time ? `• ${reg.table_categories.start_time}` : ''}
-                            </span>
-                          </div>
-                          
-                          <div>
-                            {reg.checked_in ? (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg">
-                                <CheckCircle2 className="w-3" /> Présent
+                      {dayRegs.map((reg, idx) => {
+                        const cat = getCategory(reg);
+                        return (
+                          <div key={idx} className="bg-[#0d1b33] border border-indigo-950/60 rounded-xl p-3.5 flex justify-between items-center">
+                            <div className="text-left">
+                              <span className="font-black text-xs text-white flex items-center gap-1.5">
+                                <Trophy className="w-3.5 h-3.5 text-indigo-400" />
+                                {cat?.name}
                               </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-black text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg animate-pulse">
-                                <Clock className="w-3" /> Absent
+                              <span className="text-[9px] text-indigo-450 block font-bold mt-0.5 uppercase tracking-wide">
+                                Journée {cat?.day_number} {cat?.start_time ? `• ${cat.start_time}` : ''}
                               </span>
-                            )}
+                            </div>
+                            
+                            <div>
+                              {reg.checked_in ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg">
+                                  <CheckCircle2 className="w-3" /> Présent
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-black text-amber-400 bg-amber-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg animate-pulse">
+                                  <Clock className="w-3" /> Absent
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -423,11 +453,14 @@ export default function CheckInScan() {
                   <div className="space-y-2 pt-2 border-t border-indigo-950/50">
                     <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 text-left">Inscriptions autres journées</h4>
                     <div className="flex flex-wrap gap-1.5">
-                      {otherRegs.map((reg, idx) => (
-                        <span key={idx} className="text-[10px] px-2 py-1 bg-[#0d1b33]/60 border border-indigo-950/40 text-slate-400 rounded-lg font-bold">
-                          {reg.table_categories?.name} (J{reg.table_categories?.day_number})
-                        </span>
-                      ))}
+                      {otherRegs.map((reg, idx) => {
+                        const cat = getCategory(reg);
+                        return (
+                          <span key={idx} className="text-[10px] px-2 py-1 bg-[#0d1b33]/60 border border-indigo-950/40 text-slate-400 rounded-lg font-bold">
+                            {cat?.name} (J{cat?.day_number})
+                          </span>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -440,6 +473,7 @@ export default function CheckInScan() {
                       setPlayerData(null);
                       setPlayerRegs([]);
                       setScannedToken(null);
+                      setScannedDay(null);
                       setTokenInput('');
                     }}
                     className="w-full py-3 px-4 bg-white/5 hover:bg-white/10 text-slate-300 font-extrabold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-white/5"
@@ -523,6 +557,7 @@ export default function CheckInScan() {
                   setPlayerData(null);
                   setPlayerRegs([]);
                   setScannedToken(null);
+                  setScannedDay(null);
                   setTokenInput('');
                 }}
                 className="px-6 py-2.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-extrabold rounded-xl text-xs transition-all flex items-center gap-1.5 mx-auto cursor-pointer"

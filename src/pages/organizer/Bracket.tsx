@@ -4,7 +4,7 @@ import { supabase } from '../../supabase';
 import { Match } from '../../types';
 import { generateBracket } from '../../utils/generateBracket';
 import toast from 'react-hot-toast';
-import { Trophy, Play, CheckCircle2, Lock as LockIcon, Grid3X3, ArrowRight, Eye, LayoutTemplate, List, Printer } from 'lucide-react';
+import { Trophy, Play, CheckCircle2, Lock as LockIcon, Grid3X3, ArrowRight, Eye, LayoutTemplate, List, Printer, ShieldAlert } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 
@@ -48,6 +48,7 @@ export default function Bracket() {
   const [generating, setGenerating] = useState(false);
   const [tedSize, setTedSize] = useState<number>(16);
   const [viewMode, setViewMode] = useState<'tree' | 'columns'>('tree');
+  const [busyPlayerIds, setBusyPlayerIds] = useState<Map<string, number>>(new Map());
 
   // Charger les catégories du tournoi
   useEffect(() => {
@@ -119,6 +120,19 @@ export default function Bracket() {
 
       if (error) throw error;
       setMatches(data || []);
+
+      const { data: busyRes } = await supabase
+        .from('matches')
+        .select('player1_id, player2_id, table_number')
+        .eq('tournament_id', tournament.id)
+        .eq('status', 'in_progress');
+
+      const busyMap = new Map<string, number>();
+      busyRes?.forEach((m: any) => {
+        if (m.player1_id && m.table_number) busyMap.set(m.player1_id, Number(m.table_number));
+        if (m.player2_id && m.table_number) busyMap.set(m.player2_id, Number(m.table_number));
+      });
+      setBusyPlayerIds(busyMap);
     } catch (err) {
       console.error(err);
     } finally {
@@ -165,10 +179,10 @@ export default function Bracket() {
       const pendingMatches = (latestMatches || []).filter(m => m.player1_id && m.player2_id);
       if (pendingMatches.length === 0) return;
 
-      // 2. Get busy tables
+      // 2. Get busy tables and busy players
       const { data: busyMatches } = await supabase
         .from('matches')
-        .select('table_number')
+        .select('table_number, player1_id, player2_id')
         .eq('tournament_id', tournament.id)
         .eq('status', 'in_progress');
 
@@ -178,8 +192,22 @@ export default function Bracket() {
 
       if (freeTables.length === 0) return;
 
+      const busyPlayers = new Set<string>();
+      busyMatches?.forEach((m: any) => {
+        if (m.player1_id) busyPlayers.add(m.player1_id);
+        if (m.player2_id) busyPlayers.add(m.player2_id);
+      });
+
+      // Filter matches to launch to only keep matches where neither player is busy
+      const launchableMatches = pendingMatches.filter(m => 
+        !busyPlayers.has(m.player1_id || '') && 
+        !busyPlayers.has(m.player2_id || '')
+      );
+
+      if (launchableMatches.length === 0) return;
+
       // 3. Launch matches
-      const matchesToLaunch = pendingMatches.slice(0, freeTables.length);
+      const matchesToLaunch = launchableMatches.slice(0, freeTables.length);
       const updates = matchesToLaunch.map((m, i) => 
         supabase.from('matches').update({
           table_number: freeTables[i],
@@ -222,9 +250,16 @@ export default function Bracket() {
     if (!tournament) return;
 
     try {
+      // Find match object in state to know player IDs
+      const matchObj = matches.find(m => m.id === matchId);
+      if (!matchObj) {
+        toast.error('Impossible de trouver le match à lancer.');
+        return;
+      }
+
       const { data: busyMatches } = await supabase
         .from('matches')
-        .select('table_number')
+        .select('*, player1:player1_id(*), player2:player2_id(*)')
         .eq('tournament_id', tournament.id)
         .eq('status', 'in_progress');
 
@@ -235,6 +270,31 @@ export default function Bracket() {
       if (freeTables.length === 0) {
         toast.error('Veuillez attendre qu’une table se libère.');
         return;
+      }
+
+      if (busyMatches && busyMatches.length > 0) {
+        const busyPlayers = new Map<string, { playerName: string; tableNumber: number }>();
+        busyMatches.forEach((m: any) => {
+          if (m.player1_id && m.table_number) {
+            const p1Name = `${m.player1?.first_name || ''} ${m.player1?.last_name || ''}`.trim() || 'Joueur 1';
+            busyPlayers.set(m.player1_id, { playerName: p1Name, tableNumber: Number(m.table_number) });
+          }
+          if (m.player2_id && m.table_number) {
+            const p2Name = `${m.player2?.first_name || ''} ${m.player2?.last_name || ''}`.trim() || 'Joueur 2';
+            busyPlayers.set(m.player2_id, { playerName: p2Name, tableNumber: Number(m.table_number) });
+          }
+        });
+
+        if (matchObj.player1_id && busyPlayers.has(matchObj.player1_id)) {
+          const conflict = busyPlayers.get(matchObj.player1_id);
+          toast.error(`Impossible de lancer le match : ${conflict?.playerName} est déjà en cours de jeu sur la Table ${conflict?.tableNumber} !`);
+          return;
+        }
+        if (matchObj.player2_id && busyPlayers.has(matchObj.player2_id)) {
+          const conflict = busyPlayers.get(matchObj.player2_id);
+          toast.error(`Impossible de lancer le match : ${conflict?.playerName} est déjà en cours de jeu sur la Table ${conflict?.tableNumber} !`);
+          return;
+        }
       }
 
       await supabase.from('matches').update({
@@ -551,25 +611,45 @@ export default function Bracket() {
                             </div>
                           )}
                           
-                          <div className={`px-5 py-3 flex justify-between items-center ${
+                          <div className={`px-5 py-3 flex flex-col gap-1 ${
                              match.status === 'in_progress' ? 'bg-indigo-600 text-white' : 
                              match.status === 'finished' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-400'
                           }`}>
-                            <span className="text-[10px] font-black uppercase tracking-widest">
-                              {match.status === 'in_progress' ? `Table ${match.table_number}` : match.status === 'finished' ? 'Terminé' : 'Attente'}
-                            </span>
-                            <div className="flex items-center gap-2">
-                              {match.status === 'pending' && match.player1_id && match.player2_id && (
-                                <button
-                                  onClick={() => handleLaunchMatch(match.id)}
-                                  className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-slate-900 transition-all scale-110 active:scale-95 animate-pulse"
-                                  title="Lancer le match"
-                                >
-                                  <Play className="w-3 h-3 fill-current" />
-                                </button>
-                              )}
-                              {match.winner_id && <Trophy className={`w-3 h-3 ${round === 'final' ? 'text-amber-400' : 'text-green-400'}`} />}
+                            <div className="flex justify-between items-center w-full">
+                              <span className="text-[10px] font-black uppercase tracking-widest">
+                                {match.status === 'in_progress' ? `Table ${match.table_number}` : match.status === 'finished' ? 'Terminé' : 'Attente'}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                {match.status === 'pending' && match.player1_id && match.player2_id && (
+                                  <button
+                                    onClick={() => handleLaunchMatch(match.id)}
+                                    className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-slate-900 transition-all scale-110 active:scale-95 animate-pulse"
+                                    title="Lancer le match"
+                                  >
+                                    <Play className="w-3 h-3 fill-current" />
+                                  </button>
+                                )}
+                                {match.winner_id && <Trophy className={`w-3 h-3 ${round === 'final' ? 'text-amber-400' : 'text-green-400'}`} />}
+                              </div>
                             </div>
+
+                            {match.status === 'pending' && (
+                              (() => {
+                                const p1BusyTable = match.player1_id && busyPlayerIds.get(match.player1_id);
+                                const p2BusyTable = match.player2_id && busyPlayerIds.get(match.player2_id);
+                                if (p1BusyTable || p2BusyTable) {
+                                  return (
+                                    <div className="flex items-center gap-1 text-[9px] font-bold text-red-650 bg-red-50/80 px-2 py-0.5 rounded-lg border border-red-100/60 mt-0.5">
+                                      <ShieldAlert className="w-3 h-3 text-red-500 animate-pulse shrink-0" />
+                                      <span className="truncate">
+                                        {p1BusyTable ? 'J1' : ''}{p1BusyTable && p2BusyTable ? ' & ' : ''}{p2BusyTable ? 'J2' : ''} joue sur T{p1BusyTable || p2BusyTable}
+                                      </span>
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()
+                            )}
                           </div>
                         </motion.div>
                       ))}
@@ -829,6 +909,31 @@ export default function Bracket() {
                                       {p2PrevScore}
                                     </div>
                                   )}
+
+                                  {/* Alerte doublons/double programmation - calculée pour être parfaitement centrée au milieu */}
+                                  {isMatchLaunchable && (() => {
+                                    const p1BusyTable = matchObj?.player1_id && busyPlayerIds.get(matchObj.player1_id);
+                                    const p2BusyTable = matchObj?.player2_id && busyPlayerIds.get(matchObj.player2_id);
+                                    if (p1BusyTable || p2BusyTable) {
+                                      return (
+                                        <div 
+                                          style={{
+                                            position: 'absolute',
+                                            top: `${Math.round((y1 + y2) / 2) - 8}px`,
+                                            left: '8px',
+                                            width: '210px',
+                                          }}
+                                          className="flex items-center justify-center gap-1 bg-red-50 text-red-650 px-2 py-0.5 rounded border border-red-200/60 text-[8.5px] font-bold z-20"
+                                        >
+                                          <ShieldAlert className="w-2.5 h-2.5 text-red-500 animate-pulse" />
+                                          <span className="truncate">
+                                            {p1BusyTable ? 'J1' : ''}{p1BusyTable && p2BusyTable ? ' & ' : ''}{p2BusyTable ? 'J2' : ''} actif sur T{p1BusyTable || p2BusyTable}
+                                          </span>
+                                        </div>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
 
                                   {/* TRACÉ DE L'ARBRE (Tracé d'embranchement FFTT raccordé aux lignes de vie des joueurs) */}
                                   {/* 1. Trait horizontal sortant du Joueur 1 */}

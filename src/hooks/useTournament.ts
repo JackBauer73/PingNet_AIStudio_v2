@@ -18,23 +18,28 @@ export function useTournament(options: UseTournamentOptions = {}) {
     if (!isSupabaseConfigured) {
       return;
     }
-    const [playersCount, matchesStats] = await Promise.all([
+    const [registrationsStats, matchesStats] = await Promise.all([
       supabase
         .from('registrations')
-        .select('*', { count: 'exact', head: true })
-        .eq('tournament_id', tId)
-        .eq('checked_in', true),
+        .select('player_id')
+        .eq('tournament_id', tId),
       supabase
         .from('matches')
         .select('status')
         .eq('tournament_id', tId)
     ]);
 
+    const uniquePlayers = new Set(
+      (registrationsStats.data || [])
+        .map(r => r.player_id)
+        .filter(Boolean)
+    ).size;
+
     const totalMatches = matchesStats.data?.length || 0;
     const doneMatches = matchesStats.data?.filter(m => m.status === 'finished' || m.status === 'walkover').length || 0;
 
     setStats({
-      players: playersCount.count || 0,
+      players: uniquePlayers,
       matchesDone: doneMatches,
       matchesTotal: totalMatches
     });
@@ -150,6 +155,10 @@ export function useTournament(options: UseTournamentOptions = {}) {
       )
       .on('postgres_changes',
         { event: '*', schema: 'public', table: 'players', filter: `tournament_id=eq.${tournament.id}` },
+        () => loadStats(tournament.id)
+      )
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'registrations', filter: `tournament_id=eq.${tournament.id}` },
         () => loadStats(tournament.id)
       )
       .subscribe();

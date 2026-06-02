@@ -24,6 +24,7 @@ export default function Tables() {
   const { tournament } = useTournament();
   const [pools, setPools] = useState<any[]>([]);
   const [matches, setMatches] = useState<any[]>([]);
+  const [poolPlayers, setPoolPlayers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [assigningTable, setAssigningTable] = useState<number | null>(null);
   const [movingTable, setMovingTable] = useState<number | null>(null);
@@ -44,6 +45,17 @@ export default function Tables() {
 
       if (poolsErr) throw poolsErr;
 
+      // Fetch all pool_players for pools of this tournament
+      const poolIds = (poolsRes || []).map(p => p.id);
+      let poolPlayersList: any[] = [];
+      if (poolIds.length > 0) {
+        const { data: ppRes, error: ppErr } = await supabase
+          .from('pool_players')
+          .select('pool_id, player_id, players(*)')
+          .in('pool_id', poolIds);
+        if (!ppErr) poolPlayersList = ppRes || [];
+      }
+
       // Fetch active & pending matches with players and sets across all rounds
       const { data: matchesRes, error: matchesErr } = await supabase
         .from('matches')
@@ -62,6 +74,7 @@ export default function Tables() {
 
       setPools(poolsRes || []);
       setMatches(sortedMatches);
+      setPoolPlayers(poolPlayersList);
     } catch (err) {
       console.error('Error fetching tables data:', err);
       toast.error('Erreur lors du rafraîchissement des tables.');
@@ -122,6 +135,17 @@ export default function Tables() {
         return;
       }
 
+      // Vérifier si un des joueurs de la poule est déjà mobilisé sur une autre table
+      const playersInThisPool = poolPlayers.filter(pp => pp.pool_id === poolId).map(pp => pp.player_id);
+      for (const pId of playersInThisPool) {
+        const mobs = mobilizedPlayers.get(pId) || [];
+        const conflict = mobs.find(mob => Number(mob.tableNumber) !== Number(tableNum));
+        if (conflict) {
+          toast.error(`Impossible d'assigner la poule : ${conflict.playerName} est déjà mobilisé dans "${conflict.sourceName}" sur la Table ${conflict.tableNumber} (en tant que joueur ou arbitre) !`);
+          return;
+        }
+      }
+
       // Mettre à jour la poule
       await supabase
         .from('pools')
@@ -152,6 +176,26 @@ export default function Tables() {
       if (alreadyOccupied) {
         toast.error(`La table ${tableNum} est déjà occupée.`);
         return;
+      }
+
+      const matchToLaunch = matches.find(m => m.id === matchId);
+      if (matchToLaunch) {
+        if (matchToLaunch.player1_id) {
+          const mobs = mobilizedPlayers.get(matchToLaunch.player1_id) || [];
+          const conflict = mobs.find(mob => Number(mob.tableNumber) !== Number(tableNum));
+          if (conflict) {
+            toast.error(`Impossible de lancer le match : ${conflict.playerName} est déjà mobilisé dans "${conflict.sourceName}" sur la Table ${conflict.tableNumber} (en tant que joueur ou arbitre) !`);
+            return;
+          }
+        }
+        if (matchToLaunch.player2_id) {
+          const mobs = mobilizedPlayers.get(matchToLaunch.player2_id) || [];
+          const conflict = mobs.find(mob => Number(mob.tableNumber) !== Number(tableNum));
+          if (conflict) {
+            toast.error(`Impossible de lancer le match : ${conflict.playerName} est déjà mobilisé dans "${conflict.sourceName}" sur la Table ${conflict.tableNumber} (en tant que joueur ou arbitre) !`);
+            return;
+          }
+        }
       }
 
       await supabase
@@ -215,6 +259,23 @@ export default function Tables() {
 
       const matchToLaunch = pendingMatches[0];
 
+      if (matchToLaunch.player1_id) {
+        const mobs = mobilizedPlayers.get(matchToLaunch.player1_id) || [];
+        const conflict = mobs.find(mob => Number(mob.tableNumber) !== Number(tableNum));
+        if (conflict) {
+          toast.error(`Impossible de lancer le match de poule : ${conflict.playerName} est déjà mobilisé dans "${conflict.sourceName}" sur la Table ${conflict.tableNumber} (en tant que joueur ou arbitre) !`);
+          return;
+        }
+      }
+      if (matchToLaunch.player2_id) {
+        const mobs = mobilizedPlayers.get(matchToLaunch.player2_id) || [];
+        const conflict = mobs.find(mob => Number(mob.tableNumber) !== Number(tableNum));
+        if (conflict) {
+          toast.error(`Impossible de lancer le match de poule : ${conflict.playerName} est déjà mobilisé dans "${conflict.sourceName}" sur la Table ${conflict.tableNumber} (en tant que joueur ou arbitre) !`);
+          return;
+        }
+      }
+
       await supabase.from('matches').update({
         table_number: tableNum,
         status: 'in_progress',
@@ -262,6 +323,71 @@ export default function Tables() {
 
   const nbTables = tournament?.nb_tables || 0;
   const tablesArray = Array.from({ length: nbTables }, (_, i) => i + 1);
+
+  // Compile map of players currently playing on any table (playerId => { playerName, tableNumber })
+  const activePlayersOnTables = new Map<string, { playerName: string; tableNumber: number }>();
+  matches.forEach(m => {
+    if (m.status === 'in_progress' && m.table_number) {
+      if (m.player1_id) {
+        const p1Name = `${m.player1?.first_name || ''} ${m.player1?.last_name || ''}`.trim() || 'Joueur 1';
+        activePlayersOnTables.set(m.player1_id, { playerName: p1Name, tableNumber: Number(m.table_number) });
+      }
+      if (m.player2_id) {
+        const p2Name = `${m.player2?.first_name || ''} ${m.player2?.last_name || ''}`.trim() || 'Joueur 2';
+        activePlayersOnTables.set(m.player2_id, { playerName: p2Name, tableNumber: Number(m.table_number) });
+      }
+    }
+  });
+
+  // Compile map of players currently mobilized on any table (due to active pool or current match)
+  const mobilizedPlayers = new Map<string, Array<{ sourceName: string; tableNumber: number; playerName: string }>>();
+  pools.forEach(p => {
+    if (p.status !== 'finished' && p.table_number) {
+      const playersInPool = poolPlayers.filter(pp => pp.pool_id === p.id);
+      playersInPool.forEach(pp => {
+        const pData = Array.isArray(pp.players) ? pp.players[0] : pp.players;
+        const pName = pData ? `${pData.first_name || ''} ${pData.last_name || ''}`.trim() : 'Joueur';
+        
+        const list = mobilizedPlayers.get(pp.player_id) || [];
+        list.push({
+          sourceName: p.name,
+          tableNumber: Number(p.table_number),
+          playerName: pName
+        });
+        mobilizedPlayers.set(pp.player_id, list);
+      });
+    }
+  });
+
+  matches.forEach(m => {
+    if (m.status === 'in_progress' && m.table_number) {
+      const tNum = Number(m.table_number);
+      if (m.player1_id) {
+        const p1Name = `${m.player1?.first_name || ''} ${m.player1?.last_name || ''}`.trim() || 'Joueur 1';
+        const list = mobilizedPlayers.get(m.player1_id) || [];
+        if (!list.some(x => x.tableNumber === tNum)) {
+          list.push({
+            sourceName: m.round === 'pool' ? 'Poule' : 'Match Phase Finale',
+            tableNumber: tNum,
+            playerName: p1Name
+          });
+          mobilizedPlayers.set(m.player1_id, list);
+        }
+      }
+      if (m.player2_id) {
+        const p2Name = `${m.player2?.first_name || ''} ${m.player2?.last_name || ''}`.trim() || 'Joueur 2';
+        const list = mobilizedPlayers.get(m.player2_id) || [];
+        if (!list.some(x => x.tableNumber === tNum)) {
+          list.push({
+            sourceName: m.round === 'pool' ? 'Poule' : 'Match Phase Finale',
+            tableNumber: tNum,
+            playerName: p2Name
+          });
+          mobilizedPlayers.set(m.player2_id, list);
+        }
+      }
+    }
+  });
 
   const getRoundLabel = (round: string) => {
     switch (round) {
@@ -544,6 +670,39 @@ export default function Tables() {
                         activePool && (
                           <div className="border border-slate-100 rounded-2xl p-4 text-center">
                             <p className="text-xs text-slate-400 italic">Aucun arbitrage actif</p>
+                            
+                            {(() => {
+                              const poolMatches = matches.filter(m => m.pool_id === activePool.id);
+                              const pendingMatches = poolMatches.filter(m => m.status === 'pending');
+                              if (pendingMatches.length === 0) return null;
+                              const nextMatch = pendingMatches[0];
+                              const p1Mobs = nextMatch.player1_id ? (mobilizedPlayers.get(nextMatch.player1_id) || []) : [];
+                              const p2Mobs = nextMatch.player2_id ? (mobilizedPlayers.get(nextMatch.player2_id) || []) : [];
+                              
+                              const p1ConflictMob = p1Mobs.find(mob => Number(mob.tableNumber) !== Number(tableNum));
+                              const p2ConflictMob = p2Mobs.find(mob => Number(mob.tableNumber) !== Number(tableNum));
+                              
+                              if (p1ConflictMob || p2ConflictMob) {
+                                return (
+                                  <div className="my-2.5 text-left bg-red-50 border border-red-100 text-red-700 px-3 py-2 rounded-xl text-[10px] space-y-1">
+                                    <div className="flex items-center gap-1 font-extrabold text-red-800">
+                                      <ShieldAlert className="w-3.5 h-3.5 text-red-500 animate-pulse" />
+                                      <span>Double programmation !</span>
+                                    </div>
+                                    <ul className="list-disc list-inside space-y-0.5 text-[9px] text-red-650 font-medium">
+                                      {p1ConflictMob && (
+                                        <li>{p1ConflictMob.playerName} est dans "{p1ConflictMob.sourceName}" sur Table {p1ConflictMob.tableNumber}</li>
+                                      )}
+                                      {p2ConflictMob && (
+                                        <li>{p2ConflictMob.playerName} est dans "{p2ConflictMob.sourceName}" sur Table {p2ConflictMob.tableNumber}</li>
+                                      )}
+                                    </ul>
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
+
                             <button
                               onClick={() => handleLaunchPoolMatch(activePool.id, tableNum)}
                               className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-xl text-[10px] font-extrabold hover:bg-slate-800 transition-all active:scale-95 shadow-sm"
@@ -656,14 +815,46 @@ export default function Tables() {
                             <option value="">Choisir poule ou match</option>
                             {unassignedPools.length > 0 && (
                               <optgroup label="Poules de qualification">
-                                {unassignedPools.map((p) => (
-                                  <option key={p.id} value={`pool:${p.id}`}>{p.name}</option>
-                                ))}
+                                {unassignedPools.map((p) => {
+                                  const pPlayers = poolPlayers.filter(pp => pp.pool_id === p.id);
+                                  let conflictingPlayerName = '';
+                                  let conflictingTable = 0;
+                                  let isBusy = false;
+                                  for (const pp of pPlayers) {
+                                    const mobs = mobilizedPlayers.get(pp.player_id) || [];
+                                    const conflict = mobs.find(mob => Number(mob.tableNumber) !== Number(tableNum));
+                                    if (conflict) {
+                                      isBusy = true;
+                                      conflictingPlayerName = conflict.playerName;
+                                      conflictingTable = conflict.tableNumber;
+                                      break;
+                                    }
+                                  }
+                                  return (
+                                    <option key={p.id} value={`pool:${p.id}`}>
+                                      {p.name} {isBusy ? `⚠️ (${conflictingPlayerName} sur Table ${conflictingTable})` : ''}
+                                    </option>
+                                  );
+                                })}
                               </optgroup>
                             )}
                             {readyBracketMatches.length > 0 && (
                               <optgroup label="Matchs de phase finale">
                                 {readyBracketMatches.map((m) => {
+                                  const p1Mobs = m.player1_id ? (mobilizedPlayers.get(m.player1_id) || []) : [];
+                                  const p2Mobs = m.player2_id ? (mobilizedPlayers.get(m.player2_id) || []) : [];
+                                  
+                                  const p1ConflictMob = p1Mobs.find(mob => Number(mob.tableNumber) !== Number(tableNum));
+                                  const p2ConflictMob = p2Mobs.find(mob => Number(mob.tableNumber) !== Number(tableNum));
+                                  
+                                  const isBusy = p1ConflictMob || p2ConflictMob;
+                                  let conflictingInfo = '';
+                                  if (p1ConflictMob) {
+                                    conflictingInfo = ` (${p1ConflictMob.playerName} sur Table ${p1ConflictMob.tableNumber})`;
+                                  } else if (p2ConflictMob) {
+                                    conflictingInfo = ` (${p2ConflictMob.playerName} sur Table ${p2ConflictMob.tableNumber})`;
+                                  }
+
                                   const p1 = m.player1 ? `${m.player1.first_name || ''} ${m.player1.last_name || ''}`.trim() : 'Joueur 1';
                                   const p2 = m.player2 ? `${m.player2.first_name || ''} ${m.player2.last_name || ''}`.trim() : 'Joueur 2';
                                   const roundLabel = getRoundLabel(m.round);
@@ -671,7 +862,7 @@ export default function Tables() {
                                   const sPrefix = sName ? `[${sName}] ` : '';
                                   return (
                                     <option key={m.id} value={`match:${m.id}`}>
-                                      {sPrefix}{roundLabel} : {p1} vs {p2}
+                                      {sPrefix}{roundLabel} : {p1} vs {p2} {isBusy ? `⚠️${conflictingInfo}` : ''}
                                     </option>
                                   );
                                 })}

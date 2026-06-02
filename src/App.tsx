@@ -14,6 +14,8 @@ import TableView from './pages/player/TableView';
 import Landing from './pages/player/Landing';
 import LiveScores from './pages/player/LiveScores';
 import PlayerSpace from './pages/player/PlayerSpace';
+import PlayerValidation from './pages/player/PlayerValidation';
+import PoolStandingsPage from './pages/player/PoolStandingsPage';
 import OrganizerLayout from './components/layout/OrganizerLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
@@ -65,6 +67,8 @@ export default function App() {
         
         {/* Public Player Space */}
         <Route path="/player/:token" element={<PlayerSpace />} />
+        <Route path="/player/:token/validate/:matchId" element={<PlayerValidation />} />
+        <Route path="/player/:token/pool/:poolId" element={<PoolStandingsPage />} />
         
         {/* Public Landing & Register Route */}
         <Route path="/" element={<Landing />} />
