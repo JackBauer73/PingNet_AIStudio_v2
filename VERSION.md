@@ -3,9 +3,9 @@
 This document keeps track of all released versions and updates of Ping Manager, adhering strictly to **Semantic Versioning (SemVer)**: `MAJOR.MINOR.PATCH`.
 
 ## Configuration active
-- **Version actuelle :** `0.14.7`
-- **Statut :** Résolution ultime et définitive de la double programmation de table de marque pour les inscriptions multi-séries. Les mobilisations d'un joueur physique dans plusieurs poules de tableaux distincts ne s'écrasent plus l'une l'autre, et la table de la nouvelle série n'est pas auto-affectée en présence de joueurs occupés.
-- **Date :** 2026-06-01
+- **Version actuelle :** `0.14.8`
+- **Statut :** Recréation à l'identique de l'interface de l'espace joueur (PlayerSpace) avec une expérience mobile ultra-premium, navigation par onglets (Mon QR, Tableaux, Matchs), dark mode natif et calculs de classement en temps réel.
+- **Date :** 2026-06-02
 
 ---
 
@@ -18,7 +18,15 @@ This document keeps track of all released versions and updates of Ping Manager, 
 
 ## Historique des versions
 
-### v0.14.7 (2026-06-01) - *Version Actuelle*
+### v0.14.8 (2026-06-02) - *Version Actuelle*
+Refonte et alignement graphique complet de l'espace joueur à la maquette Sport-Tech :
+1. **Navigation fluide par Onglets :** Séparation claire de l'espace en 3 vues rapides (Mon QR, Tableaux, Matchs) via une nav bar en bas de page pour améliorer l'expérience mobile.
+2. **Mon QR intelligent :** Intégration du sélecteur de journées (Jour 1, Jour 2) avec génération conforme des URLs réelles de scanning pour tables d'inscription, affichage de l'état des inscriptions du jour ciblé et carte d'information contextuelle.
+3. **Espace Tableaux détaillé :** Écran de détails d'une série au clic, affichant la poule et calculant le classement en temps réel d'après les scores de matchs en direct, ainsi que la chronologie complète du parcours en phase finale (timeline de bracket).
+4. **Interface Matchs unifiée :** Card vedette du match en cours/prochain à jouer (avec table de match et scores de sets live) et listes d'historique de matchs regroupées par journées de tournoi.
+5. **Mode Sombre Intégré & Drawer Profil :** Ajout d'un sélecteur de thèmes (clair/sombre) sur l'écran d'accueil et d'un panneau latéral défilant complet présentant l'identité physique du joueur.
+
+### v0.14.7 (2026-06-01)
 Résolution de la faille de mémoire de la map de double présence en multi-séries :
 1. **Zéro écrasement de clé :** Modification de la map `mobilizedPlayers` pour stocker des listes (tableaux) de mobilisations actives par identifiant physique du joueur, empêchant l'écrasement des sessions sur d'autres tables de marque.
 2. **Alerte de double programmation réactive :** Affichage d’alertes de conflit instantanées et blocage d’enchaînement de matchs ou de lancements pour les deux tables de marque physiques.
