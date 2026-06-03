@@ -3,9 +3,9 @@
 This document keeps track of all released versions and updates of Ping Manager, adhering strictly to **Semantic Versioning (SemVer)**: `MAJOR.MINOR.PATCH`.
 
 ## Configuration active
-- **Version actuelle :** `0.14.8`
-- **Statut :** Recréation à l'identique de l'interface de l'espace joueur (PlayerSpace) avec une expérience mobile ultra-premium, navigation par onglets (Mon QR, Tableaux, Matchs), dark mode natif et calculs de classement en temps réel.
-- **Date :** 2026-06-02
+- **Version actuelle :** `0.14.11`
+- **Statut :** Notification de tous les membres d'une même poule pour les événements de match de poule en cours (début de partie, appel à table et scores), y compris les joueurs non-participants de la rencontre.
+- **Date :** 2026-06-03
 
 ---
 
@@ -18,7 +18,26 @@ This document keeps track of all released versions and updates of Ping Manager, 
 
 ## Historique des versions
 
-### v0.14.8 (2026-06-02) - *Version Actuelle*
+### v0.14.11 (2026-06-03) - *Version Actuelle*
+Extension et perfectionnement du système de notifications temps réel pour les poules :
+1. **Notifications étendues aux poules (Poules Multi-Joueurs) :** Dès qu'un événement survient sur un match appartenant à une poule dont fait partie le joueur (début de match, appel à table ou match terminé), une notification système et une alerte in-app sont envoyées à TOUS les joueurs de cette même poule, même s'ils ne participent pas directement à cette partie en cours.
+2. **Identification précise des protagonistes :** Les alertes des tiers affichent de manière claire les noms complets des deux compétiteurs impliqués en exploitant le cache local du module du joueur.
+3. **Mécanisme d'Anti-Doublons (Idempotence) :** Mise en place d'une référence dynamique (`notifiedEventsRef`) mémorisant les convocations émises à l'écran pour prémunir le terminal de l'utilisateur contre des re-déclenchements ou bruits identiques lors des requêtes d'arrière-plan ou restaurations de sessions.
+
+### v0.14.10 (2026-06-03)
+Intégration et implémentation de l'Option B — Notification Center & Web Push :
+1. **Notifications Système native :** Configuration des demandes d'autorisation système (`Notification.requestPermission()`) afin de déclencher de réelles push notifications de bureau lors d'une convocation à table, même si l'utilisateur consulte un autre onglet.
+2. **Bouton de test système :** Ajout d'une option de simulation push permettant aux joueurs de tester la réception d'une alerte et la vibration du terminal.
+3. **Historique persistent local :** Stockage local de l'historique de toutes les convocations et alertes reçues dans `localStorage` par jeton de joueur, avec option d'effacement individuel de l'historique.
+4. **Indicateur de Badge rouge :** Affichage dynamique d'un point rouge d'alerte non-lue sur l'onglet Notifs dès qu'une action de real-time a lieu en arrière-plan, s'estompant dès l'accès au panneau.
+
+### v0.14.9 (2026-06-03)
+Intégration d'un système intelligent d'abonnement en temps réel et d'alertes au sein du PlayerSpace :
+1. **Événements instantanés de match :** Abonnement précis aux mises à jour physiques de la table `matches` pour le joueur via Supabase Realtime, avec comparaison réactive par rapport à l'état local actuel.
+2. **Alertes de démarrage et appels :** Envoi d'un Toast animé à l'écran du joueur lorsque son match passe en statut "En cours" (avec numéro de table) ou qu'on lui affecte/modifie une table d'arbitrage ("pending").
+3. **Signaux audio et notifications de fin :** Émission d'un son discret d'appel à l'attention pour les événements "Appel" ou "Début", et célébration par Toast de victoire/défaite à la conclusion de la partie.
+
+### v0.14.8 (2026-06-02)
 Refonte et alignement graphique complet de l'espace joueur à la maquette Sport-Tech :
 1. **Navigation fluide par Onglets :** Séparation claire de l'espace en 3 vues rapides (Mon QR, Tableaux, Matchs) via une nav bar en bas de page pour améliorer l'expérience mobile.
 2. **Mon QR intelligent :** Intégration du sélecteur de journées (Jour 1, Jour 2) avec génération conforme des URLs réelles de scanning pour tables d'inscription, affichage de l'état des inscriptions du jour ciblé et carte d'information contextuelle.

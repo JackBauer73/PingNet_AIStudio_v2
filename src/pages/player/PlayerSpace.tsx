@@ -35,6 +35,8 @@ function Icon({ name, size = 24, stroke = 2, color = "currentColor", className =
     x: <g {...p}><path d="M18 6 6 18M6 6l12 12"/></g>,
     info: <g {...p}><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></g>,
     cal: <g {...p}><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></g>,
+    bell: <g {...p}><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></g>,
+    bellOff: <g {...p}><path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M18.63 13A17.89 17.89 0 0 1 18 8"/><path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/><path d="m2 2 20 20"/></g>,
   };
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" className={className} style={{ display: 'inline-block', verticalAlign: 'middle' }} aria-hidden="true">
@@ -96,11 +98,94 @@ export default function PlayerSpace() {
   const [tournamentBrackets, setTournamentBrackets] = useState<any[]>([]);
   
   // States of mockup interface
-  const [activeTab, setActiveTab] = useState<'qr' | 'tableaux' | 'matchs'>('qr');
+  const [activeTab, setActiveTab] = useState<'qr' | 'tableaux' | 'matchs' | 'notifs'>('qr');
   const [selectedQRDay, setSelectedQRDay] = useState<number | null>(null);
   const [selectedTableauId, setSelectedTableauId] = useState<string | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [darkTheme, setDarkTheme] = useState(false);
+
+  // States of Notifications and Web Push
+  const [notifications, setNotifications] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem(`player_notifs_${token}`);
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const [notificationPermission, setNotificationPermission] = useState<string>(() => {
+    return typeof window !== 'undefined' ? (window.Notification?.permission || 'default') : 'default';
+  });
+
+  const [unreadNotifs, setUnreadNotifs] = useState(() => {
+    try {
+      const saved = localStorage.getItem(`player_notifs_unread_${token}`);
+      return saved === 'true';
+    } catch (e) {
+      return false;
+    }
+  });
+
+  const addNotificationLog = (title: string, body: string, iconType: string = 'info') => {
+    const newNotif = {
+      id: String(Date.now()),
+      title,
+      body,
+      timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+      iconType,
+      unread: true
+    };
+    setNotifications(prev => {
+      const updated = [newNotif, ...prev].slice(0, 50);
+      try {
+        localStorage.setItem(`player_notifs_${token}`, JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+    setUnreadNotifs(true);
+    try {
+      localStorage.setItem(`player_notifs_unread_${token}`, 'true');
+    } catch (e) {}
+
+    // Standard push notification if active and authorized
+    if (typeof window !== 'undefined' && window.Notification && window.Notification.permission === 'granted') {
+      try {
+        new window.Notification(title, {
+          body: body,
+          icon: '/favicon.ico'
+        });
+      } catch (e) {}
+    }
+  };
+
+  const requestWebPushPermission = async () => {
+    if (typeof window === 'undefined' || !window.Notification) {
+      toast.error("Votre navigateur ne supporte pas les notifications système.");
+      return;
+    }
+    
+    try {
+      const perm = await window.Notification.requestPermission();
+      setNotificationPermission(perm);
+      if (perm === 'granted') {
+        toast.success("Notifications système activées avec succès !");
+        addNotificationLog("🔔 Notifications activées", "Vous recevrez des alertes en temps réel à chaque fois que vous êtes convoqué à une table.");
+      } else if (perm === 'denied') {
+        toast.error("Permissions de notification refusées dans le navigateur.");
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const clearNotificationHistory = () => {
+    setNotifications([]);
+    try {
+      localStorage.removeItem(`player_notifs_${token}`);
+    } catch (e) {}
+    toast.success("Historique des notifications effacé.");
+  };
 
   // Pool details state (for currently selected tableau's detail view)
   const [poolStandings, setPoolStandings] = useState<any[]>([]);
@@ -299,12 +384,44 @@ export default function PlayerSpace() {
     }
   };
 
+  const matchesRef = React.useRef(matches);
+  useEffect(() => {
+    matchesRef.current = matches;
+  }, [matches]);
+
+  const poolsRef = React.useRef(pools);
+  useEffect(() => {
+    poolsRef.current = pools;
+  }, [pools]);
+
+  const poolPlayersRef = React.useRef(poolPlayers);
+  useEffect(() => {
+    poolPlayersRef.current = poolPlayers;
+  }, [poolPlayers]);
+
+  const notifiedEventsRef = React.useRef<Record<string, { status?: string; table_number?: string }>>({});
+
   useEffect(() => {
     fetchPlayerSpaceData();
   }, [token]);
 
   useEffect(() => {
-    if (!tournament?.id) return;
+    if (!tournament?.id || !player?.id) return;
+
+    const getPlayerFullName = (id: string) => {
+      if (id === player.id) return "Vous";
+      const found = poolPlayersRef.current.find((pp: any) => pp.player_id === id);
+      if (found && found.players) {
+        const pDetails = found.players;
+        return `${pDetails.first_name || ''} ${pDetails.last_name || ''}`.trim();
+      }
+      return "Joueur";
+    };
+
+    const getPoolName = (poolId: string) => {
+      const found = poolsRef.current.find((p: any) => p.id === poolId);
+      return found ? found.name : "Poule";
+    };
 
     const channel = supabase.channel(`player_space_${token}_realtime`)
       .on('postgres_changes', { 
@@ -312,7 +429,184 @@ export default function PlayerSpace() {
         schema: 'public', 
         table: 'matches',
         filter: `tournament_id=eq.${tournament.id}` 
-      }, () => {
+      }, (payload: any) => {
+        if (payload.new) {
+          const match = payload.new;
+          const isMyMatch = match.player1_id === player.id || match.player2_id === player.id;
+          const isMyPoolMatch = match.pool_id ? poolsRef.current.some((p: any) => p.id === match.pool_id) : false;
+
+          if (isMyMatch || isMyPoolMatch) {
+            const oldMatch = matchesRef.current.find(m => m.id === match.id);
+            const key = match.id;
+            const previouslyNotified = notifiedEventsRef.current[key];
+
+            if (isMyMatch) {
+              // --- Cas : C'est LE MATCH du joueur connecté ---
+              if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+                // 1. Début de match
+                if (match.status === 'in_progress') {
+                  const alreadyNotifiedStart = previouslyNotified?.status === 'in_progress';
+                  const isTransition = oldMatch ? (oldMatch.status !== 'in_progress') : true;
+
+                  if (!alreadyNotifiedStart && isTransition) {
+                    notifiedEventsRef.current[key] = { ...notifiedEventsRef.current[key], status: 'in_progress' };
+
+                    toast.success(`⚡ Votre match vient de commencer ! Table ${match.table_number || '?'}`, {
+                      duration: 8000,
+                      icon: '🏓'
+                    });
+                    addNotificationLog(
+                      "⚡ Match commencé !",
+                      `Votre match vient de commencer en Table ${match.table_number || '?'}. Donnez le meilleur de vous-même !`,
+                      "flame"
+                    );
+                    try {
+                      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-600.wav');
+                      audio.play().catch(() => {});
+                    } catch (e) {}
+                  }
+                }
+                // 2. Appel du joueur à une table
+                else if (match.status === 'pending' && match.table_number) {
+                  const alreadyNotifiedCall = previouslyNotified?.table_number === String(match.table_number);
+                  const isTableChanged = oldMatch ? (oldMatch.table_number !== match.table_number) : true;
+
+                  if (!alreadyNotifiedCall && isTableChanged) {
+                    notifiedEventsRef.current[key] = { ...notifiedEventsRef.current[key], table_number: String(match.table_number) };
+
+                    toast(`📢 Match appelé ! Rendez-vous à la Table ${match.table_number}`, {
+                      duration: 8000,
+                      icon: '🔊'
+                    });
+                    addNotificationLog(
+                      "📢 Match appelé !",
+                      `Vous êtes attendu immédiatement pour jouer à la Table ${match.table_number}. Présentez-vous auprès du marqueur de la table.`,
+                      "table"
+                    );
+                    try {
+                      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-600.wav');
+                      audio.play().catch(() => {});
+                    } catch (e) {}
+                  }
+                }
+                // 3. Match terminé
+                else if (match.status === 'finished') {
+                  const alreadyNotifiedFinished = previouslyNotified?.status === 'finished';
+                  const isTransition = oldMatch ? (oldMatch.status !== 'finished') : true;
+
+                  if (!alreadyNotifiedFinished && isTransition) {
+                    notifiedEventsRef.current[key] = { ...notifiedEventsRef.current[key], status: 'finished' };
+
+                    const won = match.winner_id === player.id;
+                    if (won) {
+                      toast.success('🏆 Félicitations ! Vous avez gagné le match !', { duration: 6000 });
+                      addNotificationLog(
+                        "🏆 Victoire !",
+                        "Félicitations pour votre superbe performance ! Votre score a été actualisé dans le tableau.",
+                        "check"
+                      );
+                    } else {
+                      toast.error('😢 Match terminé. Vous avez perdu cette rencontre.', { duration: 6000 });
+                      addNotificationLog(
+                        "😢 Match terminé",
+                        "Défaite sur cette rencontre. Continuez de donner votre maximum sur les parties suivantes !",
+                        "x"
+                      );
+                    }
+                  }
+                }
+              }
+
+              if (payload.eventType === 'INSERT') {
+                toast.success(`🆕 Nouveau match programmé !`, {
+                  duration: 6000
+                });
+                addNotificationLog(
+                  "🆕 Match disponible",
+                  "Un nouveau match s'est affiché dans votre liste. Tenez-vous prêt pour la suite !",
+                  "clock"
+                );
+              }
+            } else {
+              // --- Cas : C'est UN MATCH d'un autre joueur du MEME POOL ---
+              const p1Name = getPlayerFullName(match.player1_id);
+              const p2Name = getPlayerFullName(match.player2_id);
+              const poolName = getPoolName(match.pool_id);
+
+              if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
+                // 1. Début de match de poule
+                if (match.status === 'in_progress') {
+                  const alreadyNotifiedStart = previouslyNotified?.status === 'in_progress';
+                  const oldStatus = payload.old ? payload.old.status : undefined;
+                  const isTransition = oldStatus ? (oldStatus !== 'in_progress') : true;
+
+                  if (!alreadyNotifiedStart && isTransition) {
+                    notifiedEventsRef.current[key] = { ...notifiedEventsRef.current[key], status: 'in_progress' };
+
+                    toast(`⚡ Poule ${poolName} : Match commencé ! Table ${match.table_number || '?'}`, {
+                      duration: 8000,
+                      icon: '🏓'
+                    });
+                    addNotificationLog(
+                      `⚡ Poule ${poolName} : Match démarré`,
+                      `La rencontre de votre poule entre ${p1Name} et ${p2Name} vient de débuter à la Table ${match.table_number || '?'}.`,
+                      "flame"
+                    );
+                    try {
+                      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-600.wav');
+                      audio.play().catch(() => {});
+                    } catch (e) {}
+                  }
+                }
+                // 2. Appel d'un match de poule
+                else if (match.status === 'pending' && match.table_number) {
+                  const alreadyNotifiedCall = previouslyNotified?.table_number === String(match.table_number);
+                  const oldTable = payload.old ? payload.old.table_number : undefined;
+                  const isTableChanged = oldTable ? (oldTable !== match.table_number) : true;
+
+                  if (!alreadyNotifiedCall && isTableChanged) {
+                    notifiedEventsRef.current[key] = { ...notifiedEventsRef.current[key], table_number: String(match.table_number) };
+
+                    toast(`📢 Poule ${poolName} : Match appelé ! Table ${match.table_number}`, {
+                      duration: 8000,
+                      icon: '🔊'
+                    });
+                    addNotificationLog(
+                      `📢 Poule ${poolName} : Match appelé`,
+                      `La rencontre de votre poule entre ${p1Name} et ${p2Name} est appelée à la Table ${match.table_number}.`,
+                      "table"
+                    );
+                    try {
+                      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-600.wav');
+                      audio.play().catch(() => {});
+                    } catch (e) {}
+                  }
+                }
+                // 3. Fin de match de poule
+                else if (match.status === 'finished') {
+                  const alreadyNotifiedFinished = previouslyNotified?.status === 'finished';
+                  const oldStatus = payload.old ? payload.old.status : undefined;
+                  const isTransition = oldStatus ? (oldStatus !== 'finished') : true;
+
+                  if (!alreadyNotifiedFinished && isTransition) {
+                    notifiedEventsRef.current[key] = { ...notifiedEventsRef.current[key], status: 'finished' };
+
+                    const winnerName = match.winner_id ? getPlayerFullName(match.winner_id) : "Inconnu";
+                    toast(`📊 Poule ${poolName} : Match terminé`, {
+                      duration: 6000,
+                      icon: '🏆'
+                    });
+                    addNotificationLog(
+                      `📊 Poule ${poolName} : Rencontre terminée`,
+                      `La rencontre de votre poule s'est terminée. ${p1Name} vs ${p2Name}. Vainqueur : ${winnerName}.`,
+                      "check"
+                    );
+                  }
+                }
+              }
+            }
+          }
+        }
         refreshMatches();
       })
       .on('postgres_changes', { 
@@ -923,6 +1217,62 @@ export default function PlayerSpace() {
         .player-space-root .sheet-row strong{font-size:14px; color:var(--ink); font-weight:600;}
         .player-space-root .sheet-foot{margin-top:16px; display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center;}
         .player-space-root .sheet-foot p{margin:0; font-size:12px; color:var(--muted2);}
+
+        /* ───── NOTIFICATIONS TAB ───── */
+        .player-space-root .notif-card{
+          background:var(--card); border:1.5px solid var(--line); border-radius:18px;
+          padding:16px; display:flex; flex-direction:column; gap:12px;
+          box-shadow:0 10px 30px rgba(15,23,42,.05);
+        }
+        .player-space-root .notif-card.success{
+          border-color: rgba(34,197,94,.4);
+          background: linear-gradient(180deg, var(--card), rgba(34,197,94,.05));
+        }
+        .player-space-root .notif-card.warning{
+          border-color: rgba(249,115,22,.4);
+          background: linear-gradient(180deg, var(--card), rgba(249,115,22,.03));
+        }
+        .player-space-root .notif-btn{
+          display:flex; align-items:center; justify-content:center; gap:8px;
+          background:var(--indigo); color:#fff; font-family:var(--fhead); font-weight:700;
+          font-size:13.5px; border:none; border-radius:12px; padding:11px 18px; cursor:pointer;
+          transition:all .15s; outline:none; box-shadow:0 4px 12px rgba(99,102,241,.2);
+        }
+        .player-space-root .notif-btn:hover{
+          transform:translateY(-1px); box-shadow:0 6px 16px rgba(99,102,241,.3);
+        }
+        .player-space-root .notif-btn.test{
+          background:var(--card2); color:var(--ink); border:1px solid var(--line);
+          box-shadow:none; font-size:12.5px; padding:8px 14px; margin-top:4px;
+        }
+        .player-space-root .notif-btn.test:hover{
+          background:var(--line); transform:none;
+        }
+        .player-space-root .notif-item{
+          display:flex; gap:12px; background:var(--card); border:1px solid var(--line);
+          border-radius:14px; padding:12px; position:relative;
+        }
+        .player-space-root .notif-item.unread{
+          border-left:3px solid var(--accent);
+        }
+        .player-space-root .notif-icon{
+          width:36px; height:36px; border-radius:10px; background:var(--card2);
+          display:flex; align-items:center; justify-content:center; flex-shrink:0;
+        }
+        .player-space-root .notif-info{
+          flex:1; min-width:0;
+        }
+        .player-space-root .notif-title{
+          font-family:var(--fhead); font-weight:700; font-size:14px; color:var(--ink);
+          margin-bottom:2px; display:flex; justify-content:space-between; gap:8px; align-items:flex-start;
+        }
+        .player-space-root .notif-time{
+          font-family:var(--fmono); font-size:10px; color:var(--muted2); font-weight:500;
+          flex-shrink:0; margin-top:2px;
+        }
+        .player-space-root .notif-body{
+          font-size:12.5px; color:var(--muted); line-height:1.4;
+        }
       ` }} />
 
       {/* Hero sombe persistant */}
@@ -1384,6 +1734,118 @@ export default function PlayerSpace() {
           </motion.div>
         )}
 
+        {/* --- Onglet 4 : Notifications & Push (Option B) --- */}
+        {activeTab === 'notifs' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="screen">
+            <div className="screen-head">
+              <h1>Notifications</h1>
+              <p>Recevez des alertes sonores et visuelles directement sur votre appareil lors de vos convocations.</p>
+            </div>
+
+            {/* État des notifications système */}
+            <div className="block">
+              <div className="block-title">
+                <span>Rappels système (Web Push)</span>
+                <span className="text-[11px] font-mono font-medium text-slate-400">Option B</span>
+              </div>
+
+              {notificationPermission === 'granted' ? (
+                <div className="notif-card success">
+                  <div className="flex gap-3">
+                    <div className="notif-icon bg-green-500/10 text-green-500">
+                      <Icon name="bell" size={20} stroke={2.4} color="#22c55e" />
+                    </div>
+                    <div>
+                      <strong className="text-sm font-semibold text-slate-900 dark:text-white block">Système Push Activé !</strong>
+                      <p className="text-xs text-slate-500 mt-1">Votre téléphone vibrera et sonnera pour vous indiquer votre numéro de table, même si l'application est en arrière-plan.</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      addNotificationLog(
+                        "⚡ Test de notification",
+                        "Fonctionne parfaitement ! Vous recevrez des alertes instantanées pour votre prochain match."
+                      );
+                      toast.success("Notification de test envoyée !");
+                    }} 
+                    className="notif-btn test"
+                  >
+                    🚀 Envoyer un test système
+                  </button>
+                </div>
+              ) : notificationPermission === 'denied' ? (
+                <div className="notif-card warning">
+                  <div className="flex gap-3">
+                    <div className="notif-icon bg-orange-500/10 text-orange-500">
+                      <Icon name="bellOff" size={20} stroke={2.4} color="#f97316" />
+                    </div>
+                    <div>
+                      <strong className="text-sm font-semibold text-slate-900 dark:text-white block">Notifications Bloquées</strong>
+                      <p className="text-xs text-slate-500 mt-1">Vous avez désactivé les notifications système pour cette application. Autorisez l'accès dans les paramètres du navigateur pour en bénéficier.</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="notif-card">
+                  <div className="flex gap-3">
+                    <div className="notif-icon bg-indigo-500/10 text-indigo-500">
+                      <Icon name="bell" size={20} stroke={2.4} color="#6366f1" />
+                    </div>
+                    <div>
+                      <strong className="text-sm font-bold text-slate-900 dark:text-white block">Recevoir mes appels à table</strong>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Autorisez les alertes de bureau pour faire vibrer votre téléphone dès que l'arbitre appelle votre match.</p>
+                    </div>
+                  </div>
+                  <button onClick={requestWebPushPermission} className="notif-btn">
+                    📢 Activer les Notifications Système
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Historique des notifications */}
+            <div className="block mt-2">
+              <div className="block-title">
+                <span>Historique des alertes</span>
+                {notifications.length > 0 && (
+                  <button onClick={clearNotificationHistory} className="text-xs font-bold text-red-500 hover:text-red-600 bg-transparent border-none cursor-pointer">
+                    Effacer
+                  </button>
+                )}
+              </div>
+
+              <div className="stack">
+                {notifications.map((notif) => (
+                  <div key={notif.id} className="notif-item">
+                    <div className="notif-icon">
+                      <Icon 
+                        name={notif.iconType === 'flame' ? 'flame' : notif.iconType === 'table' ? 'table' : notif.iconType === 'check' ? 'check' : 'bell'} 
+                        size={17} 
+                        stroke={2.4} 
+                        color="var(--accent)" 
+                      />
+                    </div>
+                    <div className="notif-info">
+                      <div className="notif-title">
+                        <span>{notif.title}</span>
+                        <span className="notif-time">{notif.timestamp}</span>
+                      </div>
+                      <p className="notif-body">{notif.body}</p>
+                    </div>
+                  </div>
+                ))}
+
+                {notifications.length === 0 && (
+                  <div className="empty-line">
+                    <Icon name="info" size={16} stroke={2.2} />
+                    <span>Aucun historique disponible. Vos convocations à table et débuts de match s'afficheront ici.</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
       </main>
 
       {/* Profile Detail Slide-up Sheet (Drawer) */}
@@ -1475,6 +1937,25 @@ export default function PlayerSpace() {
         >
           <Icon name="swords" size={20} stroke={activeTab === 'matchs' ? 2.4 : 2} />
           <span>Matchs</span>
+        </button>
+        <button 
+          className={`navbtn ${activeTab === 'notifs' ? 'active' : ''}`} 
+          onClick={() => {
+            setActiveTab('notifs');
+            setSelectedTableauId(null);
+            setUnreadNotifs(false);
+            try {
+              localStorage.setItem(`player_notifs_unread_${token}`, 'false');
+            } catch (e) {}
+          }}
+        >
+          <div className="relative inline-block">
+            <Icon name="bell" size={20} stroke={activeTab === 'notifs' ? 2.4 : 2} />
+            {unreadNotifs && (
+              <span className="absolute -top-1.5 -right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border border-[var(--nav)]" />
+            )}
+          </div>
+          <span>Notifs</span>
         </button>
       </nav>
     </div>
