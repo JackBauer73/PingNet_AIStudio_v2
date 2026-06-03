@@ -3,8 +3,8 @@
 This document keeps track of all released versions and updates of Ping Manager, adhering strictly to **Semantic Versioning (SemVer)**: `MAJOR.MINOR.PATCH`.
 
 ## Configuration active
-- **Version actuelle :** `0.14.11`
-- **Statut :** Notification de tous les membres d'une même poule pour les événements de match de poule en cours (début de partie, appel à table et scores), y compris les joueurs non-participants de la rencontre.
+- **Version actuelle :** `0.14.18`
+- **Statut :** Affichage d'un badge/pastille dynamique et coloré pour les joueurs inscrits dans un autre tableau validé dans la liste du classement d'une Poule.
 - **Date :** 2026-06-03
 
 ---
@@ -18,7 +18,33 @@ This document keeps track of all released versions and updates of Ping Manager, 
 
 ## Historique des versions
 
-### v0.14.11 (2026-06-03) - *Version Actuelle*
+### v0.14.18 (2026-06-03) - *Version Actuelle*
+- **Pastille de tableau complémentaire dans les Poules :** Intégration d'un badge couleur en direct au niveau de chaque joueur dans le tableau Classement des Poules. Si un joueur est inscrit dans un autre tableau et qu'il a été pointé présent (inscription validée), une pastille aux couleurs de cet autre tableau s'affiche à côté de son nom avec un point lumineux animé, informant immédiatement l'arbitre que le joueur est aussi présent/validé pour ce 2e tableau.
+
+### v0.14.17 (2026-06-03)
+- **Préparation technique :** Ajustement des types et mise à niveau des dépendances d'affichage pour la détection croisée des inscriptions par joueur physique.
+
+### v0.14.16 (2026-06-03)
+Correction de la gestion de la mobilisation pour les joueurs inscrits dans plusieurs tableaux :
+- **Mobilisation globale de poules :** Correction de la logique de vérification de disponibilité pour tous les écrans du tournoi (`Pools.tsx`, `Tables.tsx`, `Bracket.tsx`). Désormais, dès qu'une poule est lancée, l'ensemble des joueurs appartenant à cette poule sont considérés comme mobilisés sur sa table de jeu. Cela évite qu'un joueur ne soit programmé sur deux tables différentes simultanément.
+
+### v0.14.15 (2026-06-03)
+Correction robuste du système de gestion des tables de jeu et de l'allocation automatique/manuelle :
+
+### v0.14.14 (2026-06-03)
+Optimisation du comportement de défilement de l'Espace Organisateur :
+- **Sidebar Sticky indépendante :** Changement vers un positionnement sticky (`sticky top-0 h-screen`) pour la barre latérale gauche (en vert) tout en libérant le défilement naturel (`min-h-screen`) de la fenêtre globale de la page principale pour une navigation fluide et standard sur ordinateur et tablette.
+
+### v0.14.13 (2026-06-03)
+Optimisation ergonomique de la navigation de l'Espace Organisateur :
+- **Bandeau vertical fixe (Sidebar) :** Correction structurelle du conteneur parent (utilisation de `h-screen` et `overflow-hidden` au lieu de `min-h-screen`) permettant de figer le menu et l'en-tête, tandis que seule la zone de contenu principale défile verticalement.
+
+### v0.14.12 (2026-06-03)
+Correction du processus de mapping de pointage dans l'Espace Poules :
+1. **Coalescence des inscriptions multiples :** Fusion intelligente de l'information de pointage, paiement et numéro de dossard récupérés sur l'ensemble des inscriptions d'un même compétiteur.
+2. **Zéro écrasement de dossard :** Résolution définitive du dysfonctionnement affectant les joueurs inscrits sur deux journées ou catégories différentes (qui écrasait l'identifiant du dossard ou la présence par l'état non-pointé d'une inscription secondaire en cours).
+
+### v0.14.11 (2026-06-03)
 Extension et perfectionnement du système de notifications temps réel pour les poules :
 1. **Notifications étendues aux poules (Poules Multi-Joueurs) :** Dès qu'un événement survient sur un match appartenant à une poule dont fait partie le joueur (début de match, appel à table ou match terminé), une notification système et une alerte in-app sont envoyées à TOUS les joueurs de cette même poule, même s'ils ne participent pas directement à cette partie en cours.
 2. **Identification précise des protagonistes :** Les alertes des tiers affichent de manière claire les noms complets des deux compétiteurs impliqués en exploitant le cache local du module du joueur.

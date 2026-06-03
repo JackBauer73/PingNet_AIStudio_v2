@@ -59,19 +59,44 @@ export function usePools(tournamentId?: string) {
       if (poolPlayersRes.error) throw poolPlayersRes.error;
       if (registrationsRes.error) throw registrationsRes.error;
 
-      const allPlayers = (registrationsRes.data || []).map((r: any) => ({
-        id: r.players?.id,
-        first_name: r.players?.first_name || '',
-        last_name: r.players?.last_name || '',
-        club: r.players?.club || '',
-        licence_number: r.players?.licence_number || '',
-        points: r.players?.points || 500,
-        serie: r.table_categories?.name || '',
-        checked_in: r.checked_in || false,
-        paid: r.paid || false,
-        dossard: r.dossard || null,
-        tournament_id: r.tournament_id
-      }));
+      const dossardByPlayerId = new Map<string, number>();
+      const checkedInByPlayerId = new Map<string, boolean>();
+      const paidByPlayerId = new Map<string, boolean>();
+
+      (registrationsRes.data || []).forEach((r: any) => {
+        const pid = r.players?.id;
+        if (pid) {
+          if (r.dossard !== null && r.dossard !== undefined) {
+            dossardByPlayerId.set(pid, r.dossard);
+          }
+          if (r.checked_in) {
+            checkedInByPlayerId.set(pid, true);
+          }
+          if (r.paid) {
+            paidByPlayerId.set(pid, true);
+          }
+        }
+      });
+
+      const allPlayers = (registrationsRes.data || []).map((r: any) => {
+        const pid = r.players?.id;
+        const resolvedDossard = r.dossard || (pid ? dossardByPlayerId.get(pid) : null) || null;
+        const resolvedCheckedIn = r.checked_in || (pid ? checkedInByPlayerId.get(pid) : false) || false;
+        const resolvedPaid = r.paid || (pid ? paidByPlayerId.get(pid) : false) || false;
+        return {
+          id: pid,
+          first_name: r.players?.first_name || '',
+          last_name: r.players?.last_name || '',
+          club: r.players?.club || '',
+          licence_number: r.players?.licence_number || '',
+          points: r.players?.points || 500,
+          serie: r.table_categories?.name || '',
+          checked_in: resolvedCheckedIn,
+          paid: resolvedPaid,
+          dossard: resolvedDossard,
+          tournament_id: r.tournament_id
+        };
+      });
       const poolPlayers = poolPlayersRes.data || [];
       const playersById = new Map(allPlayers.map(p => [p.id, p]));
 

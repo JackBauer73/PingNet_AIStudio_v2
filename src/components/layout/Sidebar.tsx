@@ -46,7 +46,7 @@ export default function Sidebar() {
   };
 
   return (
-    <div className="hidden lg:flex flex-col w-64 bg-slate-900 text-white min-h-screen border-r border-slate-800 shrink-0">
+    <div className="hidden lg:flex flex-col w-64 bg-slate-900 text-white h-full border-r border-slate-800 shrink-0">
       <div className="p-6">
         <Link to="/" className="flex items-center gap-3 px-2 hover:opacity-90 transition-opacity">
           <Logo className="w-9 h-9" />
@@ -98,7 +98,7 @@ export default function Sidebar() {
           Déconnexion
         </button>
         <div className="mt-3 text-center text-[10px] font-mono text-slate-500 select-none">
-          v0.14.11
+          v0.14.18
         </div>
       </div>
     </div>

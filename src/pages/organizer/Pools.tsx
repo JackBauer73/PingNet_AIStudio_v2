@@ -439,7 +439,16 @@ export default function Pools() {
           .eq('tournament_id', tournament.id)
           .eq('status', 'in_progress');
 
-        const busyTableNumbers = busyMatches?.map(m => m.table_number).filter(Boolean) || [];
+        const { data: activePools } = await supabase
+          .from('pools')
+          .select('table_number')
+          .eq('tournament_id', tournament.id)
+          .neq('status', 'finished');
+
+        const busyTableNumbersByMatches = busyMatches?.map(m => Number(m.table_number)).filter(Boolean) || [];
+        const busyTableNumbersByPools = activePools?.map(p => Number(p.table_number)).filter(Boolean) || [];
+        const busyTableNumbers = Array.from(new Set([...busyTableNumbersByMatches, ...busyTableNumbersByPools]));
+
         const freeTables = Array.from({ length: tournament.nb_tables }, (_, i) => i + 1)
           .filter(n => !busyTableNumbers.includes(n));
 
@@ -462,20 +471,15 @@ export default function Pools() {
       // 3. Ne lancer QUE le premier match en attente de cette poule (règle 1 table = 1 match simultané par poule)
       const matchToLaunch = pendingPoolMatches[0];
 
-      // Vérifier si l'un de ces deux joueurs joue déjà ou est mobilisé ailleurs
-      if (matchToLaunch.player1_id) {
-        const mobs = mobilizedPlayers.get(matchToLaunch.player1_id) || [];
+      // Vérifier si un joueur de cette poule est déjà mobilisé ailleurs
+      const playersInThisPool = poolPlayers.filter(pp => pp.pool_id === poolId);
+      for (const pp of playersInThisPool) {
+        const mobs = mobilizedPlayers.get(pp.player_id) || [];
         const conflict = mobs.find(mob => Number(mob.tableNumber) !== Number(tableToUse));
         if (conflict) {
-          toast.error(`Impossible de lancer le match de poule : ${conflict.playerName} est déjà mobilisé dans "${conflict.sourceName}" sur la Table ${conflict.tableNumber} (en tant que joueur ou arbitre) !`);
-          return;
-        }
-      }
-      if (matchToLaunch.player2_id) {
-        const mobs = mobilizedPlayers.get(matchToLaunch.player2_id) || [];
-        const conflict = mobs.find(mob => Number(mob.tableNumber) !== Number(tableToUse));
-        if (conflict) {
-          toast.error(`Impossible de lancer le match de poule : ${conflict.playerName} est déjà mobilisé dans "${conflict.sourceName}" sur la Table ${conflict.tableNumber} (en tant que joueur ou arbitre) !`);
+          const pData = Array.isArray(pp.players) ? pp.players[0] : pp.players;
+          const pName = pData ? `${pData.first_name || ''} ${pData.last_name || ''}`.trim() : 'Un joueur de la poule';
+          toast.error(`Impossible de lancer la poule : ${pName} est déjà mobilisé dans "${conflict.sourceName}" sur la Table ${conflict.tableNumber} (en tant que joueur ou arbitre) !`);
           return;
         }
       }
@@ -515,7 +519,16 @@ export default function Pools() {
           .eq('tournament_id', tournament.id)
           .eq('status', 'in_progress');
 
-        const busyTableNumbers = busyMatches?.map(m => m.table_number).filter(Boolean) || [];
+        const { data: activePools } = await supabase
+          .from('pools')
+          .select('table_number')
+          .eq('tournament_id', tournament.id)
+          .neq('status', 'finished');
+
+        const busyTableNumbersByMatches = busyMatches?.map(m => Number(m.table_number)).filter(Boolean) || [];
+        const busyTableNumbersByPools = activePools?.map(p => Number(p.table_number)).filter(Boolean) || [];
+        const busyTableNumbers = Array.from(new Set([...busyTableNumbersByMatches, ...busyTableNumbersByPools]));
+
         const freeTables = Array.from({ length: tournament.nb_tables }, (_, i) => i + 1)
           .filter(n => !busyTableNumbers.includes(n));
 
@@ -535,21 +548,35 @@ export default function Pools() {
         }
       }
 
-      // Vérifier si l'un de ces deux joueurs joue déjà ou est mobilisé ailleurs
-      if (matchObj.player1_id) {
-        const mobs = mobilizedPlayers.get(matchObj.player1_id) || [];
-        const conflict = mobs.find(mob => Number(mob.tableNumber) !== Number(tableToUse));
-        if (conflict) {
-          toast.error(`Impossible de lancer le match : ${conflict.playerName} est déjà mobilisé dans "${conflict.sourceName}" sur la Table ${conflict.tableNumber} (en tant que joueur ou arbitre) !`);
-          return;
+      // Vérifier si un de ces joueurs est mobilisé ailleurs
+      if (poolOfMatch) {
+        const playersInThisPool = poolPlayers.filter(pp => pp.pool_id === poolOfMatch.id);
+        for (const pp of playersInThisPool) {
+          const mobs = mobilizedPlayers.get(pp.player_id) || [];
+          const conflict = mobs.find(mob => Number(mob.tableNumber) !== Number(tableToUse));
+          if (conflict) {
+            const pData = Array.isArray(pp.players) ? pp.players[0] : pp.players;
+            const pName = pData ? `${pData.first_name || ''} ${pData.last_name || ''}`.trim() : 'Un joueur de la poule';
+            toast.error(`Impossible de lancer le match : ${pName} est déjà mobilisé dans "${conflict.sourceName}" sur la Table ${conflict.tableNumber} !`);
+            return;
+          }
         }
-      }
-      if (matchObj.player2_id) {
-        const mobs = mobilizedPlayers.get(matchObj.player2_id) || [];
-        const conflict = mobs.find(mob => Number(mob.tableNumber) !== Number(tableToUse));
-        if (conflict) {
-          toast.error(`Impossible de lancer le match : ${conflict.playerName} est déjà mobilisé dans "${conflict.sourceName}" sur la Table ${conflict.tableNumber} (en tant que joueur ou arbitre) !`);
-          return;
+      } else {
+        if (matchObj.player1_id) {
+          const mobs = mobilizedPlayers.get(matchObj.player1_id) || [];
+          const conflict = mobs.find(mob => Number(mob.tableNumber) !== Number(tableToUse));
+          if (conflict) {
+            toast.error(`Impossible de lancer le match : ${conflict.playerName} est déjà mobilisé dans "${conflict.sourceName}" sur la Table ${conflict.tableNumber} (en tant que joueur ou arbitre) !`);
+            return;
+          }
+        }
+        if (matchObj.player2_id) {
+          const mobs = mobilizedPlayers.get(matchObj.player2_id) || [];
+          const conflict = mobs.find(mob => Number(mob.tableNumber) !== Number(tableToUse));
+          if (conflict) {
+            toast.error(`Impossible de lancer le match : ${conflict.playerName} est déjà mobilisé dans "${conflict.sourceName}" sur la Table ${conflict.tableNumber} (en tant que joueur ou arbitre) !`);
+            return;
+          }
         }
       }
 
@@ -976,6 +1003,31 @@ export default function Pools() {
                                         {isTargetRank && isComplete && (
                                           <Trophy className="w-3 h-3 text-amber-500 animate-bounce" />
                                         )}
+                                        {(() => {
+                                          const otherRegs = players.filter(p => 
+                                            p.player_id === s.player_id && 
+                                            p.serie !== selectedCategory &&
+                                            p.checked_in === true
+                                          );
+                                          if (otherRegs.length === 0) return null;
+
+                                          return otherRegs.map(reg => {
+                                            const catObj = categories.find(c => c.name === reg.serie);
+                                            const bgCol = catObj?.color_code || '#64748b';
+                                            const textCol = getContrastColor(bgCol);
+                                            return (
+                                              <span 
+                                                key={reg.id} 
+                                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider text-white shadow-sm border border-white/10"
+                                                style={{ backgroundColor: bgCol, color: textCol }}
+                                                title={`Aussi présent dans le tableau : ${reg.serie}`}
+                                              >
+                                                <span className="w-1 h-1 rounded-full bg-white animate-pulse" />
+                                                {reg.serie}
+                                              </span>
+                                            );
+                                          });
+                                        })()}
                                       </div>
                                       <div className="text-xs text-slate-400 italic">
                                         {s.club || 'Sans club'}

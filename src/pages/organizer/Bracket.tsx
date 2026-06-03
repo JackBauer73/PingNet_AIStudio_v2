@@ -186,7 +186,16 @@ export default function Bracket() {
         .eq('tournament_id', tournament.id)
         .eq('status', 'in_progress');
 
-      const busyTableNumbers = busyMatches?.map(m => m.table_number).filter(Boolean) || [];
+      const { data: activePools } = await supabase
+        .from('pools')
+        .select('id, table_number')
+        .eq('tournament_id', tournament.id)
+        .neq('status', 'finished');
+
+      const busyTableNumbersByMatches = busyMatches?.map(m => Number(m.table_number)).filter(Boolean) || [];
+      const busyTableNumbersByPools = activePools?.map(p => Number(p.table_number)).filter(Boolean) || [];
+      const busyTableNumbers = Array.from(new Set([...busyTableNumbersByMatches, ...busyTableNumbersByPools]));
+
       const freeTables = Array.from({ length: tournament.nb_tables }, (_, i) => i + 1)
         .filter(n => !busyTableNumbers.includes(n));
 
@@ -197,6 +206,18 @@ export default function Bracket() {
         if (m.player1_id) busyPlayers.add(m.player1_id);
         if (m.player2_id) busyPlayers.add(m.player2_id);
       });
+
+      // Add players from active pools with assigned tables
+      const activePoolIdsWithTables = activePools?.filter(p => p.table_number).map(p => p.id) || [];
+      if (activePoolIdsWithTables.length > 0) {
+        const { data: ppRes } = await supabase
+          .from('pool_players')
+          .select('player_id')
+          .in('pool_id', activePoolIdsWithTables);
+        ppRes?.forEach(pp => {
+          if (pp.player_id) busyPlayers.add(pp.player_id);
+        });
+      }
 
       // Filter matches to launch to only keep matches where neither player is busy
       const launchableMatches = pendingMatches.filter(m => 
@@ -263,7 +284,16 @@ export default function Bracket() {
         .eq('tournament_id', tournament.id)
         .eq('status', 'in_progress');
 
-      const busyTableNumbers = busyMatches?.map(m => m.table_number).filter(Boolean) || [];
+      const { data: activePoolsComplete } = await supabase
+        .from('pools')
+        .select('id, name, table_number')
+        .eq('tournament_id', tournament.id)
+        .neq('status', 'finished');
+
+      const busyTableNumbersByMatches = busyMatches?.map(m => Number(m.table_number)).filter(Boolean) || [];
+      const busyTableNumbersByPools = activePoolsComplete?.map(p => Number(p.table_number)).filter(Boolean) || [];
+      const busyTableNumbers = Array.from(new Set([...busyTableNumbersByMatches, ...busyTableNumbersByPools]));
+
       const freeTables = Array.from({ length: tournament.nb_tables }, (_, i) => i + 1)
         .filter(n => !busyTableNumbers.includes(n));
 
@@ -272,29 +302,63 @@ export default function Bracket() {
         return;
       }
 
-      if (busyMatches && busyMatches.length > 0) {
-        const busyPlayers = new Map<string, { playerName: string; tableNumber: number }>();
-        busyMatches.forEach((m: any) => {
-          if (m.player1_id && m.table_number) {
-            const p1Name = `${m.player1?.first_name || ''} ${m.player1?.last_name || ''}`.trim() || 'Joueur 1';
-            busyPlayers.set(m.player1_id, { playerName: p1Name, tableNumber: Number(m.table_number) });
-          }
-          if (m.player2_id && m.table_number) {
-            const p2Name = `${m.player2?.first_name || ''} ${m.player2?.last_name || ''}`.trim() || 'Joueur 2';
-            busyPlayers.set(m.player2_id, { playerName: p2Name, tableNumber: Number(m.table_number) });
+      const activePoolIds = activePoolsComplete?.filter(p => p.table_number).map(p => p.id) || [];
+      const busyPlayersMap = new Map<string, { playerName: string; tableNumber: number; source: string }>();
+
+      if (activePoolIds.length > 0) {
+        const { data: ppRes } = await supabase
+          .from('pool_players')
+          .select('pool_id, player_id, players(*)')
+          .in('pool_id', activePoolIds);
+        
+        ppRes?.forEach(pp => {
+          if (pp.player_id) {
+            const pAssociatedPool = activePoolsComplete?.find(p => p.id === pp.pool_id);
+            const pData = Array.isArray(pp.players) ? pp.players[0] : pp.players;
+            const pName = pData ? `${pData.first_name || ''} ${pData.last_name || ''}`.trim() : 'Joueur';
+            if (pAssociatedPool && pAssociatedPool.table_number) {
+              busyPlayersMap.set(pp.player_id, {
+                playerName: pName,
+                tableNumber: Number(pAssociatedPool.table_number),
+                source: pAssociatedPool.name
+              });
+            }
           }
         });
+      }
 
-        if (matchObj.player1_id && busyPlayers.has(matchObj.player1_id)) {
-          const conflict = busyPlayers.get(matchObj.player1_id);
-          toast.error(`Impossible de lancer le match : ${conflict?.playerName} est déjà en cours de jeu sur la Table ${conflict?.tableNumber} !`);
-          return;
-        }
-        if (matchObj.player2_id && busyPlayers.has(matchObj.player2_id)) {
-          const conflict = busyPlayers.get(matchObj.player2_id);
-          toast.error(`Impossible de lancer le match : ${conflict?.playerName} est déjà en cours de jeu sur la Table ${conflict?.tableNumber} !`);
-          return;
-        }
+      if (busyMatches && busyMatches.length > 0) {
+        busyMatches.forEach((m: any) => {
+          if (m.table_number) {
+            if (m.player1_id && !busyPlayersMap.has(m.player1_id)) {
+              const p1Name = `${m.player1?.first_name || ''} ${m.player1?.last_name || ''}`.trim() || 'Joueur 1';
+              busyPlayersMap.set(m.player1_id, {
+                playerName: p1Name,
+                tableNumber: Number(m.table_number),
+                source: m.round === 'pool' ? 'Poule' : 'Match Phase Finale'
+              });
+            }
+            if (m.player2_id && !busyPlayersMap.has(m.player2_id)) {
+              const p2Name = `${m.player2?.first_name || ''} ${m.player2?.last_name || ''}`.trim() || 'Joueur 2';
+              busyPlayersMap.set(m.player2_id, {
+                playerName: p2Name,
+                tableNumber: Number(m.table_number),
+                source: m.round === 'pool' ? 'Poule' : 'Match Phase Finale'
+              });
+            }
+          }
+        });
+      }
+
+      if (matchObj.player1_id && busyPlayersMap.has(matchObj.player1_id)) {
+        const conflict = busyPlayersMap.get(matchObj.player1_id);
+        toast.error(`Impossible de lancer le match : ${conflict?.playerName} est déjà mobilisé dans "${conflict?.source}" sur la Table ${conflict?.tableNumber} !`);
+        return;
+      }
+      if (matchObj.player2_id && busyPlayersMap.has(matchObj.player2_id)) {
+        const conflict = busyPlayersMap.get(matchObj.player2_id);
+        toast.error(`Impossible de lancer le match : ${conflict?.playerName} est déjà mobilisé dans "${conflict?.source}" sur la Table ${conflict?.tableNumber} !`);
+        return;
       }
 
       await supabase.from('matches').update({

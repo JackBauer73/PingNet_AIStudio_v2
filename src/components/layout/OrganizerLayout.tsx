@@ -7,7 +7,7 @@ import { AlertCircle } from 'lucide-react';
 
 export default function OrganizerLayout() {
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900 overflow-x-hidden flex-col">
+    <div className="flex min-h-screen bg-slate-50 font-sans text-slate-900 flex-col">
       {!isSupabaseConfigured && (
         <div className="bg-[#f97316] text-white text-xs md:text-sm py-3 px-4 shadow-md text-center font-bold flex items-center justify-center gap-2.5 z-50 shrink-0">
           <AlertCircle className="w-4 h-4 shrink-0 animate-pulse" />
@@ -15,10 +15,14 @@ export default function OrganizerLayout() {
         </div>
       )}
       <div className="flex flex-1 min-w-0">
-        <Sidebar />
+        <div className="hidden lg:block shrink-0">
+          <div className="sticky top-0 h-screen">
+            <Sidebar />
+          </div>
+        </div>
         <div className="flex-1 flex flex-col min-w-0">
           <Header />
-          <main className="flex-1 overflow-y-auto pb-24 lg:pb-6">
+          <main className="flex-1 pb-24 lg:pb-6">
             <Outlet />
           </main>
           <BottomNav />

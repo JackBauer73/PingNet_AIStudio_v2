@@ -259,19 +259,15 @@ export default function Tables() {
 
       const matchToLaunch = pendingMatches[0];
 
-      if (matchToLaunch.player1_id) {
-        const mobs = mobilizedPlayers.get(matchToLaunch.player1_id) || [];
+      // Vérifier si un joueur de cette poule est déjà mobilisé ailleurs
+      const playersInThisPool = poolPlayers.filter(pp => pp.pool_id === poolId);
+      for (const pp of playersInThisPool) {
+        const mobs = mobilizedPlayers.get(pp.player_id) || [];
         const conflict = mobs.find(mob => Number(mob.tableNumber) !== Number(tableNum));
         if (conflict) {
-          toast.error(`Impossible de lancer le match de poule : ${conflict.playerName} est déjà mobilisé dans "${conflict.sourceName}" sur la Table ${conflict.tableNumber} (en tant que joueur ou arbitre) !`);
-          return;
-        }
-      }
-      if (matchToLaunch.player2_id) {
-        const mobs = mobilizedPlayers.get(matchToLaunch.player2_id) || [];
-        const conflict = mobs.find(mob => Number(mob.tableNumber) !== Number(tableNum));
-        if (conflict) {
-          toast.error(`Impossible de lancer le match de poule : ${conflict.playerName} est déjà mobilisé dans "${conflict.sourceName}" sur la Table ${conflict.tableNumber} (en tant que joueur ou arbitre) !`);
+          const pData = Array.isArray(pp.players) ? pp.players[0] : pp.players;
+          const pName = pData ? `${pData.first_name || ''} ${pData.last_name || ''}`.trim() : 'Un joueur de la poule';
+          toast.error(`Impossible de lancer le match de poule : ${pName} est déjà mobilisé dans "${conflict.sourceName}" sur la Table ${conflict.tableNumber} (en tant que joueur ou arbitre) !`);
           return;
         }
       }
@@ -282,7 +278,7 @@ export default function Tables() {
         started_at: new Date().toISOString()
       }).eq('id', matchToLaunch.id);
 
-      await supabase.from('pools').update({ status: 'in_progress' }).eq('id', poolId);
+      await supabase.from('pools').update({ status: 'in_progress', table_number: tableNum }).eq('id', poolId);
 
       toast.success(`🏓 Match de poule lancé sur la Table ${tableNum} !`);
       fetchTablesData(true);
