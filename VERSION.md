@@ -3,9 +3,9 @@
 This document keeps track of all released versions and updates of Ping Manager, adhering strictly to **Semantic Versioning (SemVer)**: `MAJOR.MINOR.PATCH`.
 
 ## Configuration active
-- **Version actuelle :** `0.14.18`
-- **Statut :** Affichage d'un badge/pastille dynamique et coloré pour les joueurs inscrits dans un autre tableau validé dans la liste du classement d'une Poule.
-- **Date :** 2026-06-03
+- **Version actuelle :** `0.15.0`
+- **Statut :** Lancement de l'Écran de Salle (`/board`), page publique interactive en temps réel optimisée pour affichage TV/HDMI pour guider les joueurs dans le gymnase.
+- **Date :** 2026-06-04
 
 ---
 
@@ -18,7 +18,14 @@ This document keeps track of all released versions and updates of Ping Manager, 
 
 ## Historique des versions
 
-### v0.14.18 (2026-06-03) - *Version Actuelle*
+### v0.15.0 (2026-06-04) - *Version Actuelle*
+- **Écran de salle publique (`/board`) :** Création d'une interface autonome pour grand écran TV HDMI, affichant en temps réel l'ensemble des tables sportives et matches actifs.
+- **Grille TV Automatique & Style B (Pleine Couleur) :** Chaque vignette adopte la teinte de son tableau d'origine, montrant le niveau, le statut d'arbitrage, et la liste dynamique des joueurs (les poules affichent tous leurs participants, dont l'actif et le repos).
+- **Scores Live & Paramètres d'URL :** Intégration d'un bouton et d'un paramètre `?scores=1` pour afficher ou masquer en direct la marque des sets en cours d'un simple clic. Supports de filtres d'URL (`?from`, `?to`, `?category`) pour diviser l'affichage sur plusieurs télévisions.
+- **Contrôles Organisateur facilités :** Ajout dans le Dashboard d'un bloc dédié équipé d'un lanceur intelligent pour les setups multi-écrans (Win+P Étendu) et un QR code d'accès rapide.
+- **Poli Technique & Wake Lock :** Verrouillage de la mise en veille automatique de l'écran (Screen Wake Lock API) et refetch adaptatif de sécurité toutes les 45 secondes.
+
+### v0.14.18 (2026-06-03)
 - **Pastille de tableau complémentaire dans les Poules :** Intégration d'un badge couleur en direct au niveau de chaque joueur dans le tableau Classement des Poules. Si un joueur est inscrit dans un autre tableau et qu'il a été pointé présent (inscription validée), une pastille aux couleurs de cet autre tableau s'affiche à côté de son nom avec un point lumineux animé, informant immédiatement l'arbitre que le joueur est aussi présent/validé pour ce 2e tableau.
 
 ### v0.14.17 (2026-06-03)

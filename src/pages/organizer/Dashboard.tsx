@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTournament } from '../../hooks/useTournament';
-import { Trophy, Users, Play, Clock, CheckCircle2, Calendar, MapPin, Plus, Trash2, Info, CreditCard, Tag, Pencil } from 'lucide-react';
+import { Trophy, Users, Play, Clock, CheckCircle2, Calendar, MapPin, Plus, Trash2, Info, CreditCard, Tag, Pencil, Tv } from 'lucide-react';
 import { motion } from 'motion/react';
 import { supabase } from '../../supabase';
 import { archiveTournament } from '../../services/archiveTournament';
 import toast from 'react-hot-toast';
+import { QRCodeSVG } from 'qrcode.react';
 
 import { useMatches } from '../../hooks/useMatches';
 
@@ -83,6 +84,18 @@ export default function Dashboard() {
   const { tournament, stats, loading, refresh: refreshTournament } = useTournament();
   const { matches } = useMatches(tournament?.id || '');
   const navigate = useNavigate();
+  async function ouvrirSurTV() {
+    try {
+      const details = await (window as any).getScreenDetails?.();
+      const ext = details?.screens.find((s: any) => !s.isPrimary);
+      if (ext) {
+        window.open('/board', 'pm-board',
+          `left=${ext.availLeft},top=${ext.availTop},width=${ext.availWidth},height=${ext.availHeight}`);
+        return;
+      }
+    } catch {}
+    window.open('/board', 'pm-board', 'width=1280,height=720');
+  }
   const [archiving, setArchiving] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
 
@@ -1779,6 +1792,58 @@ export default function Dashboard() {
             </button>
           </div>
           <LiveMatchesPreview tournamentId={tournament.id} />
+        </div>
+      )}
+
+      {/* Écran de Salle / TV */}
+      {tournament && (
+        <div className="mb-12 bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm" id="tv-board-section">
+          <div className="flex flex-col lg:flex-row gap-8 items-start lg:items-center justify-between">
+            <div className="flex-1 space-y-4">
+              <h2 className="text-xl font-black text-slate-950 flex items-center gap-2 mb-1">
+                <Tv className="w-5 h-5 text-indigo-500 animate-pulse" />
+                Écran de Salle & Appels (TV)
+              </h2>
+              <p className="text-slate-400 text-xs font-semibold max-w-xl leading-relaxed">
+                Affichez en direct l'état de toutes les tables de jeu, les appels de joueurs et les phases finales sur un grand écran ou une TV dans le gymnase. Cet écran se met à jour en temps réel automatiquement.
+              </p>
+              
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-start gap-3">
+                <span className="text-lg">💡</span>
+                <p className="text-slate-600 text-xs font-semibold leading-relaxed">
+                  <strong>Aide HDMI :</strong> Branchez la TV ou le projecteur en HDMI au laptop de l'organisateur, configurez l'affichage en mode <strong>"Étendre" (Win+P)</strong>, puis cliquez sur le bouton ci-dessous pour ouvrir l'écran de salle de façon intelligente.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-4 pt-2">
+                <button
+                  type="button"
+                  onClick={ouvrirSurTV}
+                  className="px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-xl transition-all shadow-sm text-xs uppercase tracking-wider active:scale-98 flex items-center gap-2 cursor-pointer"
+                >
+                  <Tv className="w-4 h-4" />
+                  Afficher sur la TV (2e Écran)
+                </button>
+                <a
+                  href="/board"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-5 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl transition-all border border-slate-200 text-center flex items-center justify-center text-xs"
+                >
+                  Ouvrir l'adresse publique
+                </a>
+              </div>
+            </div>
+
+            <div className="shrink-0 p-4 bg-slate-50 border border-slate-100 rounded-3xl flex flex-col items-center gap-2 text-center shadow-xs">
+              <div className="p-2.5 bg-white rounded-2xl border border-slate-150 shadow-inner">
+                <QRCodeSVG value={window.location.origin + '/board'} size={110} />
+              </div>
+              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                Scanner pour Box/TV 📱
+              </span>
+            </div>
+          </div>
         </div>
       )}
 

@@ -13,6 +13,7 @@ import CheckInScan from './pages/organizer/CheckInScan';
 import TableView from './pages/player/TableView';
 import Landing from './pages/player/Landing';
 import LiveScores from './pages/player/LiveScores';
+import Board from './pages/board/Board';
 import PlayerSpace from './pages/player/PlayerSpace';
 import PlayerValidation from './pages/player/PlayerValidation';
 import PoolStandingsPage from './pages/player/PoolStandingsPage';
@@ -29,6 +30,7 @@ export default function App() {
       <Routes>
         {/* Public Player Route */}
         <Route path="/table/:tableNumber" element={<TableView />} />
+        <Route path="/board" element={<Board />} />
         
         {/* Auth Route */}
         <Route path="/login" element={<Login />} />

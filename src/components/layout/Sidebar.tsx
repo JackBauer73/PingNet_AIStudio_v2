@@ -98,7 +98,7 @@ export default function Sidebar() {
           Déconnexion
         </button>
         <div className="mt-3 text-center text-[10px] font-mono text-slate-500 select-none">
-          v0.14.18
+          v0.15.0
         </div>
       </div>
     </div>
