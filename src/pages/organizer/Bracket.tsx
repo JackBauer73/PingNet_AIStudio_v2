@@ -47,7 +47,6 @@ export default function Bracket() {
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [tedSize, setTedSize] = useState<number>(16);
-  const [viewMode, setViewMode] = useState<'tree' | 'columns'>('tree');
   const [busyPlayerIds, setBusyPlayerIds] = useState<Map<string, number>>(new Map());
 
   // Charger les catégories du tournoi
@@ -68,8 +67,8 @@ export default function Bracket() {
 
       if (catsToday.length > 0) {
         setSelectedCategory(catsToday[0].name);
-      } else if (allCats.length > 0) {
-        setSelectedCategory(allCats[0].name);
+      } else {
+        setSelectedCategory('');
       }
     };
     fetchCategories();
@@ -84,11 +83,13 @@ export default function Bracket() {
       setLoading(true);
       
       // Trouver la catégorie correspondante
+      const currDay = tournament.current_day || 1;
       const { data: cat } = await supabase
         .from('table_categories')
         .select('id')
         .eq('tournament_id', tournament.id)
         .eq('name', selectedCategory)
+        .eq('day_number', currDay)
         .maybeSingle();
 
       if (!cat) {
@@ -149,11 +150,13 @@ export default function Bracket() {
 
     try {
       // Trouver la catégorie correspondante
+      const currDay = tournament.current_day || 1;
       const { data: cat } = await supabase
         .from('table_categories')
         .select('id')
         .eq('tournament_id', tournament.id)
         .eq('name', selectedCategory)
+        .eq('day_number', currDay)
         .maybeSingle();
 
       if (!cat) return;
@@ -482,7 +485,17 @@ export default function Bracket() {
         </div>
       </div>
 
-      {matches.length === 0 ? (
+      {selectedCategory === '' ? (
+        <div className="p-8 max-w-2xl mx-auto text-center mt-12 bg-white rounded-3xl border border-slate-200 shadow-xl py-16">
+          <div className="w-20 h-20 bg-slate-50 text-slate-400 rounded-3xl flex items-center justify-center mx-auto mb-6">
+            <Trophy className="w-10 h-10" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Aucun tableau aujourd'hui</h2>
+          <p className="text-slate-500 text-sm max-w-md mx-auto">
+            Aucun tableau ou série de compétition n'est programmé pour la Journée {currentDay} dans l'organisation de ce tournoi.
+          </p>
+        </div>
+      ) : matches.length === 0 ? (
         ['draft', 'open', 'registration'].includes(tournament?.status || '') ? (
           <div className="p-8 max-w-2xl mx-auto text-center mt-12 bg-white rounded-3xl border border-slate-200 shadow-xl py-16">
             <div className="w-20 h-20 bg-slate-50 text-slate-400 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-slate-100">
@@ -558,34 +571,6 @@ export default function Bracket() {
             
             {/* Barre de contrôles double-vue, impression et actions */}
             <div className="flex gap-3 items-center flex-wrap">
-              {/* Toggle de Vue */}
-              <div className="bg-slate-100 p-1 rounded-xl border border-slate-200/60 flex gap-1 shadow-inner">
-                <button
-                  onClick={() => setViewMode('tree')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1.5 transition-all ${
-                    viewMode === 'tree'
-                      ? 'bg-white text-slate-900 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-900'
-                  }`}
-                  title="Fiche Officielle FFTT connectée"
-                >
-                  <LayoutTemplate className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>Fiche FFTT</span>
-                </button>
-                <button
-                  onClick={() => setViewMode('columns')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1.5 transition-all ${
-                    viewMode === 'columns'
-                      ? 'bg-white text-slate-900 shadow-sm'
-                      : 'text-slate-500 hover:text-slate-900'
-                  }`}
-                  title="Vue Grille Simplifiée"
-                >
-                  <List className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>Liste</span>
-                </button>
-              </div>
-
               {/* Action d’impression */}
               <button
                 onClick={() => window.print()}
@@ -628,137 +613,11 @@ export default function Bracket() {
             </div>
           </div>
 
-          {/* Rendu MULTI-MODE */}
-          {viewMode === 'columns' ? (
-            /* VUE LISTE SIMPLIFIÉE */
-            <div className="flex gap-12 pb-12 items-start overflow-x-auto print-container print-scroll-tree">
-              {['thirtysecondfinal', 'sixteenthfinal', 'eighthfinal', 'quarterfinal', 'semifinal', 'final'].map((round) => {
-                const roundMatches = matches.filter(m => m.round === round);
-                if (roundMatches.length === 0 && round !== 'final') return null;
-
-                const roundLabels: Record<string, string> = {
-                  'thirtysecondfinal': '32èmes',
-                  'sixteenthfinal': '16èmes',
-                  'eighthfinal': 'Huitièmes',
-                  'quarterfinal': 'Quarts de Finale',
-                  'semifinal': 'Demi-Finales',
-                  'final': 'Grande Finale'
-                };
-
-                const getPlaceholder = (roundName: string, index: number, playerNum: 1 | 2) => {
-                  if (roundName === 'final') return `Vainqueur Demi ${playerNum}`;
-                  if (roundName === 'semifinal') return `Vainqueur Quart ${index * 2 + playerNum}`;
-                  if (roundName === 'quarterfinal') return `Vainqueur Huitième ${index * 2 + playerNum}`;
-                  if (roundName === 'eighthfinal') return `Vainqueur Seizième ${index * 2 + playerNum}`;
-                  if (roundName === 'sixteenthfinal') return `Vainqueur Trente-deuxième ${index * 2 + playerNum}`;
-                  return '—';
-                };
-
-                return (
-                  <div key={round} className="w-72 shrink-0">
-                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-10 text-center bg-slate-50 py-2 rounded-full border border-slate-100">
-                      {roundLabels[round]}
-                    </h3>
-                    <div className={`space-y-12 ${round === 'final' ? 'pt-12' : ''}`}>
-                      {roundMatches.map((match, idx) => (
-                        <motion.div 
-                          key={match.id}
-                          className={`bg-white rounded-[2rem] border-2 shadow-sm overflow-hidden group transition-all ${
-                            match.status === 'in_progress' ? 'border-indigo-400 ring-4 ring-indigo-50' : 
-                            match.status === 'finished' ? 'border-slate-100 opacity-80' : 'border-slate-200 hover:border-amber-400'
-                          } ${round === 'final' ? 'scale-105 mb-20 !border-amber-400 shadow-amber-100' : ''}`}
-                        >
-                          <div className="p-5 space-y-4">
-                            <div className="flex items-center justify-between gap-4">
-                              <div className={`flex-1 font-black text-sm truncate ${
-                                match.winner_id === match.player1_id ? 'text-amber-600' : 
-                                !match.player1_id ? 'text-slate-300 italic font-medium' : 'text-slate-900'
-                              }`}>
-                                {match.player1?.last_name || getPlaceholder(round, idx, 1)}
-                              </div>
-                              <div className="w-8 h-8 flex items-center justify-center font-black text-slate-400 bg-slate-50 rounded-xl italic text-xs border border-slate-100 shadow-inner">
-                                {match.sets?.filter(s => s.score_p1 > s.score_p2).length || 0}
-                              </div>
-                            </div>
-                            <div className="h-px bg-slate-50" />
-                            <div className="flex items-center justify-between gap-4">
-                              <div className={`flex-1 font-black text-sm truncate ${
-                                match.winner_id === match.player2_id ? 'text-amber-600' : 
-                                !match.player2_id ? 'text-slate-300 italic font-medium' : 'text-slate-900'
-                              }`}>
-                                {match.player2?.last_name || getPlaceholder(round, idx, 2)}
-                              </div>
-                              <div className="w-8 h-8 flex items-center justify-center font-black text-slate-400 bg-slate-50 rounded-xl italic text-xs border border-slate-100 shadow-inner">
-                                {match.sets?.filter(s => s.score_p2 > s.score_p1).length || 0}
-                              </div>
-                            </div>
-                          </div>
-
-                          {match.sets && match.sets.length > 0 && (
-                            <div className="px-5 pb-4 flex flex-wrap gap-1.5">
-                              {match.sets.sort((a, b) => (a.set_number || 0) - (b.set_number || 0)).map((set, sIdx) => (
-                                <div key={set.id || sIdx} className="text-[9px] font-black bg-slate-50 text-slate-500 px-2 py-1 rounded-lg border border-slate-100 flex items-center gap-1 shadow-sm">
-                                  <span className={set.score_p1 > set.score_p2 ? 'text-amber-600' : ''}>{set.score_p1}</span>
-                                  <span className="text-slate-300">/</span>
-                                  <span className={set.score_p2 > set.score_p1 ? 'text-amber-600' : ''}>{set.score_p2}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          
-                          <div className={`px-5 py-3 flex flex-col gap-1 ${
-                             match.status === 'in_progress' ? 'bg-indigo-600 text-white' : 
-                             match.status === 'finished' ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-400'
-                          }`}>
-                            <div className="flex justify-between items-center w-full">
-                              <span className="text-[10px] font-black uppercase tracking-widest">
-                                {match.status === 'in_progress' ? `Table ${match.table_number}` : match.status === 'finished' ? 'Terminé' : 'Attente'}
-                              </span>
-                              <div className="flex items-center gap-2">
-                                {match.status === 'pending' && match.player1_id && match.player2_id && (
-                                  <button
-                                    onClick={() => handleLaunchMatch(match.id)}
-                                    className="p-1.5 bg-indigo-600 text-white rounded-lg hover:bg-slate-900 transition-all scale-110 active:scale-95 animate-pulse"
-                                    title="Lancer le match"
-                                  >
-                                    <Play className="w-3 h-3 fill-current" />
-                                  </button>
-                                )}
-                                {match.winner_id && <Trophy className={`w-3 h-3 ${round === 'final' ? 'text-amber-400' : 'text-green-400'}`} />}
-                              </div>
-                            </div>
-
-                            {match.status === 'pending' && (
-                              (() => {
-                                const p1BusyTable = match.player1_id && busyPlayerIds.get(match.player1_id);
-                                const p2BusyTable = match.player2_id && busyPlayerIds.get(match.player2_id);
-                                if (p1BusyTable || p2BusyTable) {
-                                  return (
-                                    <div className="flex items-center gap-1 text-[9px] font-bold text-red-650 bg-red-50/80 px-2 py-0.5 rounded-lg border border-red-100/60 mt-0.5">
-                                      <ShieldAlert className="w-3 h-3 text-red-500 animate-pulse shrink-0" />
-                                      <span className="truncate">
-                                        {p1BusyTable ? 'J1' : ''}{p1BusyTable && p2BusyTable ? ' & ' : ''}{p2BusyTable ? 'J2' : ''} joue sur T{p1BusyTable || p2BusyTable}
-                                      </span>
-                                    </div>
-                                  );
-                                }
-                                return null;
-                              })()
-                            )}
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            /* SPLENDIDE MODE FICHE FFTT OFFICIELLE (Arbre avec connecteurs, graines bleues, bordures) */
-            <div className="w-full bg-white border border-slate-200 rounded-3xl p-6 sm:p-10 shadow-lg print-container print-scroll-tree overflow-x-auto">
-              
-              {/* En-tête Bordeaux de délimitation FFTT */}
-              <div className="flex min-w-[max-content] border-b-2 border-slate-900/10 mb-6 bg-slate-50/60 rounded-t-xl pr-20 relative">
+          {/* SPLENDIDE MODE FICHE FFTT OFFICIELLE (Arbre avec connecteurs, graines bleues, bordures) */}
+          <div className="w-full bg-white border border-slate-200 rounded-3xl p-6 sm:p-10 shadow-lg print-container print-scroll-tree overflow-x-auto">
+            
+            {/* En-tête Bordeaux de délimitation FFTT */}
+            <div className="flex min-w-[max-content] border-b-2 border-slate-900/10 mb-6 bg-slate-50/60 rounded-t-xl pr-20 relative">
                 <div className="absolute top-0 bottom-0 left-0 w-full border-t-4 border-red-800/90 pointer-events-none rounded-t" />
                 {(() => {
                   const rds = ['thirtysecondfinal', 'sixteenthfinal', 'eighthfinal', 'quarterfinal', 'semifinal', 'final'];
@@ -1243,7 +1102,6 @@ export default function Bracket() {
                 })()}
               </div>
             </div>
-          )}
 
           {/* PETITE FINALE SUPPRIMÉE CONFORMÉMENT AUX DIRECTIVES */}
         </>

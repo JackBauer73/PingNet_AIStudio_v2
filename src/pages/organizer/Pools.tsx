@@ -37,14 +37,15 @@ export default function Pools() {
 
   const handleDeletePools = async () => {
     if (!tournament) return;
-    const currentCategoryObj = categories.find(c => c.name === selectedCategory);
+    const currentDay = tournament.current_day || 1;
+    const currentCategoryObj = categories.find(c => c.name === selectedCategory && (c.day_number || 1) === currentDay);
     if (!currentCategoryObj) {
       toast.error('Aucune catégorie sélectionnée ou trouvée.');
       return;
     }
 
     const targetPools = pools.filter(p => 
-      p.table_category_id === currentCategoryObj.id || p.name.startsWith(`${selectedCategory} - `)
+      p.table_category_id === currentCategoryObj.id
     );
 
     const poolIds = targetPools.map(p => p.id);
@@ -204,8 +205,8 @@ export default function Pools() {
         const catsToday = data.filter(c => (c.day_number || 1) === currentDay);
         if (catsToday.length > 0) {
           setSelectedCategory(catsToday[0].name);
-        } else if (data.length > 0) {
-          setSelectedCategory(data[0].name);
+        } else {
+          setSelectedCategory('');
         }
       }
     };
@@ -235,6 +236,7 @@ export default function Pools() {
   // Variables calculées pour la journée en cours
   const currentDay = tournament?.current_day || 1;
   const catsToday = categories.filter(c => (c.day_number || 1) === currentDay);
+  const currentCategoryObj = categories.find(c => c.name === selectedCategory && (c.day_number || 1) === currentDay);
 
   // Compile map of players currently mobilized on any table (due to active pool or current match)
   const mobilizedPlayers = new Map<string, Array<{ sourceName: string; tableNumber: number; playerName: string }>>();
@@ -287,7 +289,7 @@ export default function Pools() {
   });
 
   const getPlayerSeed = (playerId: string) => {
-    const reg = players.find(p => p.player_id === playerId && p.serie === selectedCategory);
+    const reg = players.find(p => p.player_id === playerId && p.table_category_id === currentCategoryObj?.id);
     return reg?.seed_number || null;
   };
 
@@ -298,13 +300,14 @@ export default function Pools() {
       return;
     }
 
-    const currentCategoryObj = categories.find(c => c.name === selectedCategory);
+    const currentDay = tournament.current_day || 1;
+    const currentCategoryObj = categories.find(c => c.name === selectedCategory && (c.day_number || 1) === currentDay);
     if (!currentCategoryObj?.is_closed) {
       toast.error(`Le pointage de ce tableau n'est pas encore clôturé 🔒.\n\nVeuillez d'abord clôturer le pointage pour "${selectedCategory}" dans l'onglet "Joueurs" pour débloquer la génération des poules.`);
       return;
     }
 
-    const categoryPlayers = players.filter(p => p.serie === selectedCategory && p.checked_in === true);
+    const categoryPlayers = players.filter(p => p.table_category_id === currentCategoryObj.id && p.checked_in === true);
 
     if (categoryPlayers.length < 3) {
       toast.error(`Il faut au moins 3 joueurs présents dans le tableau "${selectedCategory}" pour générer des poules.`);
@@ -687,7 +690,7 @@ export default function Pools() {
             🏓 Tableaux du Jour (Journée {currentDay}) :
           </span>
           {catsToday.map(cat => {
-            const hasPools = pools.some(p => p.name.startsWith(`${cat.name} - `));
+            const hasPools = pools.some(p => p.table_category_id === cat.id);
             const isActive = selectedCategory === cat.name;
             const bgCol = cat.color_code || '#4f46e5';
             const textCol = isActive ? getContrastColor(bgCol) : '';
@@ -719,11 +722,20 @@ export default function Pools() {
         </div>
       </div>
 
-      {pools.filter(p => selectedCategory ? p.name.startsWith(`${selectedCategory} - `) : true).length === 0 ? (() => {
-        const currentCategoryObj = categories.find(c => c.name === selectedCategory);
+      {selectedCategory === '' ? (
+        <div className="p-8 max-w-2xl mx-auto text-center mt-12 bg-white rounded-2xl border border-slate-200 shadow-sm">
+          <div className="w-20 h-20 bg-slate-50 text-slate-400 rounded-3xl flex items-center justify-center mx-auto mb-6">
+            <Trophy className="w-10 h-10" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Aucun tableau aujourd'hui</h2>
+          <p className="text-slate-500 text-sm max-w-md mx-auto">
+            Aucun tableau ou série de compétition n'est programmé pour la Journée {currentDay} dans l'organisation de ce tournoi.
+          </p>
+        </div>
+      ) : pools.filter(p => p.table_category_id === currentCategoryObj?.id).length === 0 ? (() => {
         const isClosed = currentCategoryObj?.is_closed;
-        const presents = players.filter(p => p.serie === selectedCategory && p.checked_in);
-        const total = players.filter(p => p.serie === selectedCategory);
+        const presents = players.filter(p => p.table_category_id === currentCategoryObj?.id && p.checked_in);
+        const total = players.filter(p => p.table_category_id === currentCategoryObj?.id);
         const hasEnoughPlayers = presents.length >= 3;
 
         return (
@@ -835,7 +847,7 @@ export default function Pools() {
 
               {matches.filter(m => {
                 const pool = pools.find(p => p.id === m.pool_id);
-                return pool?.name.startsWith(`${selectedCategory} - `);
+                return pool?.table_category_id === currentCategoryObj?.id;
               }).length > 0 && (
                 <div className="flex items-center gap-2">
                   {confirmingClosePools ? (
@@ -844,7 +856,7 @@ export default function Pools() {
                         {(() => {
                           const categoryMatches = matches.filter(m => {
                             const pool = pools.find(p => p.id === m.pool_id);
-                            return pool?.name.startsWith(`${selectedCategory} - `);
+                            return pool?.table_category_id === currentCategoryObj?.id;
                           });
                           const allFinished = categoryMatches.every(m => m.status === 'finished');
                           return allFinished 
@@ -895,7 +907,7 @@ export default function Pools() {
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-            {pools.filter(p => p.name.startsWith(`${selectedCategory} - `)).map((pool) => {
+            {pools.filter(p => p.table_category_id === currentCategoryObj?.id).map((pool) => {
               const poolMatches = matches.filter(m => m.pool_id === pool.id);
               return (
                 <div key={pool.id} className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden border-t-4 border-t-indigo-500">
@@ -1079,11 +1091,13 @@ export default function Pools() {
                                           <Trophy className="w-3 h-3 text-amber-500 animate-bounce" />
                                         )}
                                         {(() => {
-                                          const otherRegs = players.filter(p => 
-                                            p.player_id === s.player_id && 
-                                            p.serie !== selectedCategory &&
-                                            p.checked_in === true
-                                          );
+                                          const otherRegs = players.filter(p => {
+                                            if (p.player_id !== s.player_id) return false;
+                                            if (p.serie === selectedCategory) return false;
+                                            if (!p.checked_in) return false;
+                                            const catObj = categories.find(c => c.name === p.serie);
+                                            return catObj && (catObj.day_number || 1) === currentDay;
+                                          });
                                           if (otherRegs.length === 0) return null;
 
                                           return otherRegs.map(reg => {
@@ -1186,7 +1200,7 @@ export default function Pools() {
           {(() => {
             const categoryMatches = matches.filter(m => {
               const pool = pools.find(p => p.id === m.pool_id);
-              return pool?.name.startsWith(`${selectedCategory} - `);
+              return pool?.table_category_id === currentCategoryObj?.id;
             });
             const allFinished = categoryMatches.length > 0 && categoryMatches.every(m => m.status === 'finished');
             
@@ -1201,7 +1215,7 @@ export default function Pools() {
                   </p>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-left mb-8">
-                    {pools.filter(p => p.name.startsWith(`${selectedCategory} - `)).map(pool => {
+                    {pools.filter(p => p.table_category_id === currentCategoryObj?.id).map(pool => {
                       const poolQualified = standings
                         .filter(s => s.pool_id === pool.id && s.standing_rank <= 2)
                         .sort((a, b) => a.standing_rank - b.standing_rank);

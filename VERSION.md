@@ -3,15 +3,32 @@
  This document keeps track of all released versions and updates of Ping Manager, adhering strictly to **Semantic Versioning (SemVer)**: `MAJOR.MINOR.PATCH`.
  
  ## Configuration active
-- **Version actuelle :** `0.17.2`
-- **Statut :** Résolution des blocages iframe et consolidation ergonomique : remplacement des invites `window.confirm` par des modals de confirmation réactives et stylisées dans l'espace organisateur.
+- **Version actuelle :** `0.17.7`
+- **Statut :** Allègement global du bandeau d'en-tête (retrait définitif du champ de recherche de l'interface d'administration).
 - **Date :** 2026-06-06
 
 ---
  
  ## Historique des versions
  
-### v0.17.2 (2026-06-06) - *Version Actuelle*
+### v0.17.7 (2026-06-06) - *Version Actuelle*
+- **Élimination de la barre de recherche globale :** Retrait complet du moteur de recherche dans l'en-tête (header) de l'espace Club, optimisant ainsi l'espace et épurant le design pour une interface encore plus épurée.
+
+### v0.17.6 (2026-06-06)
+- **Éradication de la double-vue du Bracket :** Retrait complet de la vue liste simplifiée et de ses sélecteurs de vue en ligne avec la demande utilisateur. L'affichage s'aligne entièrement et exclusivement sur le design interactif de la Fiche Fédérale Officielle FFTT, plus ergonomique et authentique.
+
+### v0.17.5 (2026-06-06)
+- **Filtrage étanche des badges multi-inscriptions :** Résolution complète du bogue d'affichage où les badges "Aussi présent dans le tableau : X" montraient des tableaux fermés ou programmés pour d'autres journées (comme la journée 1 alors que le tournoi est à la journée 2). Les badges sont désormais rigoureusement filtrés sur la journée active du joueur.
+
+### v0.17.4 (2026-06-06)
+- **Isolement absolu par ID de catégorie :** Résolution complète du bogue d'affichage où les tableaux de la journée d'avant (ou d'autres jours) continuaient à apparaître dans les vues de Poules et de Brackets. Remplacement de la comparaison approximative sur les préfixes de noms (`startsWith`) par un filtrage direct sur l'identifiant unique `table_category_id` de la journée courante.
+- **Sécurisation des requêtes Supabase :** Ajout du filtre `day_number` lors de la récupération de la catégorie active dans la base de données pour empêcher tout conflit de nom (comme "Tableau A" existant sur plusieurs jours du tournoi).
+
+### v0.17.3 (2026-06-06)
+- **Isolement étanche de la journée active :** Correction du mécanisme de sélection des tableaux dans les onglets de Poules et Brackets afin d'éliminer toute retombée accidentelle vers des séries d'autres journées quand le jour actif n'en comporte pas de programmé.
+- **Ressources d'attente dynamiques :** Ajout de panneaux illustrés et descriptifs lors d'absence de compétition programmée sur la journée en cours.
+
+### v0.17.2 (2026-06-06) - *Version Précédente*
 - **Résolution du bouton "Réouvrir le Tournoi" (Correctif iframe) :** Remplacement des invites natives `window.confirm` obsolètes et bloquées dans certains navigateurs et configurations d'iFrame par des modals de confirmation personnalisées animées de manière fluide avec `motion`.
 - **Réouverture en mode Jeu :** Repassage d'un tournoi réouvert en statut `'in_progress'` (au lieu de `'bracket'`) pour redonner immédiatement accès direct aux actions d'arbitrage actives et aux modifications de scores.
 

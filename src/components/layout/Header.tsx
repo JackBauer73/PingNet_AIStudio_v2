@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Bell, Search, Trophy } from 'lucide-react';
+import { Bell, Trophy } from 'lucide-react';
 import { useTournament } from '../../hooks/useTournament';
 import { supabase } from '../../supabase';
 import Logo from './Logo';
@@ -47,15 +47,7 @@ export default function Header() {
       {/* Spacer */}
       <div className="hidden lg:block w-4" />
 
-      {/* Desktop/Tablet search input */}
-      <div className="hidden md:flex items-center gap-4 bg-slate-50 px-4 py-2 rounded-full border border-slate-200 w-64 lg:w-80">
-        <Search className="w-4 h-4 text-slate-400" />
-        <input 
-          type="text" 
-          placeholder="Rechercher un joueur, un match..." 
-          className="bg-transparent border-none text-sm focus:outline-none w-full text-slate-600 font-medium"
-        />
-      </div>
+
 
       <div className="flex items-center gap-3 sm:gap-6">
         <button className="relative p-2 text-slate-400 hover:text-slate-600 transition-colors">
