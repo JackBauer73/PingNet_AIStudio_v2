@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTournament } from '../../hooks/useTournament';
 import { usePlayers } from '../../hooks/usePlayers';
 import { usePools } from '../../hooks/usePools';
-import { generatePools } from '../../utils/generatePools';
+import { generatePools, SERIES_RANK } from '../../utils/generatePools';
 import { generatePoolMatches } from '../../utils/generateMatches';
 import { generateBracket } from '../../utils/generateBracket';
 import { supabase } from '../../supabase';
@@ -24,7 +24,7 @@ function getContrastColor(hexColor: string): string {
 export default function Pools() {
   const navigate = useNavigate();
   const { tournament, refresh: refreshTournament } = useTournament();
-  const { players } = usePlayers(tournament?.id);
+  const { players, refresh: refreshPlayers } = usePlayers(tournament?.id);
   const { pools, matches, standings, loading, refresh: refreshPools } = usePools(tournament?.id);
   const [generating, setGenerating] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
@@ -90,6 +90,17 @@ export default function Pools() {
         .in('id', poolIds);
 
       if (poolDelError) throw poolDelError;
+
+      // 5. Réinitialiser les numéros de têtes de série (seed_number) des inscriptions liées
+      if (currentCategoryObj) {
+        await supabase
+          .from('registrations')
+          .update({ seed_number: null })
+          .eq('tournament_id', tournament.id)
+          .eq('table_category_id', currentCategoryObj.id);
+        
+        await refreshPlayers();
+      }
 
       toast.success(`Les poules du tableau "${selectedCategory}" ont été supprimées.`, { id: toastId });
       setConfirmingDeletePools(false);
@@ -275,6 +286,11 @@ export default function Pools() {
     }
   });
 
+  const getPlayerSeed = (playerId: string) => {
+    const reg = players.find(p => p.player_id === playerId && p.serie === selectedCategory);
+    return reg?.seed_number || null;
+  };
+
   const handleGeneratePools = async () => {
     if (!tournament) return;
     if (!selectedCategory) {
@@ -309,6 +325,38 @@ export default function Pools() {
         id: t.id,
         table_number: t.table_number
       }));
+
+      // Règle 1 : Trier les joueurs par points (DESC), puis par ordre alphabétique s'ils ont le même classement pour définir la tête de série (seeding)
+      const getPlayerPointsLocal = (p: any): number => {
+        if (p.points !== undefined && p.points !== null) {
+          return p.points;
+        }
+        return (SERIES_RANK[p.serie] || 0) * 100 + 500;
+      };
+
+      const sortedForSeeding = [...categoryPlayers].sort((a, b) => {
+        const ptsA = getPlayerPointsLocal(a);
+        const ptsB = getPlayerPointsLocal(b);
+        if (ptsB !== ptsA) {
+          return ptsB - ptsA;
+        }
+        const nameA = `${a.last_name || ''} ${a.first_name || ''}`.trim().toLowerCase();
+        const nameB = `${b.last_name || ''} ${b.first_name || ''}`.trim().toLowerCase();
+        return nameA.localeCompare(nameB, 'fr', { sensitivity: 'base' });
+      });
+
+      // Mettre à jour les numéros de têtes de série (seed_number) en base de données pour ces inscriptions
+      await Promise.all(
+        sortedForSeeding.map((p, idx) =>
+          supabase
+            .from('registrations')
+            .update({ seed_number: idx + 1 })
+            .eq('id', p.id)
+        )
+      );
+
+      // Rafraîchir l'état des inscrits pour propager immédiatement les seed_number
+      await refreshPlayers();
 
       const poolsResult = generatePools(categoryPlayers, physicalTables, tournament.players_per_pool || 3);
       const poolsPlayers = poolsResult.map(p => p.players);
@@ -999,7 +1047,34 @@ export default function Pools() {
                                             Dossard {s.dossard}
                                           </span>
                                         )}
+                                        {(() => {
+                                          const activeMobilizations = mobilizedPlayers.get(s.player_id) || [];
+                                          if (activeMobilizations.length === 0) return null;
+                                          
+                                          const activeTables = Array.from(new Set(activeMobilizations.map(m => m.tableNumber))).sort((a, b) => a - b);
+                                          if (activeTables.length === 0) return null;
+
+                                          return activeTables.map(tNum => (
+                                            <span 
+                                              key={tNum} 
+                                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-red-100 text-red-700 border border-red-200 animate-pulse cursor-default"
+                                              title={`Détecté actif sur la table T${tNum}`}
+                                            >
+                                              <span className="w-1 h-1 rounded-full bg-red-500 animate-ping" />
+                                              actif sur T{tNum}
+                                            </span>
+                                          ));
+                                        })()}
                                         <div className="font-semibold text-slate-900">{s.first_name} {s.last_name}</div>
+                                        {(() => {
+                                          const seed = getPlayerSeed(s.player_id);
+                                          if (!seed) return null;
+                                          return (
+                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black bg-yellow-100 text-yellow-800 border border-yellow-200 uppercase cursor-default" title={`Tête de série ${seed}`}>
+                                              TDS {seed}
+                                            </span>
+                                          );
+                                        })()}
                                         {isTargetRank && isComplete && (
                                           <Trophy className="w-3 h-3 text-amber-500 animate-bounce" />
                                         )}

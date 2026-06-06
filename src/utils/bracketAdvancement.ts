@@ -28,7 +28,8 @@ export async function handleBracketProgression(matchId: string, winnerId: string
     .update({
       winner_id: winnerId,
       status: 'finished',
-      finished_at: new Date().toISOString()
+      finished_at: new Date().toISOString(),
+      table_number: null
     })
     .eq('id', matchId);
 
@@ -58,13 +59,4 @@ export async function handleBracketProgression(matchId: string, winnerId: string
     .update({ [field]: winnerId })
     .eq('bracket_id', match.bracket_id)
     .eq('bracket_position', nextPos);
-
-  // 6. Gérer la petite finale (3e place) si on vient d'une demi-finale
-  if (match.bracket_round === 'semifinal' && loserId) {
-    await supabase
-      .from('matches')
-      .update({ [field]: loserId })
-      .eq('bracket_id', match.bracket_id)
-      .eq('bracket_round', '3rd');
-  }
 }

@@ -55,7 +55,8 @@ export function useTableMatch(tableNumber: number) {
           winner_id: winnerId,
           finished_at: new Date().toISOString(),
           validated_by_p1: true,
-          validated_by_p2: true
+          validated_by_p2: true,
+          table_number: null
         })
         .eq('id', match.id);
 
@@ -138,9 +139,11 @@ export function useTableMatch(tableNumber: number) {
             console.log("Aucun match disponible pour rotation sans conflit.");
           }
         }
+      }
 
-        // Si aucun match n'a pu être assigné parce qu'on libère la table pour repos ou qu'il n'y a plus de match pending,
-        // on vérifie si la poule est terminée (tous les matchs finished) :
+      // Si c'est un match de poule, vérifier si la poule est terminée (tous les matchs finished/walkover)
+      if (match.pool_id) {
+        console.log(`[useTableMatch] Match de poule terminé. Analyse de l'état global de la poule: ${match.pool_id}`);
         const { data: remainingMatches, error: remainingError } = await supabase
           .from('matches')
           .select('id, status')
@@ -149,12 +152,17 @@ export function useTableMatch(tableNumber: number) {
         if (!remainingError && remainingMatches) {
           const activeOrPending = remainingMatches.filter(m => 
             m.id !== match.id && 
-            (m.status === 'pending' || m.status === 'in_progress' || m.status === 'awaiting_validation' || m.status === 'disputed')
+            m.status !== 'finished' && 
+            m.status !== 'walkover'
           );
           
+          console.log(`[useTableMatch] Rencontres restantes non-clôturées dans la poule : ${activeOrPending.length}`);
+
           if (activeOrPending.length === 0) {
+            console.log(`[useTableMatch] Clôture automatique de la poule ${match.pool_id}. Passage à 'finished' et libération de table.`);
+            
             // Pas de validation intermédiaire : la poule passe directement à finished
-            await supabase
+            const { error: poolUpdateError } = await supabase
               .from('pools')
               .update({ 
                 status: 'finished', 
@@ -162,7 +170,27 @@ export function useTableMatch(tableNumber: number) {
                 awaiting_validation_since: null
               })
               .eq('id', match.pool_id);
+
+            if (poolUpdateError) {
+              console.error("[useTableMatch] Échec lors de la mise à jour de la poule :", poolUpdateError);
+            } else {
+              console.log(`[useTableMatch] Poule ${match.pool_id} fermée avec succès en base de données.`);
+            }
+
+            // Mettre également le table_number de tous les matchs de cette poule à null car elle est terminée
+            const { error: matchesUpdateError } = await supabase
+              .from('matches')
+              .update({ table_number: null })
+              .eq('pool_id', match.pool_id);
+
+            if (matchesUpdateError) {
+              console.error("[useTableMatch] Échec lors du retrait des numéros de table des matchs de la poule :", matchesUpdateError);
+            } else {
+              console.log(`[useTableMatch] Numéros de table réinitialisés pour tous les matchs de la poule.`);
+            }
           }
+        } else if (remainingError) {
+          console.error("[useTableMatch] Échec de la récupération des matchs restants :", remainingError);
         }
       }
       

@@ -1,24 +1,64 @@
 # Version History - Ping Manager
-
-This document keeps track of all released versions and updates of Ping Manager, adhering strictly to **Semantic Versioning (SemVer)**: `MAJOR.MINOR.PATCH`.
-
-## Configuration active
-- **Version actuelle :** `0.15.0`
-- **Statut :** Lancement de l'Écran de Salle (`/board`), page publique interactive en temps réel optimisée pour affichage TV/HDMI pour guider les joueurs dans le gymnase.
-- **Date :** 2026-06-04
-
----
-
-## Règles de Versionning (Semantic Versioning)
-1. **MAJOR (X._._)** : Changement majeur entraînant des ruptures de compatibilité (ex: migration lourde de base de données sans rétrocompatibilité, modification structurelle complète des rôles).
-2. **MINOR (_.X._)** : Ajout de fonctionnalités nouvelles sans casser l’existant (ex: nouveaux rapports d'arbitrage, intégration de capteurs de score, filtres avenants).
-3. **PATCH (_._.X)** : Corrections de bugs mineurs, améliorations visuelles ou textuelles mineures (ex: modification d'une coquille, ajustement d’un espacement CSS, renommage d'un menu).
+ 
+ This document keeps track of all released versions and updates of Ping Manager, adhering strictly to **Semantic Versioning (SemVer)**: `MAJOR.MINOR.PATCH`.
+ 
+ ## Configuration active
+- **Version actuelle :** `0.17.1`
+- **Statut :** Consolidation du design system, de l'identité visuelle et de la charte de couleurs réunie au sein d'un document maître unique.
+- **Date :** 2026-06-06
 
 ---
+ 
+ ## Historique des versions
+ 
+### v0.17.1 (2026-06-06) - *Version Actuelle*
+- **Consolidation du Design System (`design.md`) :** Création du document maître unifiant tous les styles, couleurs, typographies, règles de mise en page, animations et composants réels du site de Ping Manager. Élimination des séparations conceptuelles pour offrir une vérité visuelle et fonctionnelle unique et claire.
 
-## Historique des versions
+### v0.17.0 (2026-06-05)
+- **Sécurisation de la procédure de clôture (Pas-à-pas robuste) :** En réponse aux cas de figures où un tournoi de plusieurs jours était clôturé prématurément par mégarde, restriction et protection du processus de clôture globale :
+  - **Fermeture séquentielle obligatoire :** L'organisateur doit valider et clore chaque journée individuellement de façon ordonnée.
+  - **Verrouillage du Bracket :** Le bouton d'archivage "Clôturer le Tournoi" dans l'espace Arbre de Bracket est verrouillé et inaccessible tant que la journée active du tournoi n'est pas arrivée à l'ultime jour programmé. Des tooltips et validations d'actions alertent l'organisateur de sa progression.
+  - **Option d'urgence "Réouvrir le Tournoi" :** Ajout d'une fonctionnalité de sauvetage dans le bandeau de fin d'événement, permettant de réouvrir un tournoi clos à tout moment s'il s'avère nécessaire de saisir des scores ou d'apporter une correction réglementaire.
+  - **Flux de navigation fluide :** Lorsque la dernière journée s'achève, le Tableau de Bord adapte ses contrôles de manière intelligente pour guider l'organisateur vers l'espace de Phase Finale adéquat afin de parachever l'événement.
 
-### v0.15.0 (2026-06-04) - *Version Actuelle*
+### v0.16.5 (2026-06-05)
+- **Ajustement ergonomique du tableau final :** Retrait complet du badge nominatif orange (1er / Vainqueur) qui était initialement branché sur le connecteur terminal de la finale. Cette modification élimine tout chevauchement avec le nouveau module de "Podium Officiel FFTT" de la colonne Classement, rendant l'interface parfaitement lisible et épurée.
+
+### v0.16.4 (2026-06-05)
+- **Affichage dynamique du vainqueur et du podium officiel :** Intégration de l'affichage instantané du nom du champion (1er) sur le badge d'arbre de la finale. Ajout d'une colonne dédiée "Classement" qui affiche un widget interactif "Podium Officiel" de la FFTT listant de manière synthétique le Champion (1er), le Finaliste (2ème) et les demi-finalistes ex-aequo (3ème) dès que les rencontres s'achèvent, offrant une meilleure visibilité sur le dénouement de la compétition.
+
+### v0.16.3 (2026-06-05)
+- **Suppression du match de la 3e place (Petite finale) :** Conformément à l'usage où la rencontre pour la 3e et 4e place n'est pas jouée, suppression globale et définitive de la génération automatique de ce match dans la base de données lors de la création d'un tableau d'arbre de bracket (`generateBracket.ts`). Retrait également de la propagation automatique des perdants des demi-finales vers ce match de classement (`bracketAdvancement.ts`).
+
+### v0.16.2 (2026-06-05)
+- **Libération Automatique de Table en BDD :** Automatisation du nettoyage de la colonne `table_number` (remise à `null`) dans la table `matches` dès qu'un match (phase de poule ou phase finale d'arbre de bracket) est clôturé sous le statut `'finished'`. Cela fiabilise la détection d'activité des tables et élimine tout risque de persistance des numéros de table sur les anciens matchs archivés.
+
+### v0.16.1 (2026-06-05)
+- **Détection des Conflits de Mobilisation (Indicateur Actif en Direct) :** Ajout d'une détection et d'un affichage dynamique de l'état d'activité d'un joueur. Lorsqu'un joueur est en cours de jeu ou rattaché à une table de jeu active (poule ou match de phase finale), un badge clignotant rouge `actif sur Tx` est affiché en temps réel devant son nom dans l'Espace Poules de l'organisateur. Ceci permet d'identifier immédiatement les joueurs indisponibles ou mobilisés simultanément lors de l'attribution des matchs.
+
+### v0.16.0 (2026-06-05)
+- **Persistance des numéros de Têtes de Série (seed_number) en BDD :** Introduction de la colonne `seed_number` dans la table `registrations` de la base de données. Dorénavant, lors de la génération initiale des poules, l'ordre de priorité calculé (points du classement FFTT puis tri par ordre alphabétique en cas d'égalité) est écrit durablement en BDD pour chaque inscrit.
+- **Seeding de Phase Finale Inébranlable :** Lors du calcul et du tirage du tableau de phase finale (arbre du tableau final), l'ordre de seed des joueurs qualifiés provient directement du `seed_number` officiel enregistré en base de données, éliminant tout risque d'inversion ou de divergence due à des tris dynamiques à la volée.
+- **Clarté de l'Arbitrage (Badge TDS) :** Affichage d'un élégant badge `TDS X` (Tête de série X) à côté du nom de chaque joueur dans l'Espace Poules pour rassurer les joueurs et l'organisateur sur la conformité de la méthode du serpentin.
+- **Cycle de Vie Synchrone :** En cas de suppression de la génération de poules pour une catégorie, les numéros `seed_number` des inscriptions concernées sont automatiquement remis à `null` pour rester propres.
+
+### v0.15.5 (2026-06-05)
+- **Fiabilisation & Cohérence des Têtes de Série (Seeding) :** Alignement strict de la logique d'ordre des têtes de série (seed) entre la phase de poules et la phase finale. Désormais, lors de la génération des poules (`generatePools`) ainsi que de la phase finale (`generateBracket`), les joueurs sont triés par points de classement de manière décroissante. En cas d'égalité stricte de points, un tri alphabétique ascendant (sur le Nom puis sur le Prénom) est appliqué de manière stable, garantissant que les numéros de têtes de série affectés par la suite sont parfaitement cohérents et prévisibles.
+
+### v0.15.4 (2026-06-05)
+- **Authentification & Droits PostgreSQL (Correctif RLS) :** Résolution définitive du blocage d'écriture sur la table `pools`. Auparavant, les requêtes d'écriture anonymes exécutées par les terminaux physiques des tables se heurtaient silencieusement aux politiques DB de Supabase. Ajout d'une politique de mise à jour publique (`CREATE POLICY "Public Update Pools" ON pools FOR UPDATE...`) autorisant les mutations d'états de clôtures directes.
+- **Fiabilisation de l'analyse globale de Poule :** Migration des assertions de fin de poule du hook `useTableMatch` vers une comparaison stricte de clôture. Désormais, tout match n'étant pas explicitement `'finished'` ou `'walkover'` est détecté comme non-joué, écartant tout faux négatif. De plus, intégration d'un ensemble de logs explicites et de captures d'erreurs en cas de défaillance réseau ou base de données.
+
+### v0.15.3 (2026-06-05)
+- **Amélioration du flux de fin de poules :** Retrait complet de la validation intermédiaire obligatoire des résultats de poules par les joueurs. Dès que le dernier match d'une poule est enregistré, la poule entière passe automatiquement et directement au statut `'finished'` (clôturée) sans blocage ni signature individuelle requis.
+
+### v0.15.2 (2026-06-04)
+- **Libération finale en BDD pools :** Correction d'un bug rémanent où le numéro de table (`table_number`) sur la table `pools` n'était pas réinitialisé à `null` lors de la validation mutuelle d'un classement de poules complet ou lors d'une validation forcée par l'arbitre. Tout est désormais parfaitement synchrone pour libérer instantanément la table physique pour les catégories suivantes.
+
+### v0.15.1 (2026-06-04)
+- **Libération des tables de poules :** Correction de la persistance de l'occupation d'une table physique. Désormais, au moment où une poule est clôturée (marquée comme `'finished'` ou `'awaiting_validation'`), l'ensemble des rencontres (`matches`) appartenant à cette poule voient leur attribut `table_number` basculer automatiquement à `null` en base de données. Cela libère définitivement la table en empêchant l'apparition de messages de type "Aucune table libre" ou de conflits de double programmation lors du lancement ultérieur de poules de séries différentes.
+
+### v0.15.0 (2026-06-04)
 - **Écran de salle publique (`/board`) :** Création d'une interface autonome pour grand écran TV HDMI, affichant en temps réel l'ensemble des tables sportives et matches actifs.
 - **Grille TV Automatique & Style B (Pleine Couleur) :** Chaque vignette adopte la teinte de son tableau d'origine, montrant le niveau, le statut d'arbitrage, et la liste dynamique des joueurs (les poules affichent tous leurs participants, dont l'actif et le repos).
 - **Scores Live & Paramètres d'URL :** Intégration d'un bouton et d'un paramètre `?scores=1` pour afficher ou masquer en direct la marque des sets en cours d'un simple clic. Supports de filtres d'URL (`?from`, `?to`, `?category`) pour diviser l'affichage sur plusieurs télévisions.

@@ -387,8 +387,29 @@ export default function Bracket() {
 
 
 
+  const getLoadedTournamentDaysCount = () => {
+    if (!tournament?.date || !tournament?.end_date) return 1;
+    const start = new Date(tournament.date);
+    const end = new Date(tournament.end_date);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return 1;
+    const diffTime = end.getTime() - start.getTime();
+    if (diffTime < 0) return 1;
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  };
+
   const handleCloseTournament = async () => {
     if (!tournament) return;
+
+    const totalDays = getLoadedTournamentDaysCount();
+    const currentDayVal = tournament.current_day || 1;
+
+    if (currentDayVal < totalDays) {
+      toast.error(`🔒 Impossible de clôturer le tournoi : vous êtes actuellement en Journée ${currentDayVal} sur un tournoi de ${totalDays} jours.\n\nVeuillez clôturer la Journée ${currentDayVal} depuis le Tableau de Bord pour passer aux journées suivantes.`);
+      return;
+    }
+
+    const accept = window.confirm("⚠️ ATTENTION : Vous êtes sur le point de CLÔTURER DÉFINITIVEMENT LE TOURNOI ENTIER.\n\nUne fois le tournoi clôturé, plus aucun score ne pourra être modifié sur aucune de ses journées. Souhaitez-vous continuer ?");
+    if (!accept) return;
 
     try {
       const { error } = await supabase
@@ -397,7 +418,7 @@ export default function Bracket() {
         .eq('id', tournament.id);
 
       if (error) throw error;
-      toast.success('Tournoi clôturé avec succès !');
+      toast.success('🎉 Tournoi clôturé avec succès !');
       navigate('/organizer/dashboard');
       setTimeout(() => refreshTournament(), 100);
     } catch (err: any) {
@@ -575,15 +596,25 @@ export default function Bracket() {
                 <span>Format Papier</span>
               </button>
 
-              {tournament?.status === 'bracket' && (
-                <button
-                  onClick={handleCloseTournament}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-black transition-all shadow-md text-xs"
-                >
-                  <LockIcon className="w-4 h-4 text-amber-400" />
-                  Clôturer le Tournoi
-                </button>
-              )}
+              {tournament?.status === 'bracket' && (() => {
+                const totalDays = getLoadedTournamentDaysCount();
+                const isLastDay = currentDay >= totalDays;
+                
+                return (
+                  <button
+                    onClick={handleCloseTournament}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all shadow-md text-xs border ${
+                      isLastDay 
+                        ? 'bg-slate-900 border-slate-930 hover:bg-black text-white' 
+                        : 'bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100 hover:text-slate-500'
+                    }`}
+                    title={!isLastDay ? `Le tournoi comporte ${totalDays} jours. Vous devez clôturer la Journée ${currentDay} et gérer la suite d'abord.` : 'Clôturer définitivement le tournoi'}
+                  >
+                    <LockIcon className={`w-4 h-4 ${isLastDay ? 'text-amber-400' : 'text-slate-400 animate-pulse'}`} />
+                    <span>{isLastDay ? 'Clôturer le Tournoi' : `Clôturer (Débloqué Jour ${totalDays})`}</span>
+                  </button>
+                );
+              })()}
 
               {matches.some(m => m.status === 'pending' && m.player1_id && m.player2_id) && (
                 <button
@@ -1083,24 +1114,103 @@ export default function Bracket() {
                                     </div>
                                   )}
 
-                                  {/* TRACÉ FINALE VERS LE CHAMPION (1er) */}
-                                  {isLastRound && (
-                                    <div 
-                                      style={{ left: '315px', top: `${Math.round((y1 + y2) / 2) - 1}px` }}
-                                      className="absolute -translate-y-1/2 z-20"
-                                    >
-                                      <div className="flex items-center gap-1 bg-amber-500/10 border border-amber-500/30 px-2 py-1 rounded shadow-sm">
-                                        <Trophy className="w-3.5 h-3.5 text-amber-500 animate-pulse fill-amber-500" />
-                                        <span className="text-[10px] font-black text-amber-600 tracking-widest uppercase">1er</span>
-                                      </div>
-                                    </div>
-                                  )}
+
                                 </div>
                               );
                             })}
                           </div>
                         );
                       })}
+
+                      {/* Colonne du CLASSEMENT / PODIUM SYSTÉMATIQUE */}
+                      <div
+                        style={{ height: `${totalHeight}px` }}
+                        className="w-[200px] shrink-0 flex flex-col justify-center relative pl-6 border-l border-slate-200/50"
+                      >
+                        {(() => {
+                          const finalMatch = matches.find(m => m.round === 'final');
+                          let winner: any = null;
+                          let finalist: any = null;
+
+                          if (finalMatch && finalMatch.status === 'finished') {
+                            if (finalMatch.winner_id === finalMatch.player1_id) {
+                              winner = finalMatch.player1;
+                              finalist = finalMatch.player2;
+                            } else if (finalMatch.winner_id === finalMatch.player2_id) {
+                              winner = finalMatch.player2;
+                              finalist = finalMatch.player1;
+                            }
+                          }
+
+                          const semiMatches = matches.filter(m => m.round === 'semifinal');
+                          const demisLosers: any[] = [];
+                          semiMatches.forEach(m => {
+                            if (m.status === 'finished') {
+                              if (m.winner_id === m.player1_id && m.player2) {
+                                demisLosers.push(m.player2);
+                              } else if (m.winner_id === m.player2_id && m.player1) {
+                                demisLosers.push(m.player1);
+                              }
+                            }
+                          });
+
+                          return (
+                            <div className="bg-slate-50/80 border border-slate-200 p-4 rounded-2xl w-full space-y-4 shadow-sm font-sans no-print">
+                              <div className="flex items-center gap-2 border-b pb-2 border-slate-200">
+                                <Trophy className="w-4 h-4 text-amber-500 fill-amber-100 animate-bounce" />
+                                <h4 className="text-[10px] font-black uppercase text-indigo-950 tracking-wider">
+                                  Podium Officiel
+                                </h4>
+                              </div>
+
+                              <div className="space-y-4">
+                                {/* 1er */}
+                                <div className="space-y-1">
+                                  <div className="text-[9px] font-black text-amber-600 flex items-center gap-1 uppercase tracking-wider">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                    1er - Champion
+                                  </div>
+                                  <div className="text-[12px] font-black text-slate-900 truncate">
+                                    {winner ? `${winner.first_name || ''} ${winner.last_name || ''}`.trim() : 'En attente...'}
+                                  </div>
+                                </div>
+
+                                {/* 2ème */}
+                                <div className="space-y-1">
+                                  <div className="text-[9px] font-black text-slate-500 flex items-center gap-1 uppercase tracking-wider">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                                    2ème - Finaliste
+                                  </div>
+                                  <div className="text-[11px] font-bold text-slate-600 truncate">
+                                    {finalist ? `${finalist.first_name || ''} ${finalist.last_name || ''}`.trim() : 'En attente...'}
+                                  </div>
+                                </div>
+
+                                {/* 3ème ex-aequo */}
+                                <div className="space-y-1 pt-1 border-t border-slate-200/60">
+                                  <div className="text-[9px] font-black text-[#10b981] flex items-center gap-1 uppercase tracking-wider">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
+                                    3ème (ex-aequo)
+                                  </div>
+                                  {demisLosers.length > 0 ? (
+                                    <div className="space-y-1">
+                                      {demisLosers.map((loser, idx) => (
+                                        <div key={loser.id || idx} className="text-[11px] font-semibold text-slate-500 truncate">
+                                          {loser.first_name ? loser.first_name[0] + '.' : ''} {loser.last_name || ''}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <div className="text-[11px] font-medium text-slate-400 italic">
+                                      En attente...
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
 
                       {/* TAMPON D'INFOS OFFICIELS FFTT EN BAS À DROITE */}
                       <div className="absolute bottom-4 right-10 z-30 flex flex-col items-end">

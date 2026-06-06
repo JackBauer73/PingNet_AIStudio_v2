@@ -94,6 +94,7 @@ export function usePools(tournamentId?: string) {
           checked_in: resolvedCheckedIn,
           paid: resolvedPaid,
           dossard: resolvedDossard,
+          seed_number: r.seed_number || null,
           tournament_id: r.tournament_id
         };
       });

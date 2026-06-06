@@ -146,6 +146,7 @@ CREATE TABLE registrations (
     table_category_id UUID REFERENCES table_categories(id) ON DELETE CASCADE,
     user_id TEXT,
     dossard INTEGER,
+    seed_number INTEGER,
     checked_in BOOLEAN DEFAULT FALSE,
     paid BOOLEAN DEFAULT FALSE,
     status TEXT DEFAULT 'pending',
@@ -194,6 +195,7 @@ CREATE POLICY "Auth Delete Players" ON players FOR DELETE USING (auth.role() = '
 
 CREATE POLICY "Public Read Pools" ON pools FOR SELECT USING (true);
 CREATE POLICY "Auth All Pools" ON pools FOR ALL USING (auth.role() = 'authenticated');
+CREATE POLICY "Public Update Pools" ON pools FOR UPDATE USING (true) WITH CHECK (true);
 
 CREATE POLICY "Public Read Pool Players" ON pool_players FOR SELECT USING (true);
 CREATE POLICY "Auth All Pool Players" ON pool_players FOR ALL USING (auth.role() = 'authenticated');

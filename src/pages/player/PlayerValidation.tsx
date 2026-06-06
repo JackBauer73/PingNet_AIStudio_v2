@@ -174,8 +174,10 @@ export default function PlayerValidation() {
               .eq('id', preferredMatch.id);
           }
         }
+      }
 
-        // Vérifier si la poule est clôturée :
+      // Vérifier si la poule est clôturée :
+      if (matchToFinalize.pool_id) {
         const { data: remainingMatches, error: remainingError } = await supabase
           .from('matches')
           .select('id, status')
@@ -188,17 +190,20 @@ export default function PlayerValidation() {
           );
           
           if (activeOrPending.length === 0) {
-            const isPoolOf2 = remainingMatches.length === 1;
-            const nextStatus = isPoolOf2 ? 'finished' : 'awaiting_validation';
-
             await supabase
               .from('pools')
               .update({ 
-                status: nextStatus, 
+                status: 'finished', 
                 table_number: null,
-                awaiting_validation_since: nextStatus === 'awaiting_validation' ? new Date().toISOString() : null
+                awaiting_validation_since: null
               })
               .eq('id', matchToFinalize.pool_id);
+
+            // Mettre également le table_number de tous les matchs de cette poule à null car elle est terminée
+            await supabase
+              .from('matches')
+              .update({ table_number: null })
+              .eq('pool_id', matchToFinalize.pool_id);
           }
         }
       }
@@ -277,7 +282,8 @@ export default function PlayerValidation() {
           .update({
             status: 'finished',
             winner_id: winnerId,
-            finished_at: new Date().toISOString()
+            finished_at: new Date().toISOString(),
+            table_number: null
           })
           .eq('id', match.id);
 
@@ -333,7 +339,8 @@ export default function PlayerValidation() {
           winner_id: winnerId,
           finished_at: new Date().toISOString(),
           validated_by_p1: true,
-          validated_by_p2: true
+          validated_by_p2: true,
+          table_number: null
         })
         .eq('id', match.id);
 

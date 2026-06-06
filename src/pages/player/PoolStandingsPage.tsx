@@ -228,11 +228,20 @@ export default function PoolStandingsPage() {
           .from('pools')
           .update({
             validated_by: nextValidated,
-            status: isCompleted ? 'finished' : 'awaiting_validation'
+            status: isCompleted ? 'finished' : 'awaiting_validation',
+            ...(isCompleted ? { table_number: null } : {})
           })
           .eq('id', pool.id);
 
         if (updError) throw updError;
+
+        if (isCompleted) {
+          // Mettre également le table_number de tous les matchs de cette poule à null car elle est terminée
+          await supabase
+            .from('matches')
+            .update({ table_number: null })
+            .eq('pool_id', pool.id);
+        }
 
         toast.success(isCompleted ? "Poule entièrement validée !" : "Validation enregistrée.");
       } else {
@@ -277,9 +286,16 @@ export default function PoolStandingsPage() {
         .from('pools')
         .update({
           status: 'finished',
-          validated_by: poolPlayers.map(p => p.player_id)
+          validated_by: poolPlayers.map(p => p.player_id),
+          table_number: null
         })
         .eq('id', pool.id);
+
+      // Mettre également le table_number de tous les matchs de cette poule à null car elle est terminée
+      await supabase
+        .from('matches')
+        .update({ table_number: null })
+        .eq('pool_id', pool.id);
 
       navigate(`/player/${token}`);
     } catch (err) {

@@ -110,6 +110,7 @@ export async function generateBracket(tournamentId: string, categoryName?: strin
         checked_in: resolvedCheckedIn,
         paid: resolvedPaid,
         dossard: resolvedDossard,
+        seed_number: r.seed_number || null,
         tournament_id: r.tournament_id
       };
     });
@@ -136,7 +137,8 @@ export async function generateBracket(tournamentId: string, categoryName?: strin
           points_scored: 0,
           points_conceded: 0,
           matches_played: 0,
-          ffttPoints: p.points || 500
+          ffttPoints: p.points || 500,
+          seed_number: p.seed_number || null
         });
       }
     });
@@ -204,9 +206,20 @@ export async function generateBracket(tournamentId: string, categoryName?: strin
     throw new Error('Pas assez de joueurs qualifiés dans cette série (au moins 2 requis).');
   }
 
-  // Seeding officiel : Tri de tous les qualifiés par points FFTT officiels.
-  // Le résultat du match de poule ne change pas l'ordre initial des graines de tableau !
-  qualifiedPlayers.sort((a, b) => b.ffttPoints - a.ffttPoints);
+  // Seeding officiel utilisant les seed_number de base de données (générés avec les poules),
+  // sinon fallback sur points FFTT officiels (DESC) puis ordre alphabétique s'ils ont le même classement.
+  qualifiedPlayers.sort((a, b) => {
+    if (a.seed_number != null && b.seed_number != null) {
+      return a.seed_number - b.seed_number;
+    }
+    // Fallback de secours
+    if (b.ffttPoints !== a.ffttPoints) {
+      return b.ffttPoints - a.ffttPoints;
+    }
+    const nameA = `${a.last_name || ''} ${a.first_name || ''}`.trim().toLowerCase();
+    const nameB = `${b.last_name || ''} ${b.first_name || ''}`.trim().toLowerCase();
+    return nameA.localeCompare(nameB, 'fr', { sensitivity: 'base' });
+  });
 
   const numQualifiers = qualifiedPlayers.length;
 
@@ -348,23 +361,6 @@ export async function generateBracket(tournamentId: string, categoryName?: strin
     }
     roundStartIndex += matchesInRound;
     matchesInRound = Math.floor(matchesInRound / 2);
-  }
-
-  // Match de la 3e place (Petite finale) si au moins 4 joueurs
-  if (targetTableSize >= 4) {
-    const pos3rd = targetTableSize - 1;
-    allBracketMatches.push({
-      tournament_id: tournamentId,
-      pool_id: null,
-      bracket_id: bracket.id,
-      bracket_position: pos3rd,
-      bracket_round: '3rd',
-      round: '3rd_place',
-      player1_id: null,
-      player2_id: null,
-      status: 'pending',
-      winner_id: null
-    });
   }
 
   // Insertion en base pour tous les matchs de bracket

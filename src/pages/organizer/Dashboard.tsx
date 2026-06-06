@@ -116,6 +116,16 @@ export default function Dashboard() {
   const finishedMatchesToday = matchesToday.filter(m => m.status === 'finished' || m.status === 'walkover').length;
   const isDayFinished = totalMatchesToday > 0 && finishedMatchesToday === totalMatchesToday;
 
+  const getLoadedTournamentDaysCount = () => {
+    if (!tournament?.date || !tournament?.end_date) return 1;
+    const start = new Date(tournament.date);
+    const end = new Date(tournament.end_date);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return 1;
+    const diffTime = end.getTime() - start.getTime();
+    if (diffTime < 0) return 1;
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  };
+
   const handleNextDay = async () => {
     if (!tournament) return;
     const nextDay = currentDay + 1;
@@ -188,6 +198,27 @@ export default function Dashboard() {
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || 'Erreur lors de l’ouverture', { id: toastId });
+    }
+  };
+
+  const handleReopenTournament = async () => {
+    if (!tournament) return;
+    const accept = window.confirm("Le tournoi va être réouvert. Vous pourrez à nouveau modifier les scores et gérer les journées. Continuer ?");
+    if (!accept) return;
+
+    const toastId = toast.loading('Réouverture du tournoi...');
+    try {
+      const { error } = await supabase
+        .from('tournaments')
+        .update({ status: 'bracket' })
+        .eq('id', tournament.id);
+
+      if (error) throw error;
+      toast.success('Le tournoi a été réouvert avec succès !', { id: toastId });
+      refreshTournament();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Erreur lors de la réouverture", { id: toastId });
     }
   };
 
@@ -1616,36 +1647,92 @@ export default function Dashboard() {
                 </button>
               )}
               
-              {isDayFinished ? (
-                <button
-                  onClick={handleNextDay}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-extrabold transition-all shadow-md shadow-green-100 flex items-center gap-1 active:scale-95"
-                >
-                  Clôturer le Jour {currentDay} & Passer au Suivant ▶
-                </button>
-              ) : totalMatchesToday > 0 ? (
-                <button
-                  disabled
-                  className="px-4 py-2 bg-slate-50 text-slate-400 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-not-allowed border border-slate-200"
-                  title="Tous les matchs du jour en cours doivent être terminés"
-                >
-                  🔒 Jour {currentDay} ({finishedMatchesToday}/{totalMatchesToday} terminés)
-                </button>
-              ) : categoriesToday.length > 0 ? (
-                <button
-                  onClick={handleNextDay}
-                  className="px-4 py-2 bg-slate-900 hover:bg-black text-white rounded-xl text-xs font-extrabold transition-all flex items-center gap-1 active:scale-95"
-                >
-                  Clôturer la journée {currentDay} ▶
-                </button>
-              ) : (
-                <button
-                  onClick={handleNextDay}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold transition-all flex items-center gap-1 active:scale-95 shadow-md shadow-indigo-100"
-                >
-                  Passer au Jour {currentDay + 1} ▶
-                </button>
-              )}
+              {(() => {
+                const totalDays = getLoadedTournamentDaysCount();
+                const isLastDay = currentDay >= totalDays;
+
+                if (isLastDay) {
+                  // C'est le dernier jour
+                  if (isDayFinished) {
+                    return (
+                      <button
+                        onClick={() => navigate('/organizer/bracket')}
+                        className="px-4 py-2 bg-amber-500 hover:bg-amber-650 hover:text-white text-slate-950 border border-amber-400 rounded-xl text-xs font-black transition-all shadow-md flex items-center gap-1.5 active:scale-95"
+                      >
+                        🏆 Clôturer le Tournoi (Dernier Jour) ▶
+                      </button>
+                    );
+                  } else if (totalMatchesToday > 0) {
+                    return (
+                      <button
+                        disabled
+                        className="px-4 py-2 bg-slate-50 text-slate-400 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-not-allowed border border-slate-200"
+                        title="Tous les matchs de cette dernière journée doivent se terminer en phase finale pour pouvoir procéder à la clôture finale."
+                      >
+                        🔒 Dernier Jour {currentDay} ({finishedMatchesToday}/{totalMatchesToday} terminés)
+                      </button>
+                    );
+                  } else if (categoriesToday.length > 0) {
+                    return (
+                      <button
+                        onClick={() => navigate('/organizer/bracket')}
+                        className="px-4 py-2 bg-slate-900 hover:bg-black text-white rounded-xl text-xs font-extrabold transition-all flex items-center gap-1 active:scale-95"
+                      >
+                        Gérer le Tableau Final ▶
+                      </button>
+                    );
+                  } else {
+                    return (
+                      <button
+                        onClick={() => navigate('/organizer/bracket')}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold transition-all flex items-center gap-1 active:scale-95 shadow-md shadow-indigo-100"
+                      >
+                        Phase Finale ▶
+                      </button>
+                    );
+                  }
+                } else {
+                  // Ce n'est pas le dernier jour, on peut passer au suivant
+                  if (isDayFinished) {
+                    return (
+                      <button
+                        onClick={handleNextDay}
+                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-extrabold transition-all shadow-md shadow-green-100 flex items-center gap-1 active:scale-95"
+                      >
+                        Clôturer le Jour {currentDay} & Passer au Suivant ▶
+                      </button>
+                    );
+                  } else if (totalMatchesToday > 0) {
+                    return (
+                      <button
+                        disabled
+                        className="px-4 py-2 bg-slate-50 text-slate-400 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-not-allowed border border-slate-200"
+                        title="Tous les matchs du jour en cours doivent être terminés"
+                      >
+                        🔒 Jour {currentDay} ({finishedMatchesToday}/{totalMatchesToday} terminés)
+                      </button>
+                    );
+                  } else if (categoriesToday.length > 0) {
+                    return (
+                      <button
+                        onClick={handleNextDay}
+                        className="px-4 py-2 bg-slate-900 hover:bg-black text-white rounded-xl text-xs font-extrabold transition-all flex items-center gap-1 active:scale-95"
+                      >
+                        Clôturer la journée {currentDay} ▶
+                      </button>
+                    );
+                  } else {
+                    return (
+                      <button
+                        onClick={handleNextDay}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold transition-all flex items-center gap-1 active:scale-95 shadow-md shadow-indigo-100"
+                      >
+                        Passer au Jour {currentDay + 1} ▶
+                      </button>
+                    );
+                  }
+                }
+              })()}
             </div>
           </div>
         </div>
@@ -1659,16 +1746,24 @@ export default function Dashboard() {
               <span>🥇 Tournoi Terminé !</span>
             </h3>
             <p className="text-emerald-700 text-sm mt-1">
-              Tous les matchs ont été clôturés. Archiver ce tournoi enregistrera officiellement le podium de l'événement et fermera les sessions.
+              Tous les matchs ont été clôturés. L'archivage du tournoi enregistrera officiellement le bilan de l'événement. Vous pouvez également le réouvrir si besoin de saisir un score manquant.
             </p>
           </div>
-          <button
-            onClick={handleArchive}
-            disabled={archiving}
-            className="h-12 px-8 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-200 active:scale-95 disabled:opacity-50 shrink-0"
-          >
-            {archiving ? 'Archivage...' : 'Archiver ce tournoi'}
-          </button>
+          <div className="flex gap-3 shrink-0 self-stretch md:self-auto justify-end">
+            <button
+              onClick={handleReopenTournament}
+              className="h-12 px-5 bg-white hover:bg-slate-50 border border-emerald-200 hover:border-emerald-300 text-emerald-800 font-bold rounded-xl transition-all shadow-sm active:scale-95"
+            >
+              🔄 Réouvrir le Tournoi
+            </button>
+            <button
+              onClick={handleArchive}
+              disabled={archiving}
+              className="h-12 px-8 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-200 active:scale-95 disabled:opacity-50 shrink-0"
+            >
+              {archiving ? 'Archivage...' : 'Archiver ce tournoi'}
+            </button>
+          </div>
         </div>
       )}
 

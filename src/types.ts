@@ -63,6 +63,7 @@ export interface Player {
   licence_number?: string | null;
   points?: number | null;
   dossard?: number | null;
+  seed_number?: number | null;
   paid?: boolean;
   registered_at: string;
 }

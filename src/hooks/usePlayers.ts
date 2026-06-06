@@ -21,6 +21,7 @@ export function usePlayers(tournamentId?: string) {
           id,
           tournament_id,
           dossard,
+          seed_number,
           checked_in,
           paid,
           status,
@@ -97,6 +98,7 @@ export function usePlayers(tournamentId?: string) {
           licence_number: pObj?.licence_number || null,
           points: pObj?.points || null,
           dossard: resolvedDossard,
+          seed_number: r.seed_number || null,
           paid: r.paid || false,
           registered_at: r.created_at || new Date().toISOString()
         };

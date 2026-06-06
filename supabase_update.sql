@@ -334,6 +334,11 @@ ALTER TABLE public.pools
   ADD COLUMN IF NOT EXISTS validated_by            JSONB DEFAULT '[]'::jsonb,
   ADD COLUMN IF NOT EXISTS awaiting_validation_since TIMESTAMPTZ;
 
+-- Autoriser la modification publique de la table pools sous RLS pour finaliser la clôture
+DROP POLICY IF EXISTS "Public Update Pools" ON public.pools;
+CREATE POLICY "Public Update Pools" ON public.pools FOR UPDATE USING (true) WITH CHECK (true);
+
+
 
 
 

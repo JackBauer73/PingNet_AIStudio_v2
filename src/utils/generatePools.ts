@@ -127,8 +127,17 @@ const getPlayerPoints = (p: Player): number => {
 };
 
 export function generatePools(players: Player[], tables: Table[] = [], preferredSize: number = 3): GeneratedPool[] {
-  // Règle 1 : Trier les joueurs par points (DESC)
-  const sorted = [...players].sort((a, b) => getPlayerPoints(b) - getPlayerPoints(a));
+  // Règle 1 : Trier les joueurs par points (DESC), puis par ordre alphabétique s'ils ont le même classement
+  const sorted = [...players].sort((a, b) => {
+    const ptsA = getPlayerPoints(a);
+    const ptsB = getPlayerPoints(b);
+    if (ptsB !== ptsA) {
+      return ptsB - ptsA;
+    }
+    const nameA = `${a.last_name || ''} ${a.first_name || ''}`.trim().toLowerCase();
+    const nameB = `${b.last_name || ''} ${b.first_name || ''}`.trim().toLowerCase();
+    return nameA.localeCompare(nameB, 'fr', { sensitivity: 'base' });
+  });
 
   // Étape 1 : Calculer la composition des poules
   const comp = computePoolComposition(sorted.length, preferredSize);
