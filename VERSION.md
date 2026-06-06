@@ -3,15 +3,19 @@
  This document keeps track of all released versions and updates of Ping Manager, adhering strictly to **Semantic Versioning (SemVer)**: `MAJOR.MINOR.PATCH`.
  
  ## Configuration active
-- **Version actuelle :** `0.17.1`
-- **Statut :** Consolidation du design system, de l'identité visuelle et de la charte de couleurs réunie au sein d'un document maître unique.
+- **Version actuelle :** `0.17.2`
+- **Statut :** Résolution des blocages iframe et consolidation ergonomique : remplacement des invites `window.confirm` par des modals de confirmation réactives et stylisées dans l'espace organisateur.
 - **Date :** 2026-06-06
 
 ---
  
  ## Historique des versions
  
-### v0.17.1 (2026-06-06) - *Version Actuelle*
+### v0.17.2 (2026-06-06) - *Version Actuelle*
+- **Résolution du bouton "Réouvrir le Tournoi" (Correctif iframe) :** Remplacement des invites natives `window.confirm` obsolètes et bloquées dans certains navigateurs et configurations d'iFrame par des modals de confirmation personnalisées animées de manière fluide avec `motion`.
+- **Réouverture en mode Jeu :** Repassage d'un tournoi réouvert en statut `'in_progress'` (au lieu de `'bracket'`) pour redonner immédiatement accès direct aux actions d'arbitrage actives et aux modifications de scores.
+
+### v0.17.1 (2026-06-06)
 - **Consolidation du Design System (`design.md`) :** Création du document maître unifiant tous les styles, couleurs, typographies, règles de mise en page, animations et composants réels du site de Ping Manager. Élimination des séparations conceptuelles pour offrir une vérité visuelle et fonctionnelle unique et claire.
 
 ### v0.17.0 (2026-06-05)

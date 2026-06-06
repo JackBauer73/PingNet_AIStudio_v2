@@ -97,6 +97,8 @@ export default function Dashboard() {
     window.open('/board', 'pm-board', 'width=1280,height=720');
   }
   const [archiving, setArchiving] = useState(false);
+  const [showReopenConfirm, setShowReopenConfirm] = useState(false);
+  const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
 
   const [activeCategories, setActiveCategories] = useState<any[]>([]);
@@ -201,16 +203,20 @@ export default function Dashboard() {
     }
   };
 
-  const handleReopenTournament = async () => {
+  const handleReopenTournament = () => {
     if (!tournament) return;
-    const accept = window.confirm("Le tournoi va être réouvert. Vous pourrez à nouveau modifier les scores et gérer les journées. Continuer ?");
-    if (!accept) return;
+    setShowReopenConfirm(true);
+  };
+
+  const handleReopenTournamentConfirmed = async () => {
+    if (!tournament) return;
+    setShowReopenConfirm(false);
 
     const toastId = toast.loading('Réouverture du tournoi...');
     try {
       const { error } = await supabase
         .from('tournaments')
-        .update({ status: 'bracket' })
+        .update({ status: 'in_progress' })
         .eq('id', tournament.id);
 
       if (error) throw error;
@@ -222,10 +228,14 @@ export default function Dashboard() {
     }
   };
 
-  const handleArchive = async () => {
+  const handleArchive = () => {
     if (!tournament) return;
-    const accept = window.confirm("Voulez-vous vraiment archiver ce tournoi ? Cela effacera les sessions actives mais conservera les podiums et le bilan.");
-    if (!accept) return;
+    setShowArchiveConfirm(true);
+  };
+
+  const handleArchiveConfirmed = async () => {
+    if (!tournament) return;
+    setShowArchiveConfirm(false);
 
     setArchiving(true);
     const toastId = toast.loading('Archivage du tournoi en cours...');
@@ -1422,6 +1432,104 @@ export default function Dashboard() {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Modal Réouvrir le Tournoi */}
+        {showReopenConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="fixed inset-0 bg-[#0f1f3d]/60 backdrop-blur-sm"
+              onClick={() => setShowReopenConfirm(false)}
+            />
+
+            {/* Dialog Container */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              className="bg-white dark:bg-[#0a1729] rounded-[2rem] p-6 md:p-8 max-w-md w-full border border-slate-200 dark:border-white/10 shadow-2xl relative z-10"
+            >
+              <div className="h-12 w-12 bg-[#f97316]/10 rounded-2xl flex items-center justify-center text-[#f97316] mb-5">
+                <Trophy className="w-6 h-6 animate-pulse" />
+              </div>
+              
+              <h3 className="font-display text-xl md:text-2xl font-bold tracking-tight text-[#0f1f3d] dark:text-white mb-2">
+                Réouvrir le Tournoi ?
+              </h3>
+              
+              <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-6">
+                Le tournoi va être réouvert et son statut passera à <strong>En cours</strong>. Vous pourrez à nouveau modifier les scores, gérer les tables, et valider les matchs de toutes les journées.
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowReopenConfirm(false)}
+                  className="w-1/2 h-12 px-4 rounded-xl border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-all text-sm"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={handleReopenTournamentConfirmed}
+                  className="w-1/2 h-12 px-4 rounded-xl bg-[#f97316] hover:bg-[#ea6a0a] text-white font-bold transition-all shadow-md text-sm active:scale-95"
+                >
+                  Réouvrir
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Modal Archiver le Tournoi */}
+        {showArchiveConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="fixed inset-0 bg-[#0f1f3d]/60 backdrop-blur-sm"
+              onClick={() => setShowArchiveConfirm(false)}
+            />
+
+            {/* Dialog Container */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              className="bg-white dark:bg-[#0a1729] rounded-[2rem] p-6 md:p-8 max-w-md w-full border border-slate-200 dark:border-white/10 shadow-2xl relative z-10"
+            >
+              <div className="h-12 w-12 bg-emerald-100 dark:bg-emerald-950/30 rounded-2xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-5">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+
+              <h3 className="font-display text-xl md:text-2xl font-bold tracking-tight text-[#0f1f3d] dark:text-white mb-2">
+                Archiver ce Tournoi ?
+              </h3>
+
+              <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-6">
+                Voulez-vous vraiment archiver ce tournoi ? Cela effacera les sessions d’arbitrage actives mais conservera les podiums et le bilan historique dans vos archives.
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowArchiveConfirm(false)}
+                  className="w-1/2 h-12 px-4 rounded-xl border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-all text-sm"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={handleArchiveConfirmed}
+                  className="w-1/2 h-12 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition-all shadow-md text-sm active:scale-95"
+                >
+                  Archiver
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

@@ -23,7 +23,7 @@ export default function Landing() {
     firstName: '',
     lastName: '',
     club: '',
-    serie: 'Série A',
+    serie: 'Tableau A',
     points: 500,
     licenceNumber: '',
     email: '',
@@ -1508,7 +1508,7 @@ export default function Landing() {
           <p className="text-xs">© 2026 Ping Manager. Conçu pour simplifier l'arbitrage et le suivi des tournois.</p>
           <div className="flex gap-6 text-xs font-bold">
             <span className="text-[#f97316] hover:text-[#f97316] cursor-pointer">Français</span>
-            <span className="text-slate-400">v0.17.1</span>
+            <span className="text-slate-400">v0.17.2</span>
           </div>
         </div>
       </footer>
