@@ -105,6 +105,8 @@ export default function Dashboard() {
   const [archiving, setArchiving] = useState(false);
   const [showReopenConfirm, setShowReopenConfirm] = useState(false);
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
+  const [showEmergencyConfirm, setShowEmergencyConfirm] = useState(false);
+  const [showEmergencyDeleteConfirm, setShowEmergencyDeleteConfirm] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
 
   const [activeCategories, setActiveCategories] = useState<any[]>([]);
@@ -252,6 +254,42 @@ export default function Dashboard() {
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Erreur lors de l'archivage", { id: toastId });
+    } finally {
+      setArchiving(false);
+    }
+  };
+
+  const handleEmergencyArchive = async () => {
+    if (!tournament) return;
+    setShowEmergencyConfirm(false);
+    setArchiving(true);
+    const toastId = toast.loading('Archivage de force en cours...');
+    try {
+      await archiveTournament(tournament.id);
+      toast.success('🎉 Tournoi archivé de force avec succès !', { id: toastId });
+      refreshTournament();
+    } catch (err: any) {
+      console.error(err);
+      toast.dismiss(toastId);
+      setShowEmergencyDeleteConfirm(true);
+    } finally {
+      setArchiving(false);
+    }
+  };
+
+  const handleEmergencyDelete = async () => {
+    if (!tournament) return;
+    setShowEmergencyDeleteConfirm(false);
+    setArchiving(true);
+    const toastId = toast.loading('Suppression définitive en cours...');
+    try {
+      const { error: delError } = await supabase.from('tournaments').delete().eq('id', tournament.id);
+      if (delError) throw delError;
+      toast.success('Tournoi supprimé avec succès !', { id: toastId });
+      refreshTournament();
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Erreur lors de la suppression', { id: toastId });
     } finally {
       setArchiving(false);
     }
@@ -1539,6 +1577,104 @@ export default function Dashboard() {
             </motion.div>
           </div>
         )}
+
+        {/* Modal Réinitialiser / Archiver de force d'Urgence */}
+        {showEmergencyConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="fixed inset-0 bg-[#0f1f3d]/60 backdrop-blur-sm"
+              onClick={() => setShowEmergencyConfirm(false)}
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              className="bg-white dark:bg-[#0a1729] rounded-[2rem] p-6 md:p-8 max-w-md w-full border border-slate-200 dark:border-white/10 shadow-2xl relative z-10"
+            >
+              <div className="h-12 w-12 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-500 mb-5">
+                <AlertTriangle className="w-6 h-6 animate-pulse" />
+              </div>
+              
+              <h3 className="font-display text-xl md:text-2xl font-bold tracking-tight text-[#0f1f3d] dark:text-white mb-2">
+                Archiver de force ?
+              </h3>
+              
+              <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-6 font-semibold">
+                ⚠️ Voulez-vous archiver ou réinitialiser de force ce tournoi ?
+                <br /><br />
+                Cela vous permettra de commencer un tout nouveau tournoi immédiatement, même si celui-ci n'a pas été entièrement joué ou s'il y a 0 donnée.
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowEmergencyConfirm(false)}
+                  className="w-1/2 h-12 px-4 rounded-xl border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-all text-sm cursor-pointer"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEmergencyArchive}
+                  className="w-1/2 h-12 px-4 rounded-xl bg-[#f97316] hover:bg-[#ea6a0a] text-white font-extrabold transition-all shadow-md text-sm active:scale-95 cursor-pointer"
+                >
+                  Archiver de force
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Modal Suppression de force si échec d'archivage */}
+        {showEmergencyDeleteConfirm && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="fixed inset-0 bg-[#0f1f3d]/60 backdrop-blur-sm"
+              onClick={() => setShowEmergencyDeleteConfirm(false)}
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              className="bg-white dark:bg-[#0a1729] rounded-[2rem] p-6 md:p-8 max-w-md w-full border border-slate-200 dark:border-white/10 shadow-2xl relative z-10"
+            >
+              <div className="h-12 w-12 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-500 mb-5">
+                <AlertTriangle className="w-6 h-6 animate-pulse" />
+              </div>
+              
+              <h3 className="font-display text-xl md:text-2xl font-bold tracking-tight text-red-500 mb-2">
+                Échec de l'archivage ! Suppression ?
+              </h3>
+              
+              <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-6 font-semibold">
+                L'archivage a échoué (les données sont probablement vides, corrompues ou incomplètes).
+                <br /><br />
+                Souhaitez-vous <strong>SUPPRIMER définitivement</strong> ce tournoi pour débloquer la création d'un nouveau ?
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowEmergencyDeleteConfirm(false)}
+                  className="w-1/2 h-12 px-4 rounded-xl border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-all text-sm cursor-pointer"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={handleEmergencyDelete}
+                  className="w-1/2 h-12 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold transition-all shadow-md text-sm active:scale-95 cursor-pointer"
+                >
+                  Supprimer
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
       </>
     );
   };
@@ -1548,15 +1684,15 @@ export default function Dashboard() {
   if (!tournament || tournament.status === 'archived') {
     return (
       <>
-        <div className="p-8 max-w-4xl mx-auto mt-12">
-          <div className="text-center mb-12">
-            <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-[2rem] flex items-center justify-center mx-auto mb-6 border border-indigo-100 shadow-xl shadow-indigo-100/50">
+        <div className="p-4 sm:p-8 max-w-4xl mx-auto mt-12 animate-in fade-in duration-300">
+          <div className="text-center p-8 sm:p-12 rounded-3xl border border-[#1e2f4d] bg-[#0c192e] shadow-2xl shadow-black/40">
+            <div className="w-20 h-20 bg-[#152744] text-[#f97316] rounded-[2rem] flex items-center justify-center mx-auto mb-6 border border-[#2b3f5e] shadow-xl shadow-orange-500/5">
               <Trophy className="w-10 h-10" />
             </div>
-            <h1 className="text-4xl font-black text-slate-950 tracking-tight">
+            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
               {tournament?.status === 'archived' ? 'Précédent Tournoi Archivé !' : 'Bienvenue sur Ping Manager'}
             </h1>
-            <p className="text-slate-500 mt-4 max-w-xl mx-auto text-sm leading-relaxed">
+            <p className="text-slate-400 mt-4 max-w-xl mx-auto text-sm sm:text-base leading-relaxed">
               {tournament?.status === 'archived' 
                 ? `Le tournoi "${tournament.name}" a été archivé avec succès. Vous pouvez maintenant lancer un nouvel événement avec sa configuration dynamique par tableaux.`
                 : "Vous n'avez pas encore de tournoi actif. Créez votre événement, définissez vos tableaux de niveau (Séries) et attribuez vos tables physiques pour commencer."}
@@ -1580,9 +1716,9 @@ export default function Dashboard() {
                   ]);
                   setShowCreateModal(true);
                 }}
-                className="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold rounded-2xl shadow-xl shadow-indigo-100 hover:shadow-indigo-200 transition-all flex items-center gap-2.5 active:scale-95"
+                className="px-8 py-4 bg-[#f97316] hover:bg-[#ea580c] text-white font-extrabold rounded-2xl shadow-xl shadow-orange-500/10 hover:shadow-orange-500/20 transition-all flex items-center gap-2.5 active:scale-95 cursor-pointer"
               >
-                <Trophy className="w-5 h-5" />
+                <Trophy className="w-5 h-5 text-white" />
                 Lancer un nouveau tournoi
               </button>
             </div>
@@ -1640,29 +1776,8 @@ export default function Dashboard() {
           </div>
 
           <button 
-            onClick={async () => {
-              const confirmText = "⚠️ Voulez-vous archiver ou réinitialiser de force ce tournoi ?\n\nCela vous permettra de commencer un tout nouveau tournoi immédiatement, même si celui-ci n'a pas été entièrement joué ou s'il y a 0 donnée.";
-              if (window.confirm(confirmText)) {
-                setArchiving(true);
-                const toastId = toast.loading('Archivage en cours...');
-                try {
-                  await archiveTournament(tournament.id);
-                  toast.success('🎉 Tournoi archivé de force avec succès !', { id: toastId });
-                  refreshTournament();
-                } catch (err: any) {
-                  console.error(err);
-                  if (window.confirm("L'archivage a échoué (les données sont vides ou incohérentes). Souhaitez-vous SUPPRIMER définitivement ce tournoi pour débloquer la création ?")) {
-                    const { error: delError } = await supabase.from('tournaments').delete().eq('id', tournament.id);
-                    if (delError) throw delError;
-                    toast.success('Tournoi supprimé avec succès !', { id: toastId });
-                    refreshTournament();
-                  } else {
-                    toast.error(err.message || "Erreur lors de l'archivage", { id: toastId });
-                  }
-                } finally {
-                  setArchiving(false);
-                }
-              }
+            onClick={() => {
+              setShowEmergencyConfirm(true);
             }}
             disabled={archiving}
             className="p-4 bg-[#f97316]/10 hover:bg-[#f97316]/20 border border-red-200/10 rounded-xl flex items-center gap-3.5 transition-all active:scale-[0.98] disabled:opacity-50 text-left cursor-pointer min-w-[200px]"

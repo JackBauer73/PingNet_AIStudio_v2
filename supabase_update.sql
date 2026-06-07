@@ -339,6 +339,19 @@ DROP POLICY IF EXISTS "Public Update Pools" ON public.pools;
 CREATE POLICY "Public Update Pools" ON public.pools FOR UPDATE USING (true) WITH CHECK (true);
 
 
+-- =========================================================================
+-- 8. ENRICHISSEMENT DE LA TABLE DES ARCHIVES (TOURNAMENT_ARCHIVES) FOR V0.19.28
+-- =========================================================================
+ALTER TABLE public.tournament_archives
+  ADD COLUMN IF NOT EXISTS date_debut DATE,
+  ADD COLUMN IF NOT EXISTS nb_joueurs_presents INTEGER DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS recette_totale DECIMAL(10,2) DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS nb_tableaux INTEGER DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS clubs JSONB DEFAULT '[]',
+  ADD COLUMN IF NOT EXISTS date_fin DATE;
+
+
+
 
 
 

@@ -3,15 +3,40 @@
  This document keeps track of all released versions and updates of Ping Manager, adhering strictly to **Semantic Versioning (SemVer)**: `MAJOR.MINOR.PATCH`.
  
  ## Configuration active
-- **Version actuelle :** `0.19.24`
-- **Statut :** Refonte esthétique complète de la page d'inscription et des détails de tournoi pour parfaire l'immersion sombre sport-tech premium de l'application.
+- **Version actuelle :** `0.19.28`
+- **Statut :** Refonte complète du moteur de compilation d'archivage des tournois avec gestion multi-tableaux et respect RGPD de la vie privée des joueurs.
 - **Date :** 2026-06-07
 
 ---
  
  ## Historique des versions
  
-### v0.19.24 (2026-06-07) - *Version Actuelle*
+### v0.19.28 (2026-06-07) - *Version Actuelle*
+- **Refonte Complète du Service d'Archivage des Tournois :**
+  - **Archivage Multi-Tableaux Distribué :** Ajout d'une boucle complète d'archivage sur l'intégralité des tableaux (catégories) du tournoi au lieu d'une unique entrée générique. Chaque catégorie compile désormais sa recette, son nombre d'inscrits, ses présents, son podium complet ainsi que le top 4 de son arbre final.
+  - **Protection Strict RGPD :** Suppression intégrale des données sensibles (courriels, numéros de téléphone, jetons d'accès joueurs, sets de score de match détaillés) de la charge utile archivée.
+  - **Statistiques de Synthèse Globales :** Enrichissement de l'archive racine avec des indicateurs globaux consolidés (recette cumulée calculée par tableau, nombre total de tableaux, nombre global de joueurs enregistrés et de présents, liste des clubs uniques présents, date de début et date de fin).
+  - **Compatibilité de Schéma SQL :** Ajout des colonnes de support (`date_debut`, `date_fin`, `recette_totale`, `nb_tableaux`, `clubs`, `nb_joueurs_presents`) consignées dans le script de migration.
+
+### v0.19.27 (2026-06-07)
+- **Refonte Sombre & Spacieuse de l'Espace Club d'authentification :**
+  - **Immersion Sombre Complète :** Alignement de la fenêtre modale de connexion et d'inscription sur le thème sport-tech premium de l'application (bleu nuit profond `#0a1729`, liseré de démarcation `#2a3548` et fond d'input `#0c1524`).
+  - **Identité d'Action FFTT :** Ajout de boutons d'action orange fluides hautement interactifs avec survol dynamique et effet de clic physique tactile.
+  - **Ergonomie des Textes :** Textes d'indications et de notes de configuration réagencés avec des contrastes soignés pour garantir une lisibilité ultime.
+
+### v0.19.26 (2026-06-07)
+- **Optimisation Securisée du Processus d'Archivage :**
+  - **Purge intégrale des tables associées :** Ajout de la suppression automatique et propre de toutes les données du tournoi dans les tables secondaires (`player_tokens`, `registrations`, `matches`, `brackets`, `pools`, `players`, `table_categories`, `tournament_tables`).
+  - **Conservation des archives historiques :** Assure que seul le résumé JSON final dans la table indépendante `tournament_archives` est conservé, permettant une consultation fluide dans l'historique sans encombrer la base active.
+  - **Prévention des anomalies UI :** Élimine tout risque de conflit d'inscriptions, doublons de dossards ou de restes d'anciens joueurs lors du lancement immédiat d'un tout nouveau tournoi.
+
+### v0.19.25 (2026-06-07)
+- **Saisie de Secours Modalitaire sur le Dashboard :**
+  - **Désactivation de confirmation système :** Remplacement de la native `window.confirm()` par deux modales de sécurité customisées (`showEmergencyConfirm` et `showEmergencyDeleteConfirm`) conformes aux contraintes iFrame.
+  - **Transition d'action et intégrité :** Affichage d'un avertissement sur fond cinétique sombre en cas d'urgence, avec option sécurisée de bascule vers la suppression physique si l'archivage préliminaire de force s'avère inapplicable.
+  - **Cohérence Thématique :** Style sport-tech préservé (liserés polis `#2a3548`, alertes d'action vibrant orange et icônes d'erreur d'alerte pulsantes).
+
+### v0.19.24 (2026-06-07)
 - **Refonte Sombre Intégrale de la Page de Détail & Inscription d'un Tournoi (`renderTournamentDetails`) :**
   - **Cohérence Visuelle Absolue :** Remplacement des fonds d'écran clairs restants par une immersion bleu nuit premium (`#0a1729`/`#152031`) rehaussée de touches orange FFTT vibrantes (`#f97316`) et de bordures polies (`#2a3548`).
   - **Finition des Cartes de Tableaux & Catégories :** Rendu modernisé avec des jauges de remplissage d'inscrits sur fond sombre, des contrastes rééquilibrés pour assurer une lisibilité ultime des horaires de début, des points autorisés et des tarifs.
