@@ -3,15 +3,63 @@
  This document keeps track of all released versions and updates of Ping Manager, adhering strictly to **Semantic Versioning (SemVer)**: `MAJOR.MINOR.PATCH`.
  
  ## Configuration active
-- **Version actuelle :** `0.19.17`
-- **Statut :** Élargissement des limites d'affichage (max-width augmenté à 1600px/1850px) et réduction des marges/paddings écran pour minimiser l'espace inutilisé sur les côtés gauche et droit.
+- **Version actuelle :** `0.19.24`
+- **Statut :** Refonte esthétique complète de la page d'inscription et des détails de tournoi pour parfaire l'immersion sombre sport-tech premium de l'application.
 - **Date :** 2026-06-07
 
 ---
  
  ## Historique des versions
  
-### v0.19.17 (2026-06-07) - *Version Actuelle*
+### v0.19.24 (2026-06-07) - *Version Actuelle*
+- **Refonte Sombre Intégrale de la Page de Détail & Inscription d'un Tournoi (`renderTournamentDetails`) :**
+  - **Cohérence Visuelle Absolue :** Remplacement des fonds d'écran clairs restants par une immersion bleu nuit premium (`#0a1729`/`#152031`) rehaussée de touches orange FFTT vibrantes (`#f97316`) et de bordures polies (`#2a3548`).
+  - **Finition des Cartes de Tableaux & Catégories :** Rendu modernisé avec des jauges de remplissage d'inscrits sur fond sombre, des contrastes rééquilibrés pour assurer une lisibilité ultime des horaires de début, des points autorisés et des tarifs.
+  - **Formulaire d'Inscription FFTT & Manuel :** Modernisation complète des champs d'entrée, des messages d'erreur et des profils FFTT de démonstration, offrant des contrastes parfaits et une ergonomie optimale en mode sombre.
+  - **Espace Jeton Joueur (Mon Token) :** Redessiné sous forme de carte d'action sombrique hautement contrastée facilitant l'accès sécurisé à l'espace personnel sur n'importe quel dispositif.
+
+### v0.19.23 (2026-06-07)
+- **Refonte Graphique de la Landing Page d'Accueil :**
+  - **Identité Graphique Premium Cohérente :** Adhésion complète au thème sombre sport-tech premium de l'application (bleu nuit profond `#0a1729`/`#152031` avec touches délicates orange FFTT `#f97316` et liserés polis `#2a3548`).
+  - **Élimination de la Dualité Clair/Sombre Incohérente :** La page d'accueil d'un joueur, les détails d'un tournoi, et le formulaire d'inscription adoptent désormais pleinement le style hautement contrasté et immersif "Ping Manager Dark Theme".
+  - **Formulaires & Composants Polies :** Les formulaires de recherche de licence FFTT, de saisie manuelle, le ticket de réussite avec QR Code, et l'espace de saisie du Token joueur s'agencent tous sous forme de cartes d'action sombres hautement qualitatives.
+  - **Amélioration du Rendu Sportif en Direct :** Bento-grids, jauges de remplissage des catégories ajustées pour briller sur fond sombre, avec badges néon dynamiques (vert émeraude, orange FFTT, bleu électrique).
+
+### v0.19.22 (2026-06-07)
+- **Refonte Sombre Premium & Sport-Tech de l'Historique (Archives) :**
+  - **Identité Graphique Cohérente :** Adoption du bleu nuit profond (`#152031`) avec liseré orange FFTT (`#f97316`) et contours polis (`#2a3548`).
+  - **Finition de la Recherche & Liste :** Barre de filtre modernisée, badges de date compacts, bento grid de participation (Joueurs/Matchs/Tables) en harmonie colorimétrique.
+  - **Fidélité Visuelle du Modale de Bilan :** Fond de modale et bouton de fermeture repensés pour s'intégrer proprement sous un flou cinétique sombre (`bg-slate-950/80 backdrop-blur-sm`).
+  - **Podiums et Classements :** Textes, étiquettes, et arrière-plans de podiums du club ajustés avec soin pour un contraste clair et de magnifiques teintes or-argent-bronze.
+
+### v0.19.21 (2026-06-07)
+- **Densification de la Gestion des Tables :**
+  - **Marges et Padding Réduits :** Ajustement des marges globales (`p-2 sm:p-4` au lieu de `p-3 sm:p-5`) et des espacements de grille pour un gain maximal d'encombrement.
+  - **Cartes Compactes :** Rapprochement des sections au sein des cartes de tables (`p-4 sm:p-4.5`, espacement vertical contenu) pour une visuelle haptique haute densité.
+  - **Bento de Statistiques Équilibré :** Condensation du Widget de suivi des tables pour optimiser l'espace du panneau d'affichage d'arbitrage.
+
+### v0.19.20 (2026-06-07)
+- **Design Sombre Premium & Sport-Tech de la Gestion des Tables :**
+  - **Widgets Bento Grid Modernisés :** Les capsules d'indicateurs quantitatifs du haut (total, occupées, libres) reprennent le look sombre du club avec le dégradé d'alerte orange au bas et contours finesse sport.
+  - **Cartes de Tables Ambiance Sportive :** Look transparent doté de bordures hachurées pour les tables libres, et structures sombres premium (`#152031`, `#2a3548`) hautement contrastantes pour les tables occupées.
+  - **Tableau d'Arbitrage & Scores en Direct :** Rendu live enrichi affichant les points du set actif en orange fluo et les scores cumulés des sets précédemment validés sous forme de badges compacts intégrés aux cartes.
+  - **Bouton Direct d'Arbitrage « GÉRER LE SCORE » :** Introduction du bouton d'action principal styled menant instantanément au module de score en direct, renforçant l'agilité de l'organisateur.
+
+### v0.19.19 (2026-06-07)
+- **Design Sombre Premium & Sport-Tech du Profil du Club :**
+  - **Panneaux & Conteneurs Navy Stylisés :** Passage des cadres d'administration au bleu nuit profond (`#152031`) soulignés par des contours polis contrastés (`#2a3548`).
+  - **Saisie & Boutons Raffinés :** Nouveaux champs de formulaire sombres contrastés avec police blanche et bordures réactives, accompagnés du grand bouton de sauvegarde orange FFTT officiel (`#f97316`).
+  - **Aperçu du Club en Direct Amélioré :** La carte d'aperçu d'identité a été revue avec un effet néon/flou d'arrière-plan réagissant dynamiquement à la couleur d'identité sélectionnée pour le club.
+  - **Zone de Logo & Encart d'Arbitrage Épurés :** Dépôt de logo pointillé moderne et boîte d'information complémentaire d'aide parfaitement accordés.
+
+### v0.19.18 (2026-06-07)
+- **Design Sombre Premium & Sport-Tech de la Phase Finale :**
+  - **Arrière-plan Haute Résolution :** Passage à un mode sombre enveloppant aux teintes navy pro (`#0c1624` et `#111c2d`) éliminant toute fatigue visuelle en tournoi.
+  - **Match Cards Épurées & Contraste Élevé :** Intégration de finitions or/ambre, de bordures polies, de noms en blanc brillant et d'indicateurs de statut néons (vert pour prêt, orange pour en cours, bleu pour fini).
+  - **Podium & Fiche FFTT Polies :** Modernisation de la zone de classement officiel et du tampon d'infos d'arbitrage en harmonie avec le thème sombre.
+  - **Finition au Pixel Près :** Indentations et alignements géométriques conservés avec exactitude pour un tracé parfait.
+
+### v0.19.17 (2026-06-07)
 - **Élargissement Fluide des Gabarits :**
   - **Marges Amorties :** Réduction des espaces horizontaux superflus à gauche et à droite de l'en-tête et de la zone principale de tous les onglets d'organisation générale (en-tête et conteneurs).
   - **Grands Écrans Épanouis :** Remplacement de la limite rigide `max-w-7xl` (1280px) par des gabarits plus généreux `max-w-[1600px]` s'étendant jusqu'à `2xl:max-w-[1850px]` (appliqué aux Poules, Joueurs, Phases Finales, Tables et Scores).

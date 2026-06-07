@@ -104,9 +104,9 @@ export default function Settings() {
 
   if (loading) {
     return (
-      <div className="p-8 text-center text-slate-400 animate-pulse flex flex-col items-center justify-center min-h-[50vh]">
-        <div className="w-12 h-12 rounded-full border-4 border-slate-200 border-t-indigo-600 animate-spin mb-4" />
-        <p>Chargement des informations du club...</p>
+      <div className="p-8 text-center text-slate-400 animate-pulse flex flex-col items-center justify-center min-h-[50vh]" id="settings-loading">
+        <div className="w-12 h-12 rounded-full border-4 border-[#20324e] border-t-[#f97316] animate-spin mb-4" />
+        <p className="text-slate-400 font-medium">Chargement des informations du club...</p>
       </div>
     );
   }
@@ -114,11 +114,11 @@ export default function Settings() {
   return (
     <div className="p-8 max-w-6xl mx-auto" id="settings-club-profile">
       {/* Header */}
-      <div className="mb-10">
-        <h1 className="text-3xl font-black tracking-tight text-slate-900 border-l-4 border-indigo-500 pl-4">
+      <div className="mb-10 animate-fade-in">
+        <h1 className="text-3xl font-black tracking-tight text-white border-l-4 border-[#f97316] pl-4">
           Profil de votre Club
         </h1>
-        <p className="text-slate-500 mt-2 pl-4">
+        <p className="text-slate-400 mt-2 pl-4 text-sm font-semibold">
           Personnalisez la charte graphique et les informations officielles de votre club de Tennis de Table.
         </p>
       </div>
@@ -129,38 +129,41 @@ export default function Settings() {
           <form onSubmit={handleSaveProfile} className="space-y-8">
             
             {/* Section 1 : Identité & Charte */}
-            <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-8 space-y-6">
-              <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
-                <Building2 className="w-5 h-5 text-indigo-500" />
+            <div className="bg-[#152031] rounded-[2rem] border border-[#2a3548] shadow-2xl p-8 space-y-6">
+              <h2 className="text-xl font-bold flex items-center gap-2 text-white">
+                <Building2 className="w-5 h-5 text-[#f97316]" />
                 Identité Visuelle & Logo
               </h2>
 
-              <div className="flex flex-col sm:flex-row items-center gap-6 p-4 bg-slate-50 rounded-2xl">
+              <div className="flex flex-col sm:flex-row items-center gap-6 p-5 bg-[#0e1726]/50 border border-[#20324e] rounded-2xl">
                 <div className="relative group">
-                  <div className="w-24 h-24 rounded-2xl bg-slate-200 border border-slate-300 flex items-center justify-center overflow-hidden relative">
+                  <div className="w-24 h-24 rounded-2xl bg-[#0e1726] border-2 border-dashed border-[#20324e] hover:border-[#f97316]/50 flex flex-col items-center justify-center overflow-hidden relative transition-all">
                     {clubLogo ? (
                       <img src={clubLogo} alt="Logo du Club" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                     ) : (
-                      <Trophy className="w-10 h-10 text-slate-400" />
+                      <div className="flex flex-col items-center text-slate-500 group-hover:text-[#f97316] transition-colors">
+                        <Upload className="w-6 h-6 mb-1" />
+                        <span className="text-[8px] font-bold text-center uppercase tracking-wider px-1">Upload Logo</span>
+                      </div>
                     )}
                   </div>
-                  <label className="absolute -bottom-2 -right-2 bg-indigo-600 hover:bg-indigo-700 text-white p-2 rounded-xl cursor-pointer shadow-lg transition-all scale-95 hover:scale-100">
-                    <Upload className="w-4 h-4" />
+                  <label className="absolute -bottom-1 -right-1 bg-[#f97316] text-[#081425] hover:bg-[#ea580c] p-1.5 rounded-lg cursor-pointer shadow-lg transition-all scale-95 hover:scale-100 border border-[#0c1624]">
+                    <Upload className="w-3.5 h-3.5 font-bold" />
                     <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
                   </label>
                 </div>
                 <div className="flex-1 text-center sm:text-left">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-1">Logo officiel</span>
-                  <p className="text-sm text-slate-600 leading-relaxed mb-2">
+                  <p className="text-sm text-slate-300 leading-relaxed mb-2">
                     Téléchargez un logo (PNG, JPG) pour représenter votre club sur les affiches, les interfaces de scoring et le site.
                   </p>
-                  <p className="text-xs text-slate-400">Recommandé : image carrée, max. 500 Ko.</p>
+                  <p className="text-xs text-slate-500">Recommandé : image carrée, max. 500 Ko.</p>
                 </div>
               </div>
 
               {/* Palette couleur d'identité */}
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 ml-1 flex items-center gap-1">
+                <label className="block text-xs font-bold text-slate-450 uppercase tracking-widest mb-3 ml-1 flex items-center gap-1.5">
                   <Palette className="w-3.5 h-3.5 text-slate-400" /> Couleur principale du club
                 </label>
                 <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
@@ -169,14 +172,21 @@ export default function Settings() {
                       key={color.value}
                       type="button"
                       onClick={() => setClubColor(color.value)}
-                      className={`p-3 rounded-xl border flex flex-col items-center justify-center text-center transition-all ${
+                      className={`p-3 rounded-xl border flex flex-col items-center justify-center text-center transition-all cursor-pointer ${
                         clubColor === color.value 
-                          ? 'border-indigo-600 ring-2 ring-offset-2 ring-indigo-500 font-bold bg-slate-50' 
-                          : 'border-slate-200 hover:bg-slate-50'
+                          ? 'border-[#f97316] bg-[#0e1726]/80 ring-2 ring-[#f97316]/30 font-black text-white' 
+                          : 'border-[#20324e] bg-[#0e1726]/30 text-slate-400 hover:bg-[#0e1726]/60 hover:border-slate-500'
                       }`}
                     >
-                      <span className={`w-5 h-5 rounded-full mb-1 bg-${color.value}-600 ${color.value === 'indigo' ? 'bg-indigo-600' : ''} ${color.value === 'emerald' ? 'bg-emerald-600' : ''} ${color.value === 'red' ? 'bg-red-600' : ''} ${color.value === 'blue' ? 'bg-blue-600' : ''} ${color.value === 'orange' ? 'bg-orange-600' : ''} ${color.value === 'purple' ? 'bg-purple-600' : ''}`} />
-                      <span className="text-[10px] text-slate-500 truncate w-full">{color.name.split(' ')[0]}</span>
+                      <span className={`w-5 h-5 rounded-full mb-1 border-2 border-[#0c1624] shadow-sm ${
+                        color.value === 'indigo' ? 'bg-indigo-600' :
+                        color.value === 'emerald' ? 'bg-emerald-500' :
+                        color.value === 'red' ? 'bg-red-500' :
+                        color.value === 'blue' ? 'bg-blue-600' :
+                        color.value === 'orange' ? 'bg-[#f97316]' :
+                        color.value === 'purple' ? 'bg-purple-500' : 'bg-slate-400'
+                      }`} />
+                      <span className="text-[10px] text-slate-400 truncate w-full mt-1 font-semibold">{color.name.split(' ')[0]}</span>
                     </button>
                   ))}
                 </div>
@@ -184,81 +194,81 @@ export default function Settings() {
             </div>
 
             {/* Section 2 : Coordonnées Officielles */}
-            <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm p-8 space-y-6">
-              <h2 className="text-xl font-bold flex items-center gap-2 text-slate-800">
-                <User className="w-5 h-5 text-indigo-500" />
+            <div className="bg-[#152031] rounded-[2rem] border border-[#2a3548] shadow-2xl p-8 space-y-6">
+              <h2 className="text-xl font-bold flex items-center gap-2 text-white">
+                <User className="w-5 h-5 text-[#f97316]" />
                 Informations Administratives
               </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1"> Nom du Club </label>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1"> Nom du Club </label>
                   <input
                     type="text"
                     required
                     placeholder="Ex: Tennis de Table Club Parisien"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-slate-900 font-semibold"
+                    className="w-full px-4 py-3 bg-[#0e1726] border border-[#20324e] rounded-xl focus:ring-2 focus:ring-[#f97316]/50 focus:border-[#f97316] outline-none transition-all text-white font-semibold"
                     value={clubName}
                     onChange={(e) => setClubName(e.target.value)}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1"> Président / Responsable </label>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1"> Président / Responsable </label>
                   <input
                     type="text"
                     placeholder="Ex: Jean Dupont"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-slate-900"
+                    className="w-full px-4 py-3 bg-[#0e1726] border border-[#20324e] rounded-xl focus:ring-2 focus:ring-[#f97316]/50 focus:border-[#f97316] outline-none transition-all text-white"
                     value={presidentName}
                     onChange={(e) => setPresidentName(e.target.value)}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1"> Ville du Club </label>
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1"> Ville du Club </label>
                   <input
                     type="text"
                     placeholder="Ex: Paris"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-slate-900"
+                    className="w-full px-4 py-3 bg-[#0e1726] border border-[#20324e] rounded-xl focus:ring-2 focus:ring-[#f97316]/50 focus:border-[#f97316] outline-none transition-all text-white"
                     value={clubCity}
                     onChange={(e) => setClubCity(e.target.value)}
                   />
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1 flex items-center gap-1">
-                    <MapPin className="w-3.5 h-3.5 text-slate-400" /> Adresse de la salle de Ping-Pong
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1 flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-[#f97316]" /> Adresse de la salle de Ping-Pong
                   </label>
                   <input
                     type="text"
                     placeholder="Ex: 12 Rue des Rackets, 75012 Paris"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-slate-900"
+                    className="w-full px-4 py-3 bg-[#0e1726] border border-[#20324e] rounded-xl focus:ring-2 focus:ring-[#f97316]/50 focus:border-[#f97316] outline-none transition-all text-white"
                     value={clubAddress}
                     onChange={(e) => setClubAddress(e.target.value)}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1 flex items-center gap-1">
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1 flex items-center gap-1.5">
                     <Phone className="w-3.5 h-3.5 text-slate-400" /> Téléphone de contact
                   </label>
                   <input
                     type="tel"
                     placeholder="Ex: 01 23 45 67 89"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-slate-900"
+                    className="w-full px-4 py-3 bg-[#0e1726] border border-[#20324e] rounded-xl focus:ring-2 focus:ring-[#f97316]/50 focus:border-[#f97316] outline-none transition-all text-white"
                     value={clubPhone}
                     onChange={(e) => setClubPhone(e.target.value)}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1 flex items-center gap-1">
+                  <label className="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1 flex items-center gap-1.5">
                     <Globe className="w-3.5 h-3.5 text-slate-400" /> Site Internet / Page Facebook
                   </label>
                   <input
                     type="url"
                     placeholder="Ex: https://www.ttclubparis.fr"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none transition-all text-slate-900"
+                    className="w-full px-4 py-3 bg-[#0e1726] border border-[#20324e] rounded-xl focus:ring-2 focus:ring-[#f97316]/50 focus:border-[#f97316] outline-none transition-all text-white"
                     value={clubWebsite}
                     onChange={(e) => setClubWebsite(e.target.value)}
                   />
@@ -271,7 +281,7 @@ export default function Settings() {
               <button
                 type="submit"
                 disabled={saving || !clubName.trim()}
-                className="flex items-center gap-2 px-8 py-4 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-500 active:scale-95 transition-all shadow-lg shadow-indigo-600/20 disabled:opacity-50 disabled:pointer-events-none"
+                className="flex items-center gap-2 px-8 py-4 bg-[#f97316] text-[#081425] rounded-2xl font-black hover:bg-[#ea580c] active:scale-95 transition-all shadow-lg shadow-[#ea580c]/25 disabled:opacity-30 disabled:pointer-events-none cursor-pointer text-sm"
               >
                 <Save className="w-5 h-5" />
                 {saving ? 'Sauvegarde...' : 'Enregistrer le Profil'}
@@ -286,21 +296,16 @@ export default function Settings() {
           <div className="sticky top-6">
             <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block mb-3 ml-1">Aperçu en Temps Réel</span>
             
-            <div className="bg-slate-900 text-white rounded-[2rem] p-6 shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[320px] border border-slate-800">
+            <div className="bg-[#152031] text-white rounded-[2rem] p-6 shadow-2xl relative overflow-hidden flex flex-col justify-between min-h-[320px] border border-[#2a3548]">
               
               {/* Blur accent color effect in the card card */}
               <div 
-                className={`absolute -top-10 -right-10 w-44 h-44 rounded-full blur-3xl opacity-30 transition-all duration-500 ${
-                  clubColor === 'indigo' ? 'bg-indigo-500' : ''
-                } ${
-                  clubColor === 'emerald' ? 'bg-emerald-500' : ''
-                } ${
-                  clubColor === 'red' ? 'bg-red-500' : ''
-                } ${
-                  clubColor === 'blue' ? 'bg-blue-500' : ''
-                } ${
-                  clubColor === 'orange' ? 'bg-orange-500' : ''
-                } ${
+                className={`absolute -top-10 -right-10 w-44 h-44 rounded-full blur-3xl opacity-20 transition-all duration-500 ${
+                  clubColor === 'indigo' ? 'bg-indigo-500' :
+                  clubColor === 'emerald' ? 'bg-emerald-500' :
+                  clubColor === 'red' ? 'bg-red-500' :
+                  clubColor === 'blue' ? 'bg-blue-500' :
+                  clubColor === 'orange' ? 'bg-[#f97316]' :
                   clubColor === 'purple' ? 'bg-purple-500' : ''
                 }`} 
               />
@@ -308,8 +313,8 @@ export default function Settings() {
               {/* Top part */}
               <div className="relative z-10 flex justify-between items-start">
                 <div className="space-y-1">
-                  <span className="text-[10px] font-black tracking-widest uppercase bg-indigo-600/30 text-indigo-300 border border-indigo-500/20 px-2.5 py-1 rounded-full flex items-center gap-1 w-max">
-                    <Sparkles className="w-3 h-3" /> CLUB OFFICIEL
+                  <span className="text-[10px] font-black tracking-widest uppercase bg-[#f97316]/10 text-[#f97316] border border-[#f97316]/20 px-2.5 py-1 rounded-full flex items-center gap-1 w-max">
+                    <Sparkles className="w-3 h-3 fill-current" /> CLUB OFFICIEL
                   </span>
                   <h3 className="text-xl font-bold truncate max-w-[170px] mt-2">
                     {clubName || "Nom de votre Club"}
@@ -319,48 +324,50 @@ export default function Settings() {
                   </p>
                 </div>
 
-                <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center overflow-hidden">
+                <div className="w-14 h-14 rounded-2xl bg-[#0e1726]/80 flex items-center justify-center overflow-hidden border border-[#20324e]">
                   {clubLogo ? (
                     <img src={clubLogo} alt="Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   ) : (
-                    <Trophy className="w-7 h-7 text-indigo-400" />
+                    <Trophy className="w-7 h-7 text-[#f97316]" />
                   )}
                 </div>
               </div>
 
               {/* Middle/Bottom Card details */}
               <div className="relative z-10 pt-12 space-y-4">
-                <div className="flex gap-4 border-t border-slate-800/80 pt-4 text-xs font-mono">
-                  <div>
-                    <span className="text-slate-500 block">VILLE</span>
-                    <span className="text-white font-bold">{clubCity || "Non renseigné"}</span>
+                <div className="flex gap-4 border-t border-[#20324e] pt-4 text-xs font-mono">
+                  <div className="flex-1">
+                    <span className="text-slate-400 block text-[10px] font-bold">VILLE</span>
+                    <span className="text-white font-black uppercase text-sm mt-1 block">{clubCity || "PARIS"}</span>
                   </div>
-                  <div>
-                    <span className="text-slate-500 block">RESPONSABLE</span>
-                    <span className="text-white font-bold truncate max-w-[100px] block">{presidentName || "Non renseigné"}</span>
+                  <div className="flex-1 border-l border-[#20324e] pl-4">
+                    <span className="text-slate-400 block text-[10px] font-bold">RESPONSABLE</span>
+                    <span className="text-white font-black mt-1 block truncate max-w-[130px]" title={presidentName}>
+                      {presidentName || <span className="text-slate-500 italic font-medium">Non renseigné</span>}
+                    </span>
                   </div>
                 </div>
 
-                <div className="space-y-1 bg-white/5 p-3 rounded-xl border border-white-[5%] text-xs text-slate-300">
-                  <p className="truncate flex items-center gap-1.5 font-mono">
-                    <MapPin className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
-                    {clubAddress || "Adresse de la salle physique"}
+                <div className="space-y-2 bg-[#0e1726]/60 p-3.5 rounded-xl border border-[#20324e]/60 text-xs text-slate-300">
+                  <p className="truncate flex items-center gap-2 font-mono">
+                    <MapPin className="w-4 h-4 text-[#f97316] flex-shrink-0" />
+                    <span className="truncate">{clubAddress || "Adresse de la salle physique"}</span>
                   </p>
-                  <p className="truncate flex items-center gap-1.5 font-mono">
-                    <Phone className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
-                    {clubPhone || "Aucun téléphone renseigné"}
+                  <p className="truncate flex items-center gap-2 font-mono">
+                    <Phone className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                    <span className="truncate">{clubPhone || "Aucun téléphone renseigné"}</span>
                   </p>
                 </div>
               </div>
             </div>
 
             {/* Note sur les configurations */}
-            <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-500 mt-6 space-y-2">
-              <p className="font-bold flex items-center gap-1 text-slate-700">
-                <BadgeHelp className="w-4 h-4 text-indigo-500" />
+            <div className="p-5 bg-[#111c2d] rounded-2xl border border-[#20324e] text-xs text-slate-400 mt-6 space-y-2">
+              <p className="font-bold flex items-center gap-1.5 text-slate-200">
+                <BadgeHelp className="w-4 h-4 text-[#f97316]" />
                 Où s'affichent ces données ?
               </p>
-              <p>
+              <p className="leading-relaxed">
                 Le nom du club, le logo et la couleur d'identité sont diffusés en direct sur l'interface publique d'auto-arbitrage de chaque table (que les joueurs scannent via le QR code) ainsi que dans vos supports d'impression.
               </p>
             </div>

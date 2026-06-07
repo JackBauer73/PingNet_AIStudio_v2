@@ -457,9 +457,9 @@ export default function Bracket() {
   return (
     <div className="p-1.5 sm:p-3 w-full max-w-[1600px] 2xl:max-w-[1850px] mx-auto min-h-[calc(100vh-100px)]">
       {/* Sélecteur de Catégorie / Série de la journée active */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-8">
+      <div className="bg-[#152031] p-5 sm:p-6 rounded-2xl border border-[#2a3548] shadow-lg mb-8">
         <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-1">
+          <span className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5">
             🏆 Brackets du Jour (Journée {currentDay}) :
           </span>
           {catsToday.map(cat => {
@@ -470,10 +470,10 @@ export default function Bracket() {
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.name)}
-                className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 border border-slate-200/60 ${
+                className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 border ${
                   isActive
-                    ? 'shadow-md font-extrabold'
-                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                    ? 'shadow-lg font-extrabold scale-[1.02]'
+                    : 'bg-[#0e1726] text-slate-300 hover:bg-[#15233a] border-[#20324e] hover:text-white cursor-pointer'
                 }`}
                 style={isActive ? { backgroundColor: bgCol, borderColor: bgCol, color: textCol } : {}}
               >
@@ -486,47 +486,47 @@ export default function Bracket() {
       </div>
 
       {selectedCategory === '' ? (
-        <div className="p-8 max-w-2xl mx-auto text-center mt-12 bg-white rounded-3xl border border-slate-200 shadow-xl py-16">
-          <div className="w-20 h-20 bg-slate-50 text-slate-400 rounded-3xl flex items-center justify-center mx-auto mb-6">
+        <div className="p-8 max-w-2xl mx-auto text-center mt-12 bg-[#152031] rounded-3xl border border-[#2a3548] shadow-2xl py-16">
+          <div className="w-20 h-20 bg-[#0e1726] text-slate-400 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-[#20324e]">
             <Trophy className="w-10 h-10" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Aucun tableau aujourd'hui</h2>
-          <p className="text-slate-500 text-sm max-w-md mx-auto">
+          <h2 className="text-2xl font-bold text-white mb-2">Aucun tableau aujourd'hui</h2>
+          <p className="text-slate-400 text-sm max-w-md mx-auto">
             Aucun tableau ou série de compétition n'est programmé pour la Journée {currentDay} dans l'organisation de ce tournoi.
           </p>
         </div>
       ) : matches.length === 0 ? (
         ['draft', 'open', 'registration'].includes(tournament?.status || '') ? (
-          <div className="p-8 max-w-2xl mx-auto text-center mt-12 bg-white rounded-3xl border border-slate-200 shadow-xl py-16">
-            <div className="w-20 h-20 bg-slate-50 text-slate-400 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-slate-100">
-              <LockIcon className="w-10 h-10" />
+          <div className="p-8 max-w-2xl mx-auto text-center mt-12 bg-[#152031] rounded-3xl border border-[#2a3548] shadow-2xl py-16">
+            <div className="w-20 h-20 bg-[#0e1726] text-slate-400 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-[#20324e]">
+              <LockIcon className="w-10 h-10 text-amber-500" />
             </div>
-            <h1 className="text-3xl font-extrabold text-slate-900 font-sans tracking-tight">Tableau Final Indisponible</h1>
-            <p className="text-slate-500 mt-4 mb-8 text-sm leading-relaxed max-w-md mx-auto">
-              Le tournoi est actuellement en phase <strong className="text-indigo-600">"Inscription / Pointage"</strong>. 
-              Le tableau final pour la série <strong className="text-indigo-600">"{selectedCategory}"</strong> ne pourra être généré qu'une fois la phase d'inscription clôturée et la phase de poules complétée.
+            <h1 className="text-3xl font-extrabold text-white font-sans tracking-tight">Tableau Final Indisponible</h1>
+            <p className="text-slate-350 mt-4 mb-8 text-sm leading-relaxed max-w-md mx-auto">
+              Le tournoi est actuellement en phase <strong className="text-amber-500">"Inscription / Pointage"</strong>. 
+              Le tableau final pour la série <strong className="text-amber-500">"{selectedCategory}"</strong> ne pourra être généré qu'une fois la phase d'inscription clôturée et la phase de poules complétée.
             </p>
             <button 
               disabled
-              className="px-8 py-4 bg-slate-100 text-slate-400 rounded-2xl font-bold border border-slate-200 cursor-not-allowed text-sm flex items-center gap-2 mx-auto"
+              className="px-8 py-4 bg-[#0e1726] text-slate-500 rounded-2xl font-bold border border-[#20324e] cursor-not-allowed text-sm flex items-center gap-2 mx-auto"
             >
               <LockIcon className="w-4 h-4" /> En attente de la clôture des inscriptions
             </button>
           </div>
         ) : (
-          <div className="p-8 max-w-2xl mx-auto text-center mt-12 bg-white rounded-3xl border border-slate-200 shadow-xl py-16">
-            <div className="w-20 h-20 bg-amber-50 text-amber-500 rounded-3xl flex items-center justify-center mx-auto mb-6">
-              <Trophy className="w-10 h-10" />
+          <div className="p-8 max-w-2xl mx-auto text-center mt-12 bg-[#152031] rounded-3xl border border-[#2a3548] shadow-2xl py-16 animate-fade-in">
+            <div className="w-20 h-20 bg-amber-500/10 text-amber-500 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-amber-500/20">
+              <Trophy className="w-10 h-10 animate-pulse" />
             </div>
-            <h1 className="text-3xl font-extrabold text-slate-900">Tableau Final de {selectedCategory}</h1>
-            <p className="text-slate-500 mt-4 mb-8 text-sm leading-relaxed max-w-md mx-auto">
-              Le tableau pour la série <strong className="text-indigo-600">"{selectedCategory}"</strong> de la journée courante n'est pas encore généré.
+            <h1 className="text-3xl font-extrabold text-white">Tableau Final de {selectedCategory}</h1>
+            <p className="text-slate-350 mt-4 mb-8 text-sm leading-relaxed max-w-md mx-auto">
+              Le tableau pour la série <strong className="text-amber-500">"{selectedCategory}"</strong> de la journée courante n'est pas encore généré.
               Validez d'abord tous les matchs de poules de ce tableau pour générer le tableau final automatiquement.
             </p>
             <button 
               onClick={handleGenerate}
               disabled={generating}
-              className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all text-sm active:scale-95"
+              className="px-8 py-4 bg-[#f97316] text-[#081425] rounded-2xl font-black shadow-lg hover:bg-[#ea580c] transition-all text-sm active:scale-95 cursor-pointer"
             >
               {generating ? 'Génération du Tableau...' : 'Générer le Tableau Final'}
             </button>
@@ -560,13 +560,13 @@ export default function Bracket() {
             }
           `}</style>
 
-          <div className="flex justify-between items-center mb-6 pr-4 flex-wrap gap-4 no-print">
+          <div className="flex justify-between items-center mb-6 pr-4 flex-wrap gap-4 no-print animate-fade-in">
             <div>
-              <h1 className="text-3xl font-black text-slate-900 border-l-4 border-amber-500 pl-4 tracking-tight flex items-center gap-3">
-                <Trophy className="w-8 h-8 text-amber-500 animate-bounce" />
+              <h1 className="text-3xl font-black text-white border-l-4 border-[#f97316] pl-4 tracking-tight flex items-center gap-3">
+                <Trophy className="w-8 h-8 text-[#f97316]" />
                 Tableau de Classement Final
               </h1>
-              <p className="text-slate-500 mt-1 pl-4 text-xs font-medium">Gérez le déroulement du tableau final interactif et officiel.</p>
+              <p className="text-slate-400 mt-1 pl-4 text-xs font-semibold">Gérez le déroulement du tableau final interactif et officiel de la FFTT.</p>
             </div>
             
             {/* Barre de contrôles double-vue, impression et actions */}
@@ -574,10 +574,10 @@ export default function Bracket() {
               {/* Action d’impression */}
               <button
                 onClick={() => window.print()}
-                className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200/80 text-slate-700 rounded-xl font-bold transition-all text-xs"
+                className="flex items-center gap-2 px-4 py-2.5 bg-[#111c2d] hover:bg-[#16253b] border border-[#1a3056] text-slate-200 rounded-xl font-black transition-all text-xs cursor-pointer shadow-sm"
                 title="Imprimer le tableau final"
               >
-                <Printer className="w-4 h-4 text-slate-500" />
+                <Printer className="w-4 h-4 text-slate-450" />
                 <span>Format Papier</span>
               </button>
 
@@ -588,14 +588,14 @@ export default function Bracket() {
                 return (
                   <button
                     onClick={handleCloseTournament}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold transition-all shadow-md text-xs border ${
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-black transition-all shadow-md text-xs cursor-pointer border ${
                       isLastDay 
-                        ? 'bg-slate-900 border-slate-930 hover:bg-black text-white' 
-                        : 'bg-slate-50 border-slate-200 text-slate-400 hover:bg-slate-100 hover:text-slate-500'
+                        ? 'bg-rose-600/20 border-rose-500/30 hover:bg-rose-600/30 text-rose-200' 
+                        : 'bg-[#0f172a] border-[#1a3056] text-slate-500 hover:bg-[#111c2d]'
                     }`}
                     title={!isLastDay ? `Le tournoi comporte ${totalDays} jours. Vous devez clôturer la Journée ${currentDay} et gérer la suite d'abord.` : 'Clôturer définitivement le tournoi'}
                   >
-                    <LockIcon className={`w-4 h-4 ${isLastDay ? 'text-amber-400' : 'text-slate-400 animate-pulse'}`} />
+                    <LockIcon className={`w-4 h-4 ${isLastDay ? 'text-amber-400 animate-pulse' : 'text-slate-400'}`} />
                     <span>{isLastDay ? 'Clôturer le Tournoi' : `Clôturer (Débloqué Jour ${totalDays})`}</span>
                   </button>
                 );
@@ -604,7 +604,7 @@ export default function Bracket() {
               {matches.some(m => m.status === 'pending' && m.player1_id && m.player2_id) && (
                 <button
                   onClick={handleLaunchAvailable}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-md text-xs animate-pulse"
+                  className="flex items-center gap-2 px-4 py-2.5 bg-[#f97316] text-[#081425] rounded-xl font-black hover:bg-[#ea580c] transition-all shadow-md text-xs cursor-pointer animate-pulse"
                 >
                   <Play className="w-4 h-4 fill-current" />
                   Lancer les matchs
@@ -614,11 +614,11 @@ export default function Bracket() {
           </div>
 
           {/* SPLENDIDE MODE FICHE FFTT OFFICIELLE (Arbre avec connecteurs, graines bleues, bordures) */}
-          <div className="w-full bg-white border border-slate-200 rounded-3xl p-6 sm:p-10 shadow-lg print-container print-scroll-tree overflow-x-auto">
+          <div className="w-full bg-[#0c1624] border border-[#20324e] rounded-3xl p-6 sm:p-10 shadow-2xl print-container print-scroll-tree overflow-x-auto">
             
             {/* En-tête Bordeaux de délimitation FFTT */}
-            <div className="flex min-w-[max-content] border-b-2 border-slate-900/10 mb-6 bg-slate-50/60 rounded-t-xl pr-20 relative">
-                <div className="absolute top-0 bottom-0 left-0 w-full border-t-4 border-red-800/90 pointer-events-none rounded-t" />
+            <div className="flex min-w-[max-content] border-b border-[#20324e] mb-6 bg-[#111c2d] print:bg-slate-50/60 rounded-t-xl pr-20 relative print:border-b-2 print:border-slate-900/10 font-sans">
+                <div className="absolute top-0 bottom-0 left-0 w-full border-t-4 border-amber-500/80 print:border-red-800/90 pointer-events-none rounded-t" />
                 {(() => {
                   const rds = ['thirtysecondfinal', 'sixteenthfinal', 'eighthfinal', 'quarterfinal', 'semifinal', 'final'];
                   const orderedRounds = rds.filter(r => matches.some(m => m.round === r || (r === 'final' && tedSize >= 2)));
@@ -631,8 +631,8 @@ export default function Bracket() {
                     'final': 'Finale'
                   };
                   return orderedRounds.map((r) => (
-                    <div key={r} className="w-[320px] shrink-0 text-center py-4 border-r border-red-800/10 last:border-r-0">
-                      <span className="text-[12px] font-black text-red-800 tracking-wider uppercase font-sans">
+                    <div key={r} className="w-[320px] shrink-0 text-center py-4 border-r border-[#1e2d42] print:border-red-800/10 last:border-r-0">
+                      <span className="text-[12px] font-black text-amber-500 print:text-red-800 tracking-wider uppercase font-sans">
                         {roundLabels[r] || 'Round'}
                       </span>
                     </div>
@@ -640,7 +640,7 @@ export default function Bracket() {
                 })()}
                 {/* Section vainqueur en haut */}
                 <div className="w-[200px] shrink-0 text-center py-4 flex items-center justify-center">
-                  <span className="text-[12px] font-black text-indigo-800 tracking-wider uppercase font-sans">
+                  <span className="text-[12px] font-black text-[#60a5fa] print:text-indigo-800 tracking-wider uppercase font-sans">
                     Classement
                   </span>
                 </div>
@@ -769,12 +769,14 @@ export default function Bracket() {
                                       width: '210px',
                                       height: '28px'
                                     }}
-                                    className={`px-2.5 flex items-center justify-between border-b-2 border-slate-900 font-sans relative transition-all ${
-                                      isMatchLaunchable ? 'cursor-pointer hover:bg-slate-50' : 
-                                      (matchObj?.status === 'in_progress' && matchObj.table_number) ? 'cursor-pointer hover:bg-amber-50/40' : 'cursor-default'
+                                    className={`px-2.5 flex items-center justify-between border-b border-[#20324e] font-sans relative transition-all ${
+                                      isMatchLaunchable ? 'cursor-pointer bg-[#101b2b] hover:bg-[#16253c]' : 
+                                      (matchObj?.status === 'in_progress' && matchObj.table_number) ? 'cursor-pointer bg-[#e0f2fe]/5 hover:bg-[#e0f2fe]/10' : 'cursor-default'
                                     } ${
-                                      matchObj?.winner_id === matchObj?.player1_id ? 'text-indigo-950 font-black' : 'text-slate-800 font-medium'
-                                    } ${!matchObj?.player1_id ? 'text-slate-400 italic' : ''}`}
+                                      matchObj?.winner_id === matchObj?.player1_id 
+                                        ? 'text-white font-black print:text-[#1e293b]' 
+                                        : 'text-slate-350 font-medium print:text-[#334155]'
+                                    } ${!matchObj?.player1_id ? 'text-slate-500 italic' : ''}`}
                                   >
                                     {/* Sticker/Languette Jaune discret FFTT pour le Seed et le nom */}
                                     <div className="absolute left-[3px] top-[3px] bottom-[3px] w-1 bg-yellow-400/80 rounded" />
@@ -789,7 +791,7 @@ export default function Bracket() {
                                     
                                     {/* Case de sets - uniquement si match réel joué et fini */}
                                     {matchObj?.status === 'finished' && matchObj?.player1_id && matchObj?.player2_id && matchObj?.sets && matchObj.sets.length > 0 && (
-                                      <div className="bg-amber-100 text-amber-900 border border-amber-200/50 text-[10px] px-1.5 py-0.5 rounded font-bold ml-1 shrink-0">
+                                      <div className="bg-[#f97316]/15 hover:bg-[#f97316]/25 text-[#f97316] border border-[#f97316]/25 text-[10.5px] px-1.5 py-0.5 rounded font-black ml-1 shrink-0 print:bg-amber-100 print:text-amber-900 print:border-amber-200/50">
                                         {p1Wins}
                                       </div>
                                     )}
@@ -825,12 +827,14 @@ export default function Bracket() {
                                       width: '210px',
                                       height: '28px'
                                     }}
-                                    className={`px-2.5 flex items-center justify-between border-b-2 border-slate-900 font-sans relative transition-all ${
-                                      isMatchLaunchable ? 'cursor-pointer hover:bg-slate-50' : 
-                                      (matchObj?.status === 'in_progress' && matchObj.table_number) ? 'cursor-pointer hover:bg-amber-50/40' : 'cursor-default'
+                                    className={`px-2.5 flex items-center justify-between border-b border-[#20324e] font-sans relative transition-all ${
+                                      isMatchLaunchable ? 'cursor-pointer bg-[#101b2b] hover:bg-[#16253c]' : 
+                                      (matchObj?.status === 'in_progress' && matchObj.table_number) ? 'cursor-pointer bg-[#e0f2fe]/5 hover:bg-[#e0f2fe]/10' : 'cursor-default'
                                     } ${
-                                      matchObj?.winner_id === matchObj?.player2_id ? 'text-indigo-950 font-black' : 'text-slate-800 font-medium'
-                                    } ${!matchObj?.player2_id ? 'text-slate-400 italic' : ''}`}
+                                      matchObj?.winner_id === matchObj?.player2_id 
+                                        ? 'text-white font-black print:text-[#1e293b]' 
+                                        : 'text-slate-350 font-medium print:text-[#334155]'
+                                    } ${!matchObj?.player2_id ? 'text-slate-500 italic' : ''}`}
                                   >
                                     <div className="absolute left-[3px] top-[3px] bottom-[3px] w-1 bg-yellow-400/80 rounded" />
                                     <div className="flex items-center min-w-0 flex-1 pl-1 text-[11px] truncate">
@@ -844,7 +848,7 @@ export default function Bracket() {
 
                                     {/* Case de sets - uniquement si match réel joué et fini */}
                                     {matchObj?.status === 'finished' && matchObj?.player1_id && matchObj?.player2_id && matchObj?.sets && matchObj.sets.length > 0 && (
-                                      <div className="bg-amber-100 text-amber-950 border border-amber-200/50 text-[10px] px-1.5 py-0.5 rounded font-bold ml-1 shrink-0">
+                                      <div className="bg-[#f97316]/15 hover:bg-[#f97316]/25 text-[#f97316] border border-[#f97316]/25 text-[10.5px] px-1.5 py-0.5 rounded font-black ml-1 shrink-0 print:bg-amber-100 print:text-amber-950 print:border-amber-200/50">
                                         {p2Wins}
                                       </div>
                                     )}
@@ -909,7 +913,7 @@ export default function Bracket() {
                                       height: `${y2 - y1 + 2}px`,
                                       top: `${y1 - 2}px`
                                     }}
-                                    className="absolute w-[2px] bg-slate-900 z-10"
+                                    className="absolute w-[2px] bg-[#2d3d5a] print:bg-slate-950 z-10"
                                   />
 
                                   {/* 4. Trait horizontal commun joignant le tour suivant (ou macaron final) */}
@@ -945,7 +949,7 @@ export default function Bracket() {
                                       {matchObj.status === 'pending' && matchObj.player1_id && matchObj.player2_id ? (
                                         <button 
                                           onClick={() => handleLaunchMatch(matchObj.id)}
-                                          className="w-14 h-5.5 bg-indigo-600 hover:bg-slate-950 text-white border-2 border-white rounded-[6px] text-[8px] font-black uppercase tracking-wider shadow-md flex items-center justify-center gap-0.5 transition-all hover:scale-105 active:scale-95"
+                                          className="w-14 h-5.5 bg-emerald-600 hover:bg-emerald-500 text-white border-2 border-[#101b2b] rounded-[6px] text-[8px] font-black uppercase tracking-wider shadow-md flex items-center justify-center gap-0.5 transition-all hover:scale-105 active:scale-95 cursor-pointer"
                                           title="Lancer le match sur une table libre"
                                         >
                                           <Play className="w-1.5 h-1.5 fill-current" />
@@ -954,19 +958,19 @@ export default function Bracket() {
                                       ) : matchObj.status === 'in_progress' ? (
                                         <button 
                                           onClick={() => navigate(`/table/${matchObj.table_number}`)}
-                                          className="w-14 h-5.5 bg-amber-500 hover:bg-amber-600 border-2 border-white text-slate-950 rounded-[6px] text-[8.5px] font-black uppercase text-center flex items-center justify-center shadow-md shadow-amber-200 transition-all hover:scale-105"
+                                          className="w-14 h-5.5 bg-[#f97316] hover:bg-[#ea580c] border-2 border-[#101b2b] text-[#0c1624] rounded-[6px] text-[8.5px] font-black uppercase text-center flex items-center justify-center shadow-lg shadow-[#ea580c]/10 transition-all hover:scale-105 cursor-pointer"
                                           title="Match en cours d'arbitrage. Aller à la table"
                                         >
                                           T.{matchObj.table_number}
                                         </button>
                                       ) : matchObj.status === 'finished' ? (
                                         <div
-                                          className="w-[38px] h-5.5 bg-slate-950 border-2 border-white text-white rounded-[6px] text-[8.5px] font-extrabold text-center flex items-center justify-center shadow cursor-default select-none"
+                                          className="w-[38px] h-5.5 bg-[#1b2536] border-2 border-[#101b2b] text-[#60a5fa] rounded-[6px] text-[8.5px] font-black text-center flex items-center justify-center shadow cursor-default select-none"
                                         >
                                           {p1Wins}-{p2Wins}
                                         </div>
                                       ) : (
-                                        <div className="w-10 h-5.5 bg-slate-50 border border-slate-200 text-slate-400 rounded-[6px] text-[8px] font-black uppercase flex items-center justify-center">
+                                          <div className="w-10 h-5.5 bg-[#0e1726]/80 border border-[#20324e] text-slate-500 rounded-[6px] text-[8px] font-black uppercase flex items-center justify-center select-none">
                                           Att.
                                         </div>
                                       )}
@@ -1014,10 +1018,10 @@ export default function Bracket() {
                           });
 
                           return (
-                            <div className="bg-slate-50/80 border border-slate-200 p-4 rounded-2xl w-full space-y-4 shadow-sm font-sans no-print">
-                              <div className="flex items-center gap-2 border-b pb-2 border-slate-200">
+                            <div className="bg-[#111c2d] border border-[#20324e] p-4 rounded-2xl w-full space-y-4 shadow-lg font-sans no-print text-slate-100">
+                              <div className="flex items-center gap-2 border-b pb-2 border-[#20324e]">
                                 <Trophy className="w-4 h-4 text-amber-500 fill-amber-100 animate-bounce" />
-                                <h4 className="text-[10px] font-black uppercase text-indigo-950 tracking-wider">
+                                <h4 className="text-[10px] font-black uppercase text-slate-200 tracking-wider">
                                   Podium Officiel
                                 </h4>
                               </div>
@@ -1029,7 +1033,7 @@ export default function Bracket() {
                                     <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                                     1er - Champion
                                   </div>
-                                  <div className="text-[12px] font-black text-slate-900 truncate">
+                                  <div className="text-[12px] font-black text-white truncate">
                                     {winner ? `${winner.first_name || ''} ${winner.last_name || ''}`.trim() : 'En attente...'}
                                   </div>
                                 </div>
@@ -1040,13 +1044,13 @@ export default function Bracket() {
                                     <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
                                     2ème - Finaliste
                                   </div>
-                                  <div className="text-[11px] font-bold text-slate-600 truncate">
+                                  <div className="text-[11px] font-bold text-slate-350 truncate">
                                     {finalist ? `${finalist.first_name || ''} ${finalist.last_name || ''}`.trim() : 'En attente...'}
                                   </div>
                                 </div>
 
                                 {/* 3ème ex-aequo */}
-                                <div className="space-y-1 pt-1 border-t border-slate-200/60">
+                                <div className="space-y-1 pt-1 border-t border-[#20324e]/50">
                                   <div className="text-[9px] font-black text-[#10b981] flex items-center gap-1 uppercase tracking-wider">
                                     <span className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
                                     3ème (ex-aequo)
@@ -1054,7 +1058,7 @@ export default function Bracket() {
                                   {demisLosers.length > 0 ? (
                                     <div className="space-y-1">
                                       {demisLosers.map((loser, idx) => (
-                                        <div key={loser.id || idx} className="text-[11px] font-semibold text-slate-500 truncate">
+                                        <div key={loser.id || idx} className="text-[11px] font-semibold text-slate-400 truncate">
                                           {loser.first_name ? loser.first_name[0] + '.' : ''} {loser.last_name || ''}
                                         </div>
                                       ))}
@@ -1073,23 +1077,23 @@ export default function Bracket() {
 
                       {/* TAMPON D'INFOS OFFICIELS FFTT EN BAS À DROITE */}
                       <div className="absolute bottom-4 right-10 z-30 flex flex-col items-end">
-                        <div className="border-2 border-slate-950 bg-white p-4 font-mono text-[11px] w-[260px] tracking-wide shadow-lg rounded-xl flex flex-col justify-between">
-                          <div className="space-y-1.5 text-slate-900">
+                        <div className="border border-[#20324e] bg-[#111c2d] p-4 font-mono text-[11px] w-[260px] tracking-wide shadow-2xl rounded-xl flex flex-col justify-between print:border-2 print:border-slate-950 print:bg-white">
+                          <div className="space-y-1.5 text-slate-100 print:text-slate-900">
                             <div className="flex justify-between border-b pb-1 font-extrabold">
                               <span>DATE :</span>
-                              <span className="font-medium text-slate-700">
+                              <span className="font-medium text-slate-350 print:text-[#334155]">
                                 {new Date(tournament.created_at || Date.now()).toLocaleDateString('fr-FR')}
                               </span>
                             </div>
                             <div className="flex justify-between border-b pb-1 font-extrabold">
                               <span>EPREUVE :</span>
-                              <span className="font-black text-red-900 truncate max-w-[170px]" title={selectedCategory}>
+                              <span className="font-black text-[#f97316] print:text-red-900 truncate max-w-[170px]" title={selectedCategory}>
                                 {selectedCategory}
                               </span>
                             </div>
                             <div className="flex justify-between font-extrabold">
                               <span>TABLEAU :</span>
-                              <span className="font-bold text-slate-600">{tedSize} Joueurs (16D)</span>
+                              <span className="font-bold text-slate-350 print:text-[#334155]">{tedSize} Joueurs (16D)</span>
                             </div>
                           </div>
                           <div className="text-[8px] text-right text-slate-400 mt-2 italic font-sans">

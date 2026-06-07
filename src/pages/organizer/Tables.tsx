@@ -290,17 +290,17 @@ export default function Tables() {
 
   if (!tournament) {
     return (
-      <div className="p-4 sm:p-8 max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[50vh] text-center">
-        <div className="w-16 h-16 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-500 mb-4 border border-indigo-100 shadow-sm">
+      <div className="p-4 sm:p-8 max-w-7xl mx-auto flex flex-col items-center justify-center min-h-[50vh] text-center" id="no-tournament-active">
+        <div className="w-16 h-16 bg-[#152031] rounded-2xl flex items-center justify-center text-[#f97316] mb-4 border border-[#20324e] shadow-lg">
           <Grid3X3 className="w-8 h-8" />
         </div>
-        <h3 className="text-lg font-bold text-slate-900 mb-2">Aucun tournoi actif</h3>
-        <p className="text-sm text-slate-500 max-w-md mb-6">
+        <h3 className="text-lg font-bold text-white mb-2">Aucun tournoi actif</h3>
+        <p className="text-sm text-slate-400 max-w-md mb-6">
           Vous n'avez pas encore créé ou sélectionné de tournoi. Créez ou sélectionnez-en un dans le Tableau de Bord pour gérer les tables.
         </p>
         <button
           onClick={() => navigate('/organizer')}
-          className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-indigo-700 transition active:scale-95 duration-100"
+          className="px-5 py-2.5 bg-[#f97316] text-[#0c1624] rounded-xl text-sm font-black shadow-md hover:bg-[#ea580c] transition active:scale-95 duration-100 cursor-pointer"
         >
           Aller au Tableau de Bord
         </button>
@@ -310,9 +310,9 @@ export default function Tables() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-        <RefreshCw className="w-8 h-8 text-indigo-600 animate-spin" />
-        <p className="text-sm font-semibold text-slate-500 font-mono">Chargement des tables en temps réel...</p>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3" id="tables-loading-state">
+        <RefreshCw className="w-8 h-8 text-[#f97316] animate-spin" />
+        <p className="text-sm font-semibold text-slate-400 font-mono">Chargement des tables en temps réel...</p>
       </div>
     );
   }
@@ -448,78 +448,74 @@ export default function Tables() {
   );
 
   return (
-    <div className="p-3 sm:p-5 w-full max-w-[1600px] 2xl:max-w-[1850px] mx-auto space-y-8 animate-fade-in pb-16">
+    <div className="p-2 sm:p-4 w-full max-w-[1600px] 2xl:max-w-[1850px] mx-auto space-y-5 animate-fade-in pb-10" id="tables-view-main">
       {/* En-tête de la page */}
-      <div className="flex flex-col gap-2 md:flex-row md:justify-between md:items-center">
+      <div className="flex flex-col gap-2.5 md:flex-row md:justify-between md:items-center">
         <div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900 border-l-4 border-indigo-500 pl-4">
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white border-l-4 border-[#f97316] pl-4">
             Gestion des Tables
           </h1>
-          <p className="text-slate-500 mt-1 pl-4">
-            Affectations en temps réel, mouvements de tables et suivi direct des matchs.
+          <p className="text-slate-400 mt-1 pl-4 text-xs sm:text-sm font-semibold">
+            Affectations en temps réel, mouvements de tables et suivi direct des matchs du club en compétition.
           </p>
         </div>
         <button 
           onClick={() => fetchTablesData()}
-          className="self-start md:self-auto flex items-center gap-2 px-4 py-2 border border-slate-200 hover:border-slate-300 text-slate-650 hover:text-slate-950 font-bold text-xs bg-white rounded-xl transition-all shadow-sm"
+          className="self-start md:self-auto flex items-center gap-2 px-4 py-2 bg-[#152031] border border-[#2a3548] hover:border-[#f97316]/50 text-slate-200 hover:text-white font-extrabold text-xs rounded-xl transition-all shadow-md cursor-pointer select-none"
         >
           <RefreshCw className="w-3.5 h-3.5" /> Réactualiser
         </button>
       </div>
 
       {/* Widgets Stats en Bento Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-white p-6 rounded-[2rem] border border-slate-200/80 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
-            <Grid3X3 className="w-6 h-6" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-[#152031] p-4 sm:p-4.5 rounded-2xl border border-[#2a3548] shadow-lg flex items-center justify-between relative overflow-hidden">
+          <div className="space-y-0.5 z-10">
+            <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest block">Total Tables</span>
+            <span className="text-3xl sm:text-4xl font-black font-mono text-white tracking-tight">{String(nbTables).padStart(2, '0')}</span>
           </div>
-          <div>
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Total Tables</span>
-            <span className="text-2xl font-black text-slate-800">{nbTables}</span>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-[2rem] border border-slate-200/80 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600">
-            <Play className="w-6 h-6 animate-pulse" />
-          </div>
-          <div>
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Tables Occupées</span>
-            <span className="text-2xl font-black text-slate-800">
-              {occupiedTablesCount}
-            </span>
+          <div className="w-10 h-10 sm:w-11 sm:h-11 bg-[#0e1726]/80 rounded-xl flex items-center justify-center text-slate-400 border border-[#20324e] z-10">
+            <Grid3X3 className="w-5 h-5" />
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-[2rem] border border-slate-200/80 shadow-sm flex items-center gap-4">
-          <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
-            <Coffee className="w-6 h-6" />
+        <div className="bg-[#152031] p-4 sm:p-4.5 rounded-2xl border-b-4 border-b-[#f97316] border-[#2a3548] shadow-lg flex items-center justify-between relative overflow-hidden">
+          <div className="space-y-0.5 z-10">
+            <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest block">Tables Occupées</span>
+            <span className="text-3xl sm:text-4xl font-black font-mono text-[#f97316] tracking-tight">{String(occupiedTablesCount).padStart(2, '0')}</span>
           </div>
-          <div>
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">Tables Libres</span>
-            <span className="text-2xl font-black text-slate-800">
-              {freeTablesCount}
-            </span>
+          <div className="w-10 h-10 sm:w-11 sm:h-11 bg-[#f97316]/10 rounded-xl flex items-center justify-center text-[#f97316] border border-[#f97316]/20 z-10">
+            <Play className="w-5 h-5 animate-pulse fill-current" />
+          </div>
+        </div>
+
+        <div className="bg-[#152031] p-4 sm:p-4.5 rounded-2xl border border-[#2a3548] shadow-lg flex items-center justify-between relative overflow-hidden">
+          <div className="space-y-0.5 z-10">
+            <span className="text-[10px] sm:text-xs font-bold text-slate-400 uppercase tracking-widest block">Tables Libres</span>
+            <span className="text-3xl sm:text-4xl font-black font-mono text-emerald-400 tracking-tight">{String(freeTablesCount).padStart(2, '0')}</span>
+          </div>
+          <div className="w-10 h-10 sm:w-11 sm:h-11 bg-emerald-500/10 rounded-xl flex items-center justify-center text-emerald-400 border border-emerald-500/20 z-10">
+            <Coffee className="w-5 h-5" />
           </div>
         </div>
       </div>
 
       {/* Alerte Poules Sans Tables */}
       {unassignedPools.length > 0 && (
-        <div className="bg-amber-50/50 border border-amber-200/60 text-slate-800 p-5 rounded-[2rem] flex items-start gap-4 shadow-sm">
-          <div className="p-2.5 bg-amber-100/80 text-amber-700 rounded-xl">
-            <AlertTriangle className="w-5 h-5" />
+        <div className="bg-[#eab308]/5 border border-[#eab308]/20 text-slate-300 p-4 rounded-2xl flex items-start gap-3 shadow-xl">
+          <div className="p-2 bg-[#eab308]/10 text-[#f97316] rounded-xl flex-shrink-0">
+            <AlertTriangle className="w-4.5 h-4.5" />
           </div>
           <div className="flex-1">
-            <h4 className="font-extrabold text-sm text-slate-850">Poules en attente d'attribution ({unassignedPools.length})</h4>
-            <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+            <h4 className="font-extrabold text-sm text-white">Poules en attente d'attribution ({unassignedPools.length})</h4>
+            <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
               Des poules ne sont affectées à aucune table de jeu. Assignez-les à des tables libres pour commencer l'arbitrage.
             </p>
-            <div className="flex flex-wrap gap-2 mt-3.5">
+            <div className="flex flex-wrap gap-1.5 mt-2.5">
               {unassignedPools.map(pool => (
                 <span 
                   key={pool.id} 
-                  className="px-3 py-1.5 bg-white border border-amber-200 text-[11px] font-bold text-slate-700 rounded-xl shadow-xs"
+                  className="px-2.5 py-1 bg-[#0e1726]/80 border border-[#20324e] text-[10px] font-bold text-slate-300 rounded-lg shadow-md"
                 >
                   {pool.name}
                 </span>
@@ -530,7 +526,7 @@ export default function Tables() {
       )}
 
       {/* Grille des Tables */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {tablesArray.map((tableNum) => {
           // Trouver s'il y a un match en cours sur cette table
           const activeMatch = matches.find(
@@ -571,51 +567,58 @@ export default function Tables() {
 
           const isOccupied = !!activeMatch || !!activePool;
 
+          // Récupération des points du set en cours
+          const currentSet = activeMatch?.sets && activeMatch.sets.length > 0 
+            ? activeMatch.sets[activeMatch.sets.length - 1] 
+            : null;
+          const p1Score = currentSet ? currentSet.score_p1 : 0;
+          const p2Score = currentSet ? currentSet.score_p2 : 0;
+
           return (
             <div
               key={tableNum}
-              className={`p-6 rounded-[2.5rem] border transition-all duration-300 relative overflow-hidden flex flex-col justify-between ${
+              className={`p-4 sm:p-4.5 rounded-2xl border transition-all duration-300 relative overflow-hidden flex flex-col justify-between ${
                 isOccupied 
-                  ? 'bg-white border-slate-200 shadow-xl shadow-slate-50' 
-                  : 'bg-slate-50/50 border-dashed border-slate-200/80 hover:border-slate-300 hover:bg-slate-50/80 group'
+                  ? 'bg-[#152031] border-[#2a3548] shadow-2xl' 
+                  : 'bg-[#152031]/35 border-dashed border-[#20324e] hover:border-slate-500 hover:bg-[#152031]/50 group'
               }`}
             >
               {/* Entête de carte */}
               <div>
-                <div className="flex justify-between items-start mb-4">
+                <div className="flex justify-between items-start mb-3.5">
                   <div>
-                    <span className="text-xs font-black text-slate-400 uppercase tracking-widest block mb-0.5">ESPACE JEU</span>
-                    <h2 className="text-xl font-black text-slate-900">Table {tableNum}</h2>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-0.5">ESPACE JEU</span>
+                    <h2 className="text-xl font-black text-white">Table {tableNum}</h2>
                   </div>
                   
                   {isOccupied ? (
-                    <span className="px-3 py-1 bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-black uppercase tracking-wider rounded-full">
+                    <span className="px-2.5 py-0.5 bg-[#f97316]/10 border border-[#f97316]/25 text-[#f97316] text-[10px] font-extrabold uppercase tracking-wider rounded-lg">
                       Occupée
                     </span>
                   ) : (
-                    <span className="px-3 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase tracking-wider rounded-full">
+                    <span className="px-2.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-extrabold uppercase tracking-wider rounded-lg">
                       Libre
                     </span>
                   )}
                 </div>
 
                 {/* Contenu principal */}
-                <div className="space-y-4 py-2">
+                <div className="space-y-3 py-1">
                   {isOccupied ? (
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       {/* Série & Catégorie */}
                       <div>
                         {isPool ? (
                           <>
-                            <span className="text-[10px] font-extrabold uppercase text-indigo-400 tracking-wider block">Poule Actuelle</span>
-                            <div className="text-sm font-bold text-slate-800 truncate">
+                            <span className="text-[10px] font-extrabold uppercase text-[#f97316]/90 tracking-wider block">Poule Actuelle</span>
+                            <div className="text-sm font-bold text-white truncate mt-0.5">
                               {displayedPool?.name || 'Match de poule'}
                             </div>
                           </>
                         ) : (
                           <>
-                            <span className="text-[10px] font-extrabold uppercase text-amber-500 tracking-wider block">Phase Finale</span>
-                            <div className="text-sm font-bold text-slate-800 truncate">
+                            <span className="text-[10px] font-extrabold uppercase text-[#f97316]/90 tracking-wider block">Phase Finale</span>
+                            <div className="text-sm font-bold text-white truncate mt-0.5">
                               {activeMatch ? getRoundLabel(activeMatch.round) : 'Tableau de Phase Finale'}
                             </div>
                           </>
@@ -624,47 +627,62 @@ export default function Tables() {
 
                       {/* Match en cours ou Matchs restants */}
                       {activeMatch ? (
-                        <div className="bg-indigo-50/40 border border-indigo-100/60 rounded-2xl p-3.5 space-y-2 animate-pulse">
-                          <span className="text-[9px] font-black text-indigo-600 uppercase tracking-widest block">Match en cours 🏓</span>
+                        <div className="bg-[#0e1726]/60 border border-[#20324e] rounded-xl p-3 sm:p-3.5 space-y-3">
+                          <span className="text-[9px] font-bold text-[#f97316] uppercase tracking-widest block">Match en cours 🏓</span>
                           
-                          <div className="space-y-1">
+                          <div className="space-y-1.5">
                             {/* Joueur 1 */}
-                            <div className="flex justify-between items-center text-xs font-bold text-slate-700">
-                              <span>{activeMatch.player1?.last_name?.toUpperCase() || 'Inconnu'} {activeMatch.player1?.first_name ? `${activeMatch.player1.first_name[0]}.` : ''}</span>
-                              <span className="text-[10px] text-slate-400">{activeMatch.player1?.points || 0} pts</span>
+                            <div className="flex justify-between items-center text-xs font-bold text-slate-200">
+                              <span className="truncate max-w-[130px]" title={`${activeMatch.player1?.last_name?.toUpperCase() || ''} ${activeMatch.player1?.first_name || ''}`}>
+                                {activeMatch.player1?.last_name?.toUpperCase() || 'Inconnu'} {activeMatch.player1?.first_name ? `${activeMatch.player1.first_name[0]}.` : ''}
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[9px] text-slate-500 font-medium">{activeMatch.player1?.points || 0} pts</span>
+                                <span className="text-xs font-black text-[#f97316] tabular-nums bg-[#f97316]/10 px-1.5 py-0.5 rounded-md min-w-[20px] text-center">
+                                  {p1Score}
+                                </span>
+                              </div>
                             </div>
                             
                             {/* VS */}
-                            <div className="text-[10px] text-center font-extrabold text-indigo-400">vs</div>
+                            <div className="text-[9px] text-center font-bold text-[#20324e] uppercase border-y border-[#20324e]/50 py-0.5">vs</div>
 
                             {/* Joueur 2 */}
-                            <div className="flex justify-between items-center text-xs font-bold text-slate-700">
-                              <span>{activeMatch.player2?.last_name?.toUpperCase() || 'Inconnu'} {activeMatch.player2?.first_name ? `${activeMatch.player2.first_name[0]}.` : ''}</span>
-                              <span className="text-[10px] text-slate-400">{activeMatch.player2?.points || 0} pts</span>
+                            <div className="flex justify-between items-center text-xs font-bold text-slate-200">
+                              <span className="truncate max-w-[130px]" title={`${activeMatch.player2?.last_name?.toUpperCase() || ''} ${activeMatch.player2?.first_name || ''}`}>
+                                {activeMatch.player2?.last_name?.toUpperCase() || 'Inconnu'} {activeMatch.player2?.first_name ? `${activeMatch.player2.first_name[0]}.` : ''}
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[9px] text-slate-500 font-medium">{activeMatch.player2?.points || 0} pts</span>
+                                <span className="text-xs font-black text-slate-400 tabular-nums bg-slate-400/10 px-1.5 py-0.5 rounded-md min-w-[20px] text-center">
+                                  {p2Score}
+                                </span>
+                              </div>
                             </div>
                           </div>
 
+                          {/* Info sur le numéro de match / poule */}
+                          <div className="text-[9px] text-[#38bdf8] font-bold uppercase tracking-wider text-center pt-1 border-t border-[#20324e]/50">
+                            {displayedPool?.name ? `${displayedPool.name.toUpperCase()} • MATCH` : getRoundLabel(activeMatch.round).toUpperCase()}
+                          </div>
+
                           {/* Scores Live des sets */}
-                          {activeMatch.sets && activeMatch.sets.length > 0 ? (
-                            <div className="flex justify-center gap-1.5 pt-2 border-t border-indigo-100/40">
+                          {activeMatch.sets && activeMatch.sets.length > 0 && (
+                            <div className="flex justify-center gap-1 pt-1.5 border-t border-[#20324e]/40">
                               {activeMatch.sets.map((set: any, idx: number) => (
                                 <span 
                                   key={set.id || idx} 
-                                  className="px-2 py-0.5 bg-white border border-indigo-100 text-[10px] font-black text-indigo-600 rounded-md shadow-xs tabular-nums"
+                                  className="px-1.5 py-0.5 bg-[#090f19] border border-[#20324e] text-[9px] font-bold text-slate-400 rounded shadow-sm tabular-nums"
                                 >
                                   {set.score_p1}-{set.score_p2}
                                 </span>
                               ))}
                             </div>
-                          ) : (
-                            <div className="text-[10px] text-center text-slate-400 italic pt-1">
-                              Match démarré, score en attente
-                            </div>
                           )}
                         </div>
                       ) : (
                         activePool && (
-                          <div className="border border-slate-100 rounded-2xl p-4 text-center">
+                          <div className="border border-[#20324e] rounded-xl p-3 text-center bg-[#0e1726]/30">
                             <p className="text-xs text-slate-400 italic">Aucun arbitrage actif</p>
                             
                             {(() => {
@@ -679,18 +697,18 @@ export default function Tables() {
                               const p2ConflictMob = p2Mobs.find(mob => Number(mob.tableNumber) !== Number(tableNum));
                               
                               if (p1ConflictMob || p2ConflictMob) {
-                                return (
-                                  <div className="my-2.5 text-left bg-red-50 border border-red-100 text-red-700 px-3 py-2 rounded-xl text-[10px] space-y-1">
-                                    <div className="flex items-center gap-1 font-extrabold text-red-800">
-                                      <ShieldAlert className="w-3.5 h-3.5 text-red-500 animate-pulse" />
+                                  return (
+                                  <div className="my-2 text-left bg-red-500/10 border border-red-500/20 text-red-200 px-2.5 py-1.5 rounded-xl text-[10px] space-y-1">
+                                    <div className="flex items-center gap-1 font-extrabold text-red-400">
+                                      <ShieldAlert className="w-3 h-3 text-red-500 animate-pulse" />
                                       <span>Double programmation !</span>
                                     </div>
-                                    <ul className="list-disc list-inside space-y-0.5 text-[9px] text-red-650 font-medium">
+                                    <ul className="list-disc list-inside space-y-0.5 text-[8.5px] text-red-300 font-medium">
                                       {p1ConflictMob && (
-                                        <li>{p1ConflictMob.playerName} est dans "{p1ConflictMob.sourceName}" sur Table {p1ConflictMob.tableNumber}</li>
+                                        <li>{p1ConflictMob.playerName} est sur Table {p1ConflictMob.tableNumber}</li>
                                       )}
                                       {p2ConflictMob && (
-                                        <li>{p2ConflictMob.playerName} est dans "{p2ConflictMob.sourceName}" sur Table {p2ConflictMob.tableNumber}</li>
+                                        <li>{p2ConflictMob.playerName} est sur Table {p2ConflictMob.tableNumber}</li>
                                       )}
                                     </ul>
                                   </div>
@@ -701,32 +719,32 @@ export default function Tables() {
 
                             <button
                               onClick={() => handleLaunchPoolMatch(activePool.id, tableNum)}
-                              className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 text-white rounded-xl text-[10px] font-extrabold hover:bg-slate-800 transition-all active:scale-95 shadow-sm"
+                              className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#f97316] hover:bg-[#ea580c] text-[#0c1624] rounded-lg text-[9px] font-black uppercase tracking-wider transition-all active:scale-95 shadow-md cursor-pointer"
                             >
-                              <Play className="w-3 h-3 fill-current" /> Lancer match suivant
+                              <Play className="w-2.5 h-2.5 fill-current" /> Lancer match suivant
                             </button>
                           </div>
                         )
                       )}
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center py-6 text-center text-slate-400 space-y-2">
-                      <div className="w-10 h-10 rounded-full bg-slate-100/50 flex items-center justify-center text-slate-400 group-hover:bg-indigo-50/10 group-hover:text-indigo-400 transition-colors">
-                        <Coffee className="w-5 h-5" />
+                    <div className="flex flex-col items-center justify-center py-5 text-center text-slate-500 space-y-2.5">
+                      <div className="w-10 h-10 rounded-xl bg-[#0e1726]/50 flex items-center justify-center text-slate-400 border border-[#20324e] group-hover:bg-[#f97316]/10 group-hover:text-[#f97316] group-hover:border-[#f97316]/20 transition-all duration-300">
+                        <Coffee className="w-4.5 h-4.5" />
                       </div>
-                      <p className="text-xs font-medium italic">Table libre pour de nouvelles compositions</p>
+                      <p className="text-xs font-semibold text-slate-400 italic leading-normal px-1">Table libre pour de nouvelles compositions</p>
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Barre d'action basse de carte */}
-              <div className="mt-6 pt-4 border-t border-slate-100/80">
+              <div className="mt-4 pt-3 border-t border-[#20324e]/60">
                 {activePool ? (
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-1.5">
                     {movingTable === tableNum ? (
-                      <div className="space-y-1.5 pt-1">
-                        <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest block">Déplacer vers...</label>
+                      <div className="space-y-1.5 pt-0.5">
+                        <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest block font-mono">Déplacer vers...</label>
                         <select
                           value=""
                           onChange={(e) => {
@@ -735,7 +753,7 @@ export default function Tables() {
                               handleMovePoolToTable(activePool.id, tableNum, val);
                             }
                           }}
-                          className="w-full text-xs font-bold bg-white border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                          className="w-full text-xs font-bold bg-[#0e1726]/90 border border-[#20324e] text-white rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-[#f97316] shadow-md cursor-pointer"
                         >
                           <option value="">Sélectionner table libre</option>
                           {tablesArray
@@ -746,22 +764,22 @@ export default function Tables() {
                         </select>
                         <button
                           onClick={() => setMovingTable(null)}
-                          className="w-full text-[10px] text-center text-slate-400 hover:text-slate-600 font-extrabold py-1"
+                          className="w-full text-[9px] text-center text-slate-400 hover:text-slate-300 font-extrabold py-0.5"
                         >
                           Annuler
                         </button>
                       </div>
                     ) : (
-                      <div className="flex gap-2">
+                      <div className="flex gap-1.5">
                         <button
                           onClick={() => setMovingTable(tableNum)}
-                          className="flex-1 py-2 border border-slate-200 hover:border-slate-300 text-slate-650 hover:text-slate-950 rounded-xl text-[11px] font-bold transition-all text-center"
+                          className="flex-1 py-1.5 border border-[#20324e] bg-[#0e1726]/40 hover:border-slate-500 text-slate-300 hover:text-white rounded-lg text-[10px] font-bold transition-all text-center cursor-pointer"
                         >
                           Déplacer poule
                         </button>
                         <button
                           onClick={() => handleReleaseTable(activePool.id, tableNum)}
-                          className="px-2.5 py-2 hover:bg-red-50 text-red-500 hover:text-red-700 rounded-xl text-[11px] font-bold transition-all border border-transparent hover:border-red-100"
+                          className="px-2.5 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-300 hover:text-red-200 rounded-lg text-[10px] font-bold transition-all border border-red-500/20 cursor-pointer"
                           title="Libérer la table"
                         >
                           Libérer
@@ -770,7 +788,14 @@ export default function Tables() {
                     )}
                   </div>
                 ) : activeMatch ? (
-                  <div className="flex flex-col gap-1.5 pt-1">
+                  <div className="flex flex-col gap-1 pt-0.5">
+                    <button
+                      onClick={() => navigate('/organizer/scores')}
+                      className="w-full py-2 bg-[#20324e]/50 hover:bg-[#20324e]/80 text-slate-200 hover:text-white border border-[#2a3548] rounded-lg text-[10px] font-bold transition-all uppercase tracking-widest text-center cursor-pointer flex justify-center items-center gap-1.5 shadow-md"
+                    >
+                      <Trophy className="w-3 h-3 text-[#f97316]" /> Gérer le score
+                    </button>
+                    {/* Libération discrète sous le bouton */}
                     <button
                       onClick={async () => {
                         try {
@@ -785,16 +810,16 @@ export default function Tables() {
                           toast.error("Erreur lors de la libération du match.");
                         }
                       }}
-                      className="w-full py-2 hover:bg-red-50 text-red-500 hover:text-red-700 rounded-xl text-[11px] font-bold transition-all border border-transparent hover:border-red-100 text-center"
+                      className="w-full text-[9px] text-slate-500 hover:text-red-400 font-bold transition-colors py-0.5 hover:underline text-center cursor-pointer"
                     >
-                      Libérer la table (Match en cours)
+                      Libérer la table
                     </button>
                   </div>
                 ) : (
                   <div>
                     {assigningTable === tableNum ? (
-                      <div className="space-y-1.5 pt-1">
-                        <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest block">Assigner poule ou match...</label>
+                      <div className="space-y-1.5 pt-0.5">
+                        <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest block font-mono">Assigner poule ou match...</label>
                         {unassignedPools.length > 0 || readyBracketMatches.length > 0 ? (
                           <select
                             value=""
@@ -806,11 +831,11 @@ export default function Tables() {
                                 handleAssignBracketMatchToTable(val.replace('match:', ''), tableNum);
                               }
                             }}
-                            className="w-full text-xs font-bold bg-white border border-slate-200 rounded-xl p-2.5 focus:outline-none focus:ring-1 focus:ring-indigo-500 shadow-sm"
+                            className="w-full text-xs font-bold bg-[#0e1726]/90 border border-[#20324e] text-white rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-[#f97316] shadow-md cursor-pointer"
                           >
                             <option value="">Choisir poule ou match</option>
                             {unassignedPools.length > 0 && (
-                              <optgroup label="Poules de qualification">
+                              <optgroup label="Poules de qualification" className="bg-[#152031] text-white">
                                 {unassignedPools.map((p) => {
                                   const pPlayers = poolPlayers.filter(pp => pp.pool_id === p.id);
                                   let conflictingPlayerName = '';
@@ -827,7 +852,7 @@ export default function Tables() {
                                     }
                                   }
                                   return (
-                                    <option key={p.id} value={`pool:${p.id}`}>
+                                    <option key={p.id} value={`pool:${p.id}`} className="text-white">
                                       {p.name} {isBusy ? `⚠️ (${conflictingPlayerName} sur Table ${conflictingTable})` : ''}
                                     </option>
                                   );
@@ -835,7 +860,7 @@ export default function Tables() {
                               </optgroup>
                             )}
                             {readyBracketMatches.length > 0 && (
-                              <optgroup label="Matchs de phase finale">
+                              <optgroup label="Matchs de phase finale" className="bg-[#152031] text-white">
                                 {readyBracketMatches.map((m) => {
                                   const p1Mobs = m.player1_id ? (mobilizedPlayers.get(m.player1_id) || []) : [];
                                   const p2Mobs = m.player2_id ? (mobilizedPlayers.get(m.player2_id) || []) : [];
@@ -857,7 +882,7 @@ export default function Tables() {
                                   const sName = m.player1?.serie || m.player2?.serie || '';
                                   const sPrefix = sName ? `[${sName}] ` : '';
                                   return (
-                                    <option key={m.id} value={`match:${m.id}`}>
+                                    <option key={m.id} value={`match:${m.id}`} className="text-white">
                                       {sPrefix}{roundLabel} : {p1} vs {p2} {isBusy ? `⚠️${conflictingInfo}` : ''}
                                     </option>
                                   );
@@ -866,13 +891,13 @@ export default function Tables() {
                             )}
                           </select>
                         ) : (
-                          <div className="text-[10px] text-slate-400 italic py-1 leading-normal">
+                          <div className="text-[10px] text-slate-450 bg-[#0e1726]/40 border border-[#20324e] rounded-lg p-2 text-center italic leading-normal">
                             Aucune poule ou match disponible en attente de table.
                           </div>
                         )}
                         <button
                           onClick={() => setAssigningTable(null)}
-                          className="w-full text-[10px] text-center text-slate-400 hover:text-slate-600 font-extrabold py-1"
+                          className="w-full text-[9px] text-center text-slate-400 hover:text-slate-300 font-bold py-0.5 select-none cursor-pointer"
                         >
                           Annuler
                         </button>
@@ -880,9 +905,9 @@ export default function Tables() {
                     ) : (
                       <button
                         onClick={() => setAssigningTable(tableNum)}
-                        className="w-full py-2 hover:bg-slate-900 hover:text-white text-slate-600 border border-slate-200 hover:border-slate-900 rounded-xl text-[11px] font-extrabold transition-all text-center cursor-pointer"
+                        className="w-full py-2.5 bg-[#f97316] text-[#0c1624] font-black rounded-lg text-[10px] uppercase tracking-wider hover:bg-[#ea580c] transition-all text-center cursor-pointer shadow-md select-none flex justify-center items-center gap-1.5"
                       >
-                        Assigner poule ou match
+                        <Play className="w-3 h-3 fill-current" /> Assigner poule ou match
                       </button>
                     )}
                   </div>
@@ -895,3 +920,4 @@ export default function Tables() {
     </div>
   );
 }
+
