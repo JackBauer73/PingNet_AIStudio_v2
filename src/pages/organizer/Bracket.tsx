@@ -455,7 +455,7 @@ export default function Bracket() {
   if (loading && matches.length === 0) return <div className="p-8 text-center text-slate-400">Chargement...</div>;
 
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto min-h-[calc(100vh-100px)]">
+    <div className="p-1.5 sm:p-3 w-full max-w-[1600px] 2xl:max-w-[1850px] mx-auto min-h-[calc(100vh-100px)]">
       {/* Sélecteur de Catégorie / Série de la journée active */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-8">
         <div className="flex items-center gap-3 flex-wrap">

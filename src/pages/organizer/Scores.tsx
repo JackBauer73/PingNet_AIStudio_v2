@@ -34,7 +34,7 @@ export default function Scores() {
   if (loading) return <div className="p-8 text-center text-slate-400">Chargement...</div>;
 
   return (
-    <div className="p-4 sm:p-8 max-w-6xl mx-auto">
+    <div className="p-3 sm:p-5 w-full max-w-[1600px] 2xl:max-w-[1850px] mx-auto">
       <div className="flex flex-col sm:flex-row justify-between sm:items-end items-stretch gap-4 mb-8">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 border-l-4 border-indigo-500 pl-4">

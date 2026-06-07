@@ -448,7 +448,7 @@ export default function Tables() {
   );
 
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-8 animate-fade-in pb-16">
+    <div className="p-3 sm:p-5 w-full max-w-[1600px] 2xl:max-w-[1850px] mx-auto space-y-8 animate-fade-in pb-16">
       {/* En-tête de la page */}
       <div className="flex flex-col gap-2 md:flex-row md:justify-between md:items-center">
         <div>

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { usePlayers } from '../../hooks/usePlayers';
 import { useTournament } from '../../hooks/useTournament';
@@ -59,6 +60,14 @@ export default function Players() {
   const [activeTab, setActiveTab] = useState<'all' | 'to_check' | 'checked'>('all');
   const [sendingSmsId, setSendingSmsId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+  React.useEffect(() => {
+    const target = document.getElementById('operations-header-actions');
+    if (target) {
+      setPortalTarget(target);
+    }
+  }, []);
 
   React.useEffect(() => {
     if (tournament?.current_day) {
@@ -567,44 +576,40 @@ export default function Players() {
     );
   }
 
+  const checkedInCount = players.filter(p => p.checked_in).length;
+  const progressPercent = players.length > 0 ? Math.round((checkedInCount / players.length) * 100) : 0;
+
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-8 animate-fade-in">
-      {/* Header Unifié J-J */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
-        <div className="space-y-1">
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 border-l-4 border-indigo-500 pl-4 flex items-center gap-2">
-            Pointage J-J & Joueurs
-          </h1>
-          <p className="text-slate-500 text-xs sm:text-sm pl-4">
-            Gérez la table de pointage en direct ({players.length} inscriptions au total), attribuez les dossards et suivez les règlements.
-          </p>
-        </div>
-        
-        <div className="flex items-center gap-3">
+    <div className="w-full max-w-[1600px] 2xl:max-w-[1850px] mx-auto space-y-6 animate-fade-in text-[#d8e3fb]">
+      {portalTarget && createPortal(
+        <>
           <button 
             onClick={refresh}
             disabled={loading}
-            className="p-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+            className="p-2.5 rounded-xl border border-[#2a3548] text-slate-300 hover:bg-[#111c2d] transition-colors disabled:opacity-50 cursor-pointer h-10 w-10 flex items-center justify-center shrink-0"
             title="Actualiser la liste"
           >
             <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
           </button>
           <button
             onClick={() => navigate(`/organizer/checkin-scan/${tournament?.current_day || 1}`)}
-            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#0f1f3d] hover:bg-[#1f355c] text-white rounded-xl font-medium transition-all shadow-lg active:scale-95 cursor-pointer"
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-[#f97316] hover:bg-orange-600 text-white rounded-xl font-bold transition-all shadow-lg active:scale-95 cursor-pointer text-xs uppercase tracking-wider h-10 shrink-0"
           >
-            <QrCode className="w-5 h-5" />
-            Scanner QR
+            <QrCode className="w-4 h-4" />
+            <span className="hidden sm:inline">Scanner QR</span>
+            <span className="sm:hidden">Scanner</span>
           </button>
           <button
             onClick={() => setShowAddForm(!showAddForm)}
-            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-medium transition-all shadow-lg shadow-indigo-200/50"
+            className="flex items-center justify-center gap-2 px-4 py-2 bg-[#1f2a3c] hover:bg-[#2a3548] text-white rounded-xl font-bold transition-all border border-[#2a3548] shadow-lg active:scale-95 cursor-pointer text-xs uppercase tracking-wider h-10 shrink-0"
           >
-            <UserPlus className="w-5 h-5" />
-            Ajouter un Joueur
+            <UserPlus className="w-4 h-4" />
+            <span className="hidden sm:inline">Ajouter un Joueur</span>
+            <span className="sm:hidden">Ajouter</span>
           </button>
-        </div>
-      </div>
+        </>,
+        portalTarget
+      )}
 
       {/* Formulaire d'ajout rapide de joueur (collapsable) */}
       <AnimatePresence>
@@ -613,79 +618,79 @@ export default function Players() {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden"
+            className="overflow-hidden bg-[#152031] rounded-2xl border border-[#2a3548] my-4"
           >
-            <form onSubmit={handleSubmit} className="bg-white p-8 rounded-2xl shadow-sm border border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <form onSubmit={handleSubmit} className="p-6 grid grid-cols-1 md:grid-cols-3 gap-5">
               <div>
-                <label className="block text-sm font-semibold text-slate-750 mb-2">Prénom *</label>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Prénom *</label>
                 <input
                   required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-sm"
+                  className="w-full px-4 py-2 bg-[#081425] border border-[#1a3056] rounded-lg focus:border-[#f97316] outline-none text-white transition-all text-xs font-bold"
                   value={formData.first_name}
                   onChange={e => setFormData({ ...formData, first_name: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-slate-750 mb-2">Nom *</label>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Nom *</label>
                 <input
                   required
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-sm"
+                  className="w-full px-4 py-2 bg-[#081425] border border-[#1a3056] rounded-lg focus:border-[#f97316] outline-none text-white transition-all text-xs font-bold"
                   value={formData.last_name}
                   onChange={e => setFormData({ ...formData, last_name: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-slate-750 mb-2">Série / Classement *</label>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Série / Classement *</label>
                 <select
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-sm cursor-pointer"
+                  className="w-full px-4 py-2 bg-[#081425] border border-[#1a3056] rounded-lg focus:border-[#f97316] outline-none text-white transition-all text-xs font-bold cursor-pointer"
                   value={formData.serie}
                   onChange={e => setFormData({ ...formData, serie: e.target.value })}
                 >
                   {categories.length > 0 ? (
                     categories.map(c => (
-                      <option key={c.id} value={c.name}>
+                      <option key={c.id} value={c.name} className="bg-[#081425]">
                         {c.name} (Jour {c.day_number})
                       </option>
                     ))
                   ) : (
-                    SERIES.map(s => <option key={s} value={s}>{s}</option>)
+                    SERIES.map(s => <option key={s} value={s} className="bg-[#081425]">{s}</option>)
                   )}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-slate-750 mb-2">Club / Association</label>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Club / Association</label>
                 <input
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-sm"
+                  className="w-full px-4 py-2 bg-[#081425] border border-[#1a3056] rounded-lg focus:border-[#f97316] outline-none text-white transition-all text-xs font-bold"
                   value={formData.club}
                   onChange={e => setFormData({ ...formData, club: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-slate-750 mb-2">Numéro de Téléphone (SMS de scores)</label>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Numéro de Téléphone (SMS de scores)</label>
                 <input
                   type="tel"
                   placeholder="Ex: 0612345678"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-sm font-mono"
+                  className="w-full px-4 py-2 bg-[#081425] border border-[#1a3056] rounded-lg focus:border-[#f97316] outline-none text-white transition-all text-xs font-bold font-mono"
                   value={formData.phone}
                   onChange={e => setFormData({ ...formData, phone: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-slate-750 mb-2">N° de Licence FFTT (Optionnel)</label>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">N° de Licence FFTT (Optionnel)</label>
                 <input
                   type="text"
                   placeholder="Ex: 5912345"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-sm font-mono"
+                  className="w-full px-4 py-2 bg-[#081425] border border-[#1a3056] rounded-lg focus:border-[#f97316] outline-none text-white transition-all text-xs font-bold font-mono"
                   value={formData.licence_number}
                   onChange={e => setFormData({ ...formData, licence_number: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-slate-750 mb-2">Points (Calculé si licence renseignée)</label>
+                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Points (Calculé si licence renseignée)</label>
                 <input
                   type="number"
                   placeholder="Ex: 752"
-                  className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-sm font-mono"
+                  className="w-full px-4 py-2 bg-[#081425] border border-[#1a3056] rounded-lg focus:border-[#f97316] outline-none text-white transition-all text-xs font-bold font-mono"
                   value={formData.points}
                   onChange={e => setFormData({ ...formData, points: e.target.value })}
                 />
@@ -693,7 +698,7 @@ export default function Players() {
               <div className="flex items-end md:col-span-2">
                 <button
                   type="submit"
-                  className="w-full px-6 py-2.5 bg-indigo-650 hover:bg-indigo-700 text-white rounded-lg font-bold transition-all shadow-md active:scale-[0.98] cursor-pointer"
+                  className="w-full px-6 py-2.5 bg-[#f97316] hover:bg-orange-600 text-white rounded-lg font-bold transition-all shadow-md active:scale-[0.98] cursor-pointer text-xs uppercase"
                 >
                   Valider l'Inscription du Joueur
                 </button>
@@ -703,104 +708,122 @@ export default function Players() {
         )}
       </AnimatePresence>
 
-      {/* Filtres de Tableaux & Multi-onglets de Pointage */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-5">
-        
-        {/* Filtres par présence globale J-J */}
-        <div className="flex bg-slate-100 p-1 rounded-xl w-max">
-          <button
-            onClick={() => setActiveTab('all')}
-            className={`px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition-all cursor-pointer
-              ${activeTab === 'all' 
-                ? 'bg-white text-slate-900 shadow-sm' 
-                : 'text-slate-500 hover:text-slate-800'}`}
-          >
-            Tous les Joueurs ({players.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('to_check')}
-            className={`px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition-all cursor-pointer
-              ${activeTab === 'to_check' 
-                ? 'bg-amber-600/10 text-amber-900 shadow-sm border border-amber-500/15' 
-                : 'text-slate-500 hover:text-amber-700'}`}
-          >
-            <UserX className="w-3.5 h-3.5 text-amber-600" />
-            À pointer ({players.filter(p => !p.checked_in).length})
-          </button>
-          <button
-            onClick={() => setActiveTab('checked')}
-            className={`px-4 py-2 text-xs font-bold rounded-lg flex items-center gap-2 transition-all cursor-pointer
-              ${activeTab === 'checked' 
-                ? 'bg-emerald-600 text-white shadow-sm' 
-                : 'text-slate-500 hover:text-emerald-700'}`}
-          >
-            <Check className="w-3.5 h-3.5" />
-            Pointés ({players.filter(p => p.checked_in).length})
-          </button>
+      {/* Grid Filtres & Progression Active */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+        {/* Filtres et recherche intégrés */}
+        <div className="lg:col-span-3 bg-[#152031] p-4 rounded-xl border border-[#2a3548] flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex bg-[#081425] p-1 rounded-xl border border-[#1a3056] shrink-0">
+            <button
+              onClick={() => setActiveTab('all')}
+              className={`px-3.5 py-1.5 text-xs font-extrabold rounded-lg flex items-center gap-2 transition-all cursor-pointer
+                ${activeTab === 'all' 
+                  ? 'bg-[#152031] text-white shadow-md border border-[#2a3548]' 
+                  : 'text-slate-400 hover:text-white'}`}
+            >
+              Tous les Joueurs
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-[#0c1827] text-slate-300 font-bold border border-[#1a3056]">
+                {players.length}
+              </span>
+            </button>
+            <button
+              onClick={() => setActiveTab('to_check')}
+              className={`px-3.5 py-1.5 text-xs font-extrabold rounded-lg flex items-center gap-2 transition-all cursor-pointer
+                ${activeTab === 'to_check' 
+                  ? 'bg-[#f97316]/10 text-[#f97316] border border-[#f97316]/20' 
+                  : 'text-slate-400 hover:text-[#f97316]'}`}
+            >
+              <UserX className="w-3.5 h-3.5 text-[#f97316]" />
+              À pointer
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-[#0c1827] text-slate-300 font-bold border border-[#1a3056]">
+                {players.filter(p => !p.checked_in).length}
+              </span>
+            </button>
+            <button
+              onClick={() => setActiveTab('checked')}
+              className={`px-3.5 py-1.5 text-xs font-extrabold rounded-lg flex items-center gap-2 transition-all cursor-pointer
+                ${activeTab === 'checked' 
+                  ? 'bg-[#10b981]/15 text-[#10b981] border border-[#10b981]/20' 
+                  : 'text-slate-400 hover:text-[#10b981]'}`}
+            >
+              <Check className="w-3.5 h-3.5 text-[#10b981]" />
+              Pointés
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-[#0c1827] text-[#10b981] font-bold border border-[#1a3056]">
+                {players.filter(p => p.checked_in).length}
+              </span>
+            </button>
+          </div>
+
+          {/* Sélecteur de Journée compact (remplace l'input de recherche) */}
+          <div className="flex bg-[#081425] p-1 rounded-xl border border-[#1a3056] shrink-0 items-center gap-1.5 flex-wrap">
+            {uniqueDays.map(dayNum => {
+              const isToday = tournament?.current_day === dayNum;
+              const isActive = selectedDay === dayNum;
+              return (
+                <button
+                  key={dayNum}
+                  onClick={() => {
+                    setSelectedDay(dayNum);
+                    setSelectedSerie('all');
+                  }}
+                  className={`px-3 py-1.5 text-[11px] font-extrabold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
+                    isActive
+                      ? 'bg-[#f97316] text-white shadow-md'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  Journée {dayNum}
+                  {isToday && (
+                    <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-black/30 text-white animate-pulse">
+                      Actif
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Onglets de Journées */}
-        <div className="flex items-center gap-2 border-t border-slate-100/70 pt-4 flex-wrap">
-          <span className="text-xs font-black uppercase text-slate-400 tracking-wider mr-2 flex items-center gap-1 shrink-0">
-            <CalendIcon className="w-4 h-4 text-indigo-500" /> Filtrer par Journée :
-          </span>
-          <button
-            onClick={() => {
-              setSelectedDay('all');
-              setSelectedSerie('all');
-            }}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all ${
-              selectedDay === 'all'
-                ? 'bg-slate-900 text-white shadow-md'
-                : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60'
-            }`}
-          >
-            Tous les Jours 📅
-          </button>
-          {uniqueDays.map(dayNum => {
-            const isToday = tournament?.current_day === dayNum;
-            return (
-              <button
-                key={dayNum}
-                onClick={() => {
-                  setSelectedDay(dayNum);
-                  setSelectedSerie('all');
-                }}
-                className={`px-4 py-2 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 ${
-                  selectedDay === dayNum
-                    ? 'bg-indigo-600 text-white shadow-md'
-                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/60'
-                }`}
-              >
-                Journée {dayNum}
-                {isToday && (
-                  <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-indigo-500 text-white">
-                    Actif ⚡
-                  </span>
-                )}
-              </button>
-            );
-          })}
+        {/* Panel Progression active */}
+        <div className="bg-[#152031] p-4 rounded-xl border border-[#2a3548] flex items-center justify-between shadow-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse shrink-0" />
+            <span className="text-xs font-bold text-slate-400 tracking-wide uppercase">Suivi du pointage en direct</span>
+          </div>
+          <div className="text-right">
+            <span className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">PROGRESSION</span>
+            <span className="text-xl sm:text-2xl font-black text-[#10b981] tracking-tight">{progressPercent}%</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Barre de Recherche & Filtres Tableaux de Pointage Intégrés */}
+      <div className="bg-[#152031] p-3 rounded-xl border border-[#2a3548] flex flex-wrap items-center gap-3">
+        {/* Recherche réduite */}
+        <div className="relative w-full max-w-[150px] shrink-0">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+          <input
+            type="text"
+            placeholder="Rechercher..."
+            className="w-full pl-8 pr-2.5 py-1.5 bg-[#081425] border border-[#1a3056] rounded-lg text-xs font-bold focus:border-[#f97316] outline-none text-white transition-all placeholder:text-slate-500"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
         </div>
 
-        {/* Onglets de Tableaux / Séries */}
-        <div className="flex items-center gap-2 border-t border-slate-100/70 pt-4 flex-wrap">
-          <span className="text-xs font-black uppercase text-slate-400 tracking-wider mr-1.5 flex items-center gap-1 shrink-0">
-            <Trophy className="w-4 h-4 text-amber-500" /> Filtrer par Tableau :
-          </span>
+        {/* Séries de Tableaux à côté */}
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => {
               setSelectedSerie('all');
             }}
-            className={`px-3.5 py-1.5 text-xs font-extrabold rounded-xl transition-all ${
+            className={`px-3 py-1.5 text-xs font-extrabold rounded-xl transition-all border border-[#1a3056] cursor-pointer ${
               selectedSerie === 'all'
-                ? 'bg-slate-900 text-white shadow-md'
-                : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60'
+                ? 'bg-white text-[#081425] shadow-md border-white'
+                : 'bg-[#081425] text-slate-300 hover:bg-[#111c2d]'
             }`}
           >
-            Tous les Tableaux 👥
+            Tous les Tableaux
           </button>
-
           {(selectedDay === 'all' ? categories : categories.filter(c => c.day_number === selectedDay)).map(cat => {
             const isActive = selectedSerie === cat.name;
             const bgCol = cat.color_code || '#4f46e5';
@@ -808,9 +831,9 @@ export default function Players() {
             return (
               <button
                 key={cat.id}
-                onClick={() => setSelectedSerie(cat.name)}
-                className={`px-3 py-1.5 text-xs font-extrabold rounded-lg transition-all flex items-center gap-1.5 border border-slate-200/60 ${
-                  isActive ? '' : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                onClick={() => setSelectedSerie(isActive ? 'all' : cat.name)}
+                className={`px-3 py-1.5 text-xs font-extrabold rounded-xl transition-all flex items-center gap-1.5 border border-[#1a3056] cursor-pointer ${
+                  isActive ? '' : 'bg-[#081425] text-slate-300 hover:bg-[#111c2d]'
                 }`}
                 style={isActive ? { backgroundColor: bgCol, borderColor: bgCol, color: textCol } : {}}
               >
@@ -821,28 +844,26 @@ export default function Players() {
           })}
         </div>
       </div>
-
-      {/* Bannière de contrôle du tableau sélectionné */}
       {selectedSerie !== 'all' && (() => {
         const cat = categories.find(c => c.name === selectedSerie);
         if (!cat) return null;
         
         const presents = players.filter(p => p.serie === cat.name && p.checked_in).length;
-        const inscrits = players.filter(p => p.serie === cat.name).length;
+        const inscrits = players.filter(p => p.slice === cat.name || p.serie === cat.name).length;
 
         return (
-          <div className={`p-6 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm transition-all ${
+          <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm transition-all ${
             cat.is_closed 
-              ? 'bg-rose-50/70 border-rose-150 text-rose-950 animate-fade-in' 
-              : 'bg-emerald-50/50 border-emerald-150 text-emerald-950 animate-fade-in'
+              ? 'bg-rose-950/10 border-rose-500/20 text-rose-200 animate-fade-in' 
+              : 'bg-emerald-950/10 border-emerald-500/20 text-emerald-200 animate-fade-in'
           }`}>
-            <div className="flex items-start gap-3.5">
-              <div className={`p-2.5 rounded-xl shrink-0 ${cat.is_closed ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}`}>
+            <div className="flex items-start gap-3">
+              <div className={`p-2 rounded-lg shrink-0 ${cat.is_closed ? 'bg-rose-500/10 text-rose-450' : 'bg-emerald-500/10 text-emerald-400'}`}>
                 {cat.is_closed ? <LockIcon className="w-5 h-5" /> : <Unlock className="w-5 h-5" />}
               </div>
               <div className="space-y-1">
                 <h3 className="text-sm font-bold flex items-center gap-1.5 flex-wrap">
-                  Pointage du Tableau - <strong className="font-extrabold uppercase">{cat.name}</strong>
+                  Pointage du Tableau - <strong className="font-extrabold uppercase text-white">{cat.name}</strong>
                   {cat.is_closed ? (
                     <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-rose-600 text-white inline-flex items-center gap-1">
                       🔒 Clôturé
@@ -853,25 +874,25 @@ export default function Players() {
                     </span>
                   )}
                 </h3>
-                <p className="text-xs text-slate-500 max-w-xl leading-relaxed">
+                <p className="text-xs text-slate-405 leading-relaxed">
                   {cat.is_closed 
                     ? "Le pointage et les inscriptions sont verrouillés pour ce tableau. Vous pouvez maintenant configurer et générer les poules en toute sérénité."
                     : "Le pointage en direct est ouvert aux joueurs. Une fois tout le monde pointé présent, clôturez ce tableau pour débloquer la génération des poules."
                   }
                 </p>
-                <div className="flex gap-4 text-[11px] font-bold text-slate-450 pt-1">
-                  <span>Inscrits total : <strong className="text-slate-800">{inscrits}</strong></span>
-                  <span>Pointés présents : <strong className={cat.is_closed ? "text-rose-650" : "text-emerald-650"}>{presents}</strong></span>
+                <div className="flex gap-4 text-[10px] font-bold text-slate-350 pt-1">
+                  <span>Inscrits total : <strong className="text-white">{inscrits}</strong></span>
+                  <span>Pointés présents : <strong className={cat.is_closed ? "text-rose-400" : "text-[#10b981]"}>{presents}</strong></span>
                 </div>
               </div>
             </div>
 
             <button
               onClick={() => toggleCategoryClosure(cat)}
-              className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm active:scale-95 cursor-pointer shrink-0 ${
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm active:scale-95 cursor-pointer shrink-0 ${
                 cat.is_closed
-                  ? 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/80 hover:border-slate-300'
-                  : 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-100'
+                  ? 'bg-[#152031] hover:bg-[#1f2a3c] text-white border border-[#2a3548]'
+                  : 'bg-[#991b1b] hover:bg-rose-800 text-white'
               }`}
             >
               {cat.is_closed ? (
@@ -882,7 +903,7 @@ export default function Players() {
               ) : (
                 <>
                   <LockIcon className="w-4 h-4" />
-                  Clôturer & Bloquer le Pointage
+                  Clôturer & Bloquer
                 </>
               )}
             </button>
@@ -891,47 +912,32 @@ export default function Players() {
       })()}
 
       {/* Tableau interactif principal */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        
-        {/* Barre de Recherche rapide */}
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Chercher un nom, licence, n° de dossard..."
-              className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* Structure du Tableau */}
+      <div className="bg-[#152031] rounded-2xl border border-[#2a3548] overflow-hidden shadow-xl">
         <div className="overflow-x-auto">
-          <table className="w-full text-left">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="border-b border-slate-200 italic bg-slate-50">
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-600">Joueur</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-600">Club</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-600">Tableau</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-600">Points</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-600 text-center">Pointage J-J (Règlement & Dossard)</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-600 text-center">Identifiants Saisie Scores</th>
-                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-600 text-right">Actions</th>
+              <tr className="border-b border-[#2a3548] bg-[#0e1b30]">
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">#</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Joueur</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Licence / Tél</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Tableau / Journée</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400">Points</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 text-center">Statut Pointage</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 text-center">Identifiants Saisie Scores</th>
+                <th className="px-5 py-4 text-xs font-bold uppercase tracking-wider text-slate-400 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-[#1a3056]/40">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-medium">
-                    <RefreshCw className="w-6 h-6 mx-auto animate-spin text-indigo-500 mb-2" />
+                  <td colSpan={8} className="px-6 py-12 text-center text-slate-400 font-medium bg-[#152031]">
+                    <RefreshCw className="w-6 h-6 mx-auto animate-spin text-[#f97316] mb-2" />
                     Chargement des participants en cours...
                   </td>
                 </tr>
               ) : displayedPlayers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-slate-450 font-medium italic">
+                  <td colSpan={8} className="px-6 py-12 text-center text-slate-500 font-medium italic bg-[#152031]">
                     Aucun joueur correspondant à vos filtres.
                   </td>
                 </tr>
@@ -947,53 +953,58 @@ export default function Players() {
                   const isSomeCheckedIn = player.registrations.some((r: any) => r.checked_in);
 
                   return (
-                    <tr key={player.player_id || player.id} className={`hover:bg-slate-50/70 transition-colors group ${isSomeCheckedIn ? 'bg-emerald-50/5' : ''}`}>
+                    <tr key={player.player_id || player.id} className={`hover:bg-[#0c1827] transition-colors border-b border-[#1a3056]/30 bg-[#152031] ${isSomeCheckedIn ? 'bg-[#10b981]/5' : ''}`}>
                       
-                      {/* Colonne JOUEUR / DOSSARD */}
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
-                          {linkedDossard ? (
-                            <button 
-                              id={`player-dossard-badge-${player.id}`}
-                              onClick={() => handleResetCheckIn(player)}
-                              className="inline-flex items-center justify-center w-7 h-7 bg-emerald-100 text-emerald-800 font-mono font-black border border-emerald-250 rounded-lg text-xs shadow-sm shadow-emerald-100 cursor-pointer hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 transition-all"
-                              title="Cliquez pour réinitialiser le pointage complet de ce joueur"
-                            >
-                              {linkedDossard}
-                            </button>
-                          ) : (
-                            <div className="w-7 h-7 bg-slate-100 border border-slate-200 rounded-lg flex items-center justify-center text-slate-400 font-bold text-[10px]">
-                              —
-                            </div>
-                          )}
-                          <div>
-                            <p className="font-extrabold text-slate-900 leading-tight">
-                              {player.last_name.toUpperCase()} {player.first_name}
-                            </p>
-                            <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-400 font-medium font-mono">
-                              {player.licence_number && (
-                                <span>Licence: {player.licence_number}</span>
-                              )}
-                              {player.phone && (
-                                <>
-                                  <span>•</span>
-                                  <span className="flex items-center gap-0.5 text-slate-500">
-                                    <Smartphone className="w-3 h-3" /> {player.phone}
-                                  </span>
-                                </>
-                              )}
-                            </div>
+                      {/* Numéro de dossard ou placeholder */}
+                      <td className="px-5 py-4">
+                        {linkedDossard ? (
+                          <button 
+                            id={`player-dossard-badge-${player.id}`}
+                            onClick={() => handleResetCheckIn(player)}
+                            className="inline-flex items-center justify-center w-8 h-8 bg-[#10b981]/15 text-[#10b981] font-mono font-black border border-[#10b981]/30 rounded-xl text-xs hover:bg-rose-950/20 hover:text-rose-450 hover:border-rose-900/40 transition-all duration-150 cursor-pointer"
+                            title="Cliquez pour réinitialiser le pointage complet de ce joueur"
+                          >
+                            {linkedDossard}
+                          </button>
+                        ) : (
+                          <div className="w-8 h-8 bg-[#081425] border border-[#1a3056] rounded-xl flex items-center justify-center text-slate-500 font-bold text-xs">
+                            —
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Joueur */}
+                      <td className="px-5 py-4">
+                        <div>
+                          <p className="font-extrabold text-white leading-tight text-sm">
+                            {player.last_name.toUpperCase()} {player.first_name}
+                          </p>
+                          <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-400 font-bold italic">
+                            <span>{player.club || 'Sans club / Non licencié'}</span>
                           </div>
                         </div>
                       </td>
 
-                      {/* Colonne CLUB */}
-                      <td className="px-6 py-4 text-xs font-semibold text-slate-550 italic">
-                        {player.club || 'Sans club / Non licencié'}
+                      {/* Licence / Tél */}
+                      <td className="px-5 py-4">
+                        <div className="flex flex-col gap-1 text-[11px] font-bold font-mono text-slate-450">
+                          {player.licence_number ? (
+                            <span className="bg-[#081425] border border-[#1a3056]/40 px-1.5 py-0.5 rounded w-fit text-slate-300">
+                              LIC: {player.licence_number}
+                            </span>
+                          ) : (
+                            <span className="text-slate-500 italic font-medium">Pas de licence</span>
+                          )}
+                          {player.phone ? (
+                            <span className="flex items-center gap-1 bg-[#081425] border border-[#1a3056]/40 px-1.5 py-0.5 rounded w-fit text-slate-350">
+                              <Smartphone className="w-3 h-3 text-[#f97316]" /> {player.phone}
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
 
-                      {/* Colonne TABLEAU (SERIE) */}
-                      <td className="px-6 py-4">
+                      {/* Tableau / Journée */}
+                      <td className="px-5 py-4">
                         <div className="flex flex-col gap-2">
                           {player.registrations.map((reg: any) => {
                             const currentCat = categories.find(c => c.name === reg.serie);
@@ -1016,26 +1027,26 @@ export default function Players() {
                                   }}
                                   className={`font-black border text-[11px] px-2.5 py-1.5 rounded-xl outline-none transition-all shadow-sm max-w-[155px] truncate ${
                                     isOriginalClosed 
-                                      ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed' 
-                                      : 'bg-indigo-50/60 hover:bg-slate-100 text-indigo-700 border-indigo-100/50 cursor-pointer focus:ring-2 focus:ring-indigo-400'
+                                      ? 'bg-[#081425] text-slate-500 border-[#1a3056] cursor-not-allowed opacity-60' 
+                                      : 'bg-[#0e1b30] hover:bg-[#13223a] text-[#f97316] border-[#1a3056] cursor-pointer focus:border-[#f97316]'
                                   }`}
-                                  title={isOriginalClosed ? "Tableau clôturé" : "Modifier la série"}
+                                  title={isOriginalClosed ? "Tableau clôturé d'origine" : "Modifier la série"}
                                 >
                                   {categories.map((c) => (
-                                    <option key={c.id} value={c.name} className="text-slate-800 bg-white font-medium" disabled={c.is_closed}>
-                                      {c.name} (J{c.day_number}) {c.is_closed ? '🔒 [CLOS]' : ''}
+                                    <option key={c.id} value={c.name} className="text-white bg-[#0f1f3d] font-bold" disabled={c.is_closed}>
+                                      {c.name} (J{c.day_number}) {c.is_closed ? '🔒' : ''}
                                     </option>
                                   ))}
                                   {!categories.some((c) => c.name === reg.serie) && (
-                                    <option value={reg.serie} className="text-slate-850 bg-white font-medium">
+                                    <option value={reg.serie} className="text-white bg-[#0f1f3d] font-bold">
                                       {reg.serie}
                                     </option>
                                   )}
                                 </select>
 
-                                {/* Action individuelle de corbeille 🗑️ à côté de chaque tableau */}
+                                {/* Action individuelle de suppression */}
                                 {confirmDeleteId === reg.id ? (
-                                  <div className="flex items-center gap-1 animate-fade-in scale-90">
+                                  <div className="flex items-center gap-1 animate-fade-in scale-90 shrink-0">
                                     <button
                                       onClick={async () => {
                                         await deletePlayer(reg.id);
@@ -1047,7 +1058,7 @@ export default function Players() {
                                     </button>
                                     <button
                                       onClick={() => setConfirmDeleteId(null)}
-                                      className="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer"
+                                      className="p-1 text-slate-400 hover:text-slate-300 rounded-lg cursor-pointer"
                                     >
                                       <X className="w-3.5 h-3.5" />
                                     </button>
@@ -1065,10 +1076,10 @@ export default function Players() {
                                       }, 4000);
                                     }}
                                     disabled={isOriginalClosed}
-                                    className={`p-1 rounded-lg transition-all ${
+                                    className={`p-1 rounded-lg transition-all shrink-0 ${
                                       isOriginalClosed 
-                                        ? 'text-slate-200 cursor-not-allowed opacity-30' 
-                                        : 'text-slate-350 hover:text-rose-600 hover:bg-rose-50 cursor-pointer'
+                                        ? 'text-slate-500 cursor-not-allowed opacity-30' 
+                                        : 'text-slate-400 hover:text-rose-500 hover:bg-rose-50/10 cursor-pointer'
                                     }`}
                                     title={isOriginalClosed ? "Tableau clôturé d'origine" : "Supprimer cette inscription"}
                                   >
@@ -1081,15 +1092,15 @@ export default function Players() {
                         </div>
                       </td>
 
-                      {/* Colonne CLASSEMENT (POINTS) */}
-                      <td className="px-6 py-4">
-                        <span className="inline-flex text-[11px] font-bold tracking-wider font-mono px-2 py-1 bg-slate-50 border border-slate-150 rounded-lg text-slate-600">
-                          {player.points ?? '500'} pts
+                      {/* Points */}
+                      <td className="px-5 py-4">
+                        <span className="text-sm sm:text-base font-black tracking-wider font-mono text-slate-200">
+                          {player.points ?? '500'}
                         </span>
                       </td>
 
-                      {/* Colonne POINTAGE J-J (RÈGLEMENT & DOSSARD) */}
-                      <td className="px-6 py-4 text-center">
+                      {/* Statut Pointage */}
+                      <td className="px-5 py-4 text-center">
                         {(() => {
                           const uncheckedRegs = player.registrations.filter((r: any) => !r.checked_in);
                           const checkedRegs = player.registrations.filter((r: any) => r.checked_in);
@@ -1101,7 +1112,7 @@ export default function Players() {
 
                             if (isOriginalClosed) {
                               return (
-                                <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 text-slate-400 border border-slate-200/60 text-xs font-bold rounded-lg justify-center shadow-inner">
+                                <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#081425] text-slate-500 border border-[#1a3056] text-xs font-bold rounded-lg justify-center shadow-inner">
                                   <LockIcon className="w-3.5 h-3.5" /> Clôturé 🔒 (Absent)
                                 </span>
                               );
@@ -1113,20 +1124,20 @@ export default function Players() {
                                   <button
                                     id={`checkin-cb-btn-${regToCheckIn.id}`}
                                     onClick={() => handleTableCheckIn(regToCheckIn)}
-                                    className="px-3 py-1.5 text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-sm rounded-lg active:scale-95 transition-all cursor-pointer"
+                                    className="px-3 py-1.5 text-xs font-bold bg-[#1f2a3c] hover:bg-[#2a3548] text-slate-200 border border-[#2a3548] rounded-xl active:scale-95 transition-all cursor-pointer"
                                   >
                                     Pointer (CB)
                                   </button>
                                   <button
                                     id={`checkin-pay-btn-${regToCheckIn.id}`}
                                     onClick={() => handleTableCheckIn(regToCheckIn)}
-                                    className="px-3.5 py-1.5 text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
+                                    className="px-3.5 py-1.5 text-xs font-black bg-[#f97316] hover:bg-orange-600 text-white rounded-xl shadow-md active:scale-95 transition-all flex items-center gap-1 cursor-pointer"
                                   >
                                     <BadgeEuro className="w-4 h-4" /> Encaisser
                                   </button>
                                 </div>
                                 {checkedRegs.length > 0 && (
-                                  <span className="text-[10px] text-emerald-600 font-bold">
+                                  <span className="text-[10px] text-[#10b981] font-bold">
                                     {checkedRegs.length} série(s) déjà pointée(s)
                                   </span>
                                 )}
@@ -1138,21 +1149,21 @@ export default function Players() {
 
                             return (
                               <div className="flex items-center justify-center gap-2">
-                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-700 border border-emerald-500/10 text-xs font-bold rounded-lg justify-center shadow-inner">
-                                  <CheckCircle className="w-4 h-4 text-emerald-600" /> Pointé (Dossard #{linkedDossard})
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#10b981]/15 text-[#10b981] border border-[#10b981]/30 text-xs font-bold rounded-lg justify-center shadow-inner">
+                                  <CheckCircle className="w-4 h-4 text-[#10b981]" /> Pointé (Dossard #{linkedDossard})
                                 </span>
                                 {!isAnyClosed ? (
                                   <button
                                     id={`forfait-single-btn-${firstReg.id}`}
                                     onClick={() => handleCancelSingleCheckIn(firstReg)}
-                                    className="p-1.5 px-2 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200/50 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1 cursor-pointer"
+                                    className="p-1 px-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1 cursor-pointer"
                                     title="Annuler le pointage / Forfait"
                                   >
                                     <X className="w-3.5 h-3.5" /> Forfait
                                   </button>
                                 ) : (
-                                  <span className="p-1.5 px-2 bg-slate-50 text-slate-400 border border-slate-200/50 rounded-lg text-[10px] font-semibold inline-flex items-center gap-1 cursor-not-allowed" title="Le tableau est clôturé">
-                                    <LockIcon className="w-3 h-3 text-slate-300" /> Clôturé 🔒
+                                  <span className="p-1.5 px-2 bg-[#081425] text-slate-500 border border-[#1a3056] rounded-lg text-[10px] font-semibold inline-flex items-center gap-1 cursor-not-allowed" title="Le tableau est clôturé">
+                                    <LockIcon className="w-3 h-3 text-slate-400" /> Clôturé 🔒
                                   </span>
                                 )}
                               </div>
@@ -1161,37 +1172,37 @@ export default function Players() {
                         })()}
                       </td>
 
-                      {/* Colonne IDENTIFIANTS SMS ET/OU EMAIL DE SCORE */}
-                      <td className="px-6 py-4 text-center">
+                      {/* Identifiant SMS/Email */}
+                      <td className="px-5 py-4 text-center">
                         {isSomeCheckedIn ? (
                           (player.phone || player.email) ? (
                             <button
                               onClick={() => handleResendSms(player.registrations[0] || player)}
                               disabled={sendingSmsId === player.id}
-                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-600 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-lg transition-all active:scale-98 disabled:opacity-50 cursor-pointer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-350 bg-[#0e1b30] hover:bg-[#14233c] border border-[#1a3056] rounded-lg transition-all active:scale-98 disabled:opacity-50 cursor-pointer"
                               title={
                                 player.phone && player.email ? "Envoyer par SMS et E-mail/SMTP" :
                                 player.phone ? "Envoyer par SMS uniquement" : "Envoyer par E-mail/SMTP uniquement"
                               }
                             >
-                              <Send className={`w-3.5 h-3.5 ${sendingSmsId === player.id ? 'animate-pulse text-indigo-500' : 'text-slate-400'}`} />
-                              Renvoyer identifiants
+                              <Send className={`w-3.5 h-3.5 ${sendingSmsId === player.id ? 'animate-pulse text-[#f97316]' : 'text-slate-400'}`} />
+                              Renvoyer id
                             </button>
                           ) : (
-                            <span className="text-[10px] text-rose-500 font-semibold bg-rose-50 border border-rose-100 px-2 py-1 rounded-md inline-flex items-center gap-1 leading-none">
-                              <AlertCircle className="w-3.5 h-3.5" /> Pas de contact
+                            <span className="text-[10px] text-rose-400 font-semibold bg-rose-500/10 border border-rose-500/15 px-2 py-1 rounded-md inline-flex items-center gap-1 leading-none">
+                              <AlertCircle className="w-3.5 h-3.5 text-rose-450" /> Pas de contact
                             </span>
                           )
                         ) : (
-                          <span className="text-[10px] text-slate-400 font-medium italic flex items-center gap-1 justify-center">
-                            <Clock className="w-3.5 h-3.5" /> En attente du pointage
+                          <span className="text-[10px] text-slate-500 font-medium italic flex items-center gap-1 justify-center">
+                            <Clock className="w-3.5 h-3.5 text-slate-500" /> Attente pointage
                           </span>
                         )}
                       </td>
 
-                      {/* Colonne ACTIONS (PROPRE ET DISCRETE) */}
-                      <td className="px-6 py-4 text-right">
-                        <span className="text-slate-300 font-mono text-[9px] select-none">—</span>
+                      {/* Actions */}
+                      <td className="px-5 py-4 text-right">
+                        <span className="text-slate-600 font-mono text-[9px] select-none">—</span>
                       </td>
 
                     </tr>

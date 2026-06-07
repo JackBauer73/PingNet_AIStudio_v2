@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTournament } from '../../hooks/useTournament';
-import { Trophy, Users, Play, Clock, CheckCircle2, Calendar, MapPin, Plus, Trash2, Info, CreditCard, Tag, Pencil, Tv } from 'lucide-react';
+import { Trophy, Users, Play, Clock, CheckCircle2, Calendar, MapPin, Plus, Trash2, Info, CreditCard, Tag, Pencil, Tv, AlertTriangle } from 'lucide-react';
 import { motion } from 'motion/react';
 import { supabase } from '../../supabase';
 import { archiveTournament } from '../../services/archiveTournament';
@@ -14,12 +14,15 @@ function LiveMatchesPreview({ tournamentId }: { tournamentId: string }) {
   const { matches, loading } = useMatches(tournamentId);
   const activeMatches = matches.filter(m => m.status === 'in_progress').slice(0, 3);
 
-  if (loading) return <div className="animate-pulse flex gap-6"><div className="h-40 bg-slate-100 rounded-3xl flex-1" /></div>;
+  if (loading) return <div className="animate-pulse flex gap-6"><div className="h-40 bg-[#152031] border border-[#2a3548] rounded-[2rem] flex-1" /></div>;
 
   if (activeMatches.length === 0) {
     return (
-      <div className="bg-slate-50 p-12 rounded-[2rem] border border-dashed border-slate-200 text-center text-slate-400">
-        Aucun match en cours sur les tables.
+      <div className="bg-[#152031] p-12 rounded-[2rem] border border-dashed border-[#2a3548] text-center text-slate-400/80 my-2 select-none">
+        <div className="flex flex-col items-center justify-center space-y-2">
+          <span className="text-4xl text-[#3f465c] font-bold select-none">🏓</span>
+          <p className="text-sm font-semibold text-slate-400">Aucun match en cours sur les tables.</p>
+        </div>
       </div>
     );
   }
@@ -27,18 +30,21 @@ function LiveMatchesPreview({ tournamentId }: { tournamentId: string }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       {activeMatches.map(match => (
-        <div key={match.id} className="bg-white p-6 rounded-3xl border border-slate-100 shadow-sm">
+        <div key={match.id} className="bg-[#152031] p-6 rounded-[2rem] border border-[#2a3548] shadow-lg hover:border-[#f97316]/50 transition-all duration-300">
           <div className="flex justify-between items-center mb-4">
-            <span className="text-[10px] font-black uppercase bg-slate-900 text-white px-2 py-0.5 rounded">T{match.table_number}</span>
+            <span className="text-[10px] font-extrabold uppercase bg-[#f97316]/10 text-[#f97316] border border-[#f97316]/25 px-2.5 py-1 rounded-md tracking-wider">
+              Table {match.table_number}
+            </span>
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
           </div>
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-sm font-bold truncate flex-1 text-right">{match.player1?.last_name}</span>
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-50 rounded-xl border border-slate-100 font-black italic text-lg">
+          <div className="flex items-center justify-between gap-1.5">
+            <span className="text-sm font-bold text-[#d8e3fb] truncate flex-1 text-right">{match.player1?.last_name}</span>
+            <div className="flex items-center gap-1.5 px-3 py-1 bg-[#0f1f3d] rounded-xl border border-[#1a3056] font-mono font-black italic text-lg text-white select-none">
               <span>{match.sets?.filter(s => s.score_p1 > s.score_p2).length || 0}</span>
-              <span className="text-slate-200">:</span>
+              <span className="text-[#3f465c]">:</span>
               <span>{match.sets?.filter(s => s.score_p2 > s.score_p1).length || 0}</span>
             </div>
-            <span className="text-sm font-bold truncate flex-1">{match.player2?.last_name}</span>
+            <span className="text-sm font-bold text-[#d8e3fb] truncate flex-1 text-left">{match.player2?.last_name}</span>
           </div>
         </div>
       ))}
@@ -1588,34 +1594,47 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-6">
+    <div className="min-h-full bg-[#081425] text-[#d8e3fb] p-4 md:p-6 space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-350 select-none">
+      <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-[#1a3056] gap-4">
         <div>
-          <h1 className="text-4xl font-black tracking-tight text-slate-900">
-            {tournament?.name || 'Aucun tournoi actif'}
-          </h1>
-          <div className="flex items-center gap-4 mt-3">
-            <span className={`flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full border uppercase tracking-wider ${
-              TOURNAMENT_STATUS_DETAILS[tournament?.status || '']?.color || 'bg-slate-100 text-slate-600 border-slate-200'
-            }`}>
-              <Clock className="w-3 h-3" />
-              {getStatusLabel(tournament?.status || '')}
-            </span>
-            <span className="text-slate-400 text-sm font-medium">
-              📅 {tournament?.date ? new Date(tournament.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '—'}
-            </span>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f97316]/10 text-[#f97316] text-[10px] md:text-xs font-bold mb-2.5 uppercase tracking-wider border border-[#f97316]/20">
+            <Trophy className="w-3.5 h-3.5" />
+            <span>Console Organisateur</span>
           </div>
+          <h1 className="font-display text-3xl md:text-4xl font-extrabold tracking-tight text-white">
+            Tableau de bord
+          </h1>
+          <p className="text-slate-400 text-xs md:text-sm mt-1.5 max-w-2xl">
+            Supervisez le bon déroulement des séries, suivez l'avancement global de la journée en temps réel et gérez d'un coup d'œil les tables de jeu en salle.
+          </p>
         </div>
 
-        <div className="flex gap-3 items-center flex-wrap">
-          <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 min-w-[200px]">
-            <div className="w-12 h-12 bg-green-50 text-green-600 rounded-xl flex items-center justify-center">
-              <CheckCircle2 className="w-6 h-6" />
+        <div className="flex gap-4 items-center flex-wrap">
+          <div className="bg-[#152031] p-4 rounded-xl border border-[#2a3548] flex items-center gap-4 min-w-[200px] select-none hover:border-[#10B981]/50 transition-all shadow-md">
+            <div className="relative w-12 h-12 flex items-center justify-center">
+              <svg className="w-full h-full transform -rotate-90">
+                <circle className="text-slate-800" cx="24" cy="24" fill="transparent" r="20" stroke="currentColor" strokeWidth="4"></circle>
+                <circle 
+                  className="text-emerald-500" 
+                  cx="24" 
+                  cy="24" 
+                  fill="transparent" 
+                  r="20" 
+                  stroke="currentColor" 
+                  strokeDasharray="125.6" 
+                  strokeDashoffset={125.6 - (125.6 * (stats.matchesTotal > 0 ? Math.min(stats.matchesDone / stats.matchesTotal, 1) : 0))} 
+                  strokeWidth="4"
+                  strokeLinecap="round"
+                ></circle>
+              </svg>
+              <span className="absolute text-[10px] font-mono font-black text-emerald-400">
+                {stats.matchesTotal > 0 ? Math.round((stats.matchesDone / stats.matchesTotal) * 100) : 0}%
+              </span>
             </div>
             <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Progression</p>
-              <p className="text-xl font-black text-slate-900">
-                {stats.matchesTotal > 0 ? Math.round((stats.matchesDone / stats.matchesTotal) * 100) : 0}%
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">Progression</p>
+              <p className="text-sm font-bold text-slate-200">
+                {stats.matchesDone} / {stats.matchesTotal} terminés
               </p>
             </div>
           </div>
@@ -1646,15 +1665,15 @@ export default function Dashboard() {
               }
             }}
             disabled={archiving}
-            className="p-4 bg-red-50 hover:bg-red-100 border border-red-100 rounded-2xl flex items-center gap-3 transition-all active:scale-95 disabled:opacity-50 text-left cursor-pointer min-w-[200px]"
+            className="p-4 bg-[#f97316]/10 hover:bg-[#f97316]/20 border border-red-200/10 rounded-xl flex items-center gap-3.5 transition-all active:scale-[0.98] disabled:opacity-50 text-left cursor-pointer min-w-[200px]"
             title="Archiver ou supprimer d'urgence"
           >
-            <div className="w-10 h-10 bg-red-100 group-hover:bg-red-200 text-red-600 rounded-lg flex items-center justify-center font-bold">
-              🛠️
+            <div className="w-10 h-10 bg-red-955 bg-rose-955 bg-rose-500/10 text-[#ef4444] rounded-lg flex items-center justify-center border border-red-555 border-red-500/20">
+              <AlertTriangle className="w-5 h-5 animate-pulse" />
             </div>
             <div>
-              <p className="text-[10px] font-black uppercase text-red-500 tracking-wider">Zone d'Urgence</p>
-              <p className="text-sm font-black text-red-700">Archiver / Supprimer</p>
+              <p className="text-[10px] font-black uppercase text-red-555 text-rose-400 tracking-wider">Zone d'Urgence</p>
+              <p className="text-sm font-black text-rose-300">Archiver / Réinitialiser</p>
             </div>
           </button>
         </div>
@@ -1662,54 +1681,56 @@ export default function Dashboard() {
 
       {/* 1. Bandeau Mode Brouillon (draft) */}
       {tournament?.status === 'draft' && (
-        <div className="mb-12 p-6 bg-slate-900 border border-slate-800 rounded-3xl text-white flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-xl relative overflow-hidden">
-          <div className="relative z-10">
-            <h3 className="font-bold text-lg text-amber-400 flex items-center gap-2">
+        <div className="p-5 bg-[#152031] border border-[#2a3548] rounded-2xl text-white flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl relative overflow-hidden">
+          <div className="absolute top-0 bottom-0 left-0 w-1.5 bg-amber-500" />
+          <div className="relative z-10 w-full">
+            <h3 className="font-bold text-lg text-amber-500 flex items-center gap-2">
               <span>⚡ Mode Brouillon Actif</span>
             </h3>
             <p className="text-slate-400 text-sm mt-1">
               Votre tournoi est en préparation. Ajoutez ou modifiez vos Tableaux de niveau, ou publiez-le maintenant pour l'ouvrir aux inscriptions.
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3 relative z-10 shrink-0">
+          <div className="flex flex-col sm:flex-row gap-3 relative z-10 shrink-0 w-full sm:w-auto mt-4 sm:mt-0">
             <button
               onClick={openEditTournamentModal}
-              className="h-12 px-6 bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 font-extrabold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2"
+              className="h-12 px-6 bg-[#1f2a3c] hover:bg-[#2a3548] text-slate-100 border border-[#2a3548] font-bold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
             >
               Modifier la configuration & Séries
             </button>
             <button
               onClick={handleOpenRegistrations}
-              className="h-12 px-6 bg-indigo-500 hover:bg-indigo-600 text-white font-extrabold rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
+              className="h-12 px-6 bg-[#f97316] hover:bg-orange-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-orange-500/20 active:scale-95 flex items-center justify-center gap-2 cursor-pointer"
             >
               Ouvrir les inscriptions
             </button>
           </div>
-          <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-2xl" />
+          <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-[#f97316]/5 rounded-full blur-2xl pointer-events-none" />
         </div>
       )}
 
       {/* 2. Bandeau Inscriptions Ouvertes (open / registration) */}
       {['open', 'registration'].includes(tournament?.status || '') && (
-        <div className="mb-12 p-6 bg-indigo-50 border border-indigo-100 rounded-3xl text-indigo-950 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div>
-            <h3 className="font-bold text-lg text-indigo-900 flex items-center gap-2">
+        <div className="p-5 bg-[#152031] border border-[#2a3548] rounded-2xl text-[#d8e3fb] flex flex-col md:flex-row md:items-center justify-between gap-4 relative overflow-hidden">
+          <div className="absolute top-0 bottom-0 left-0 w-1.5 bg-blue-500" />
+          <div className="relative z-10">
+            <h3 className="font-bold text-lg text-blue-400 flex items-center gap-2">
               <span>🚀 Période d'inscriptions publiques</span>
             </h3>
-            <p className="text-indigo-700 text-sm mt-1">
+            <p className="text-slate-300 text-sm mt-1">
               Les joueurs peuvent s'inscrire au tournoi. {timeLeft ? `Début officiel du tournoi dans : ${timeLeft}` : ''}
             </p>
           </div>
-          <div className="flex gap-3 shrink-0 flex-wrap">
+          <div className="flex gap-3 shrink-0 flex-wrap z-10 w-full sm:w-auto">
             <button
               onClick={openEditTournamentModal}
-              className="h-12 px-5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 font-extrabold rounded-xl shadow-sm transition-all text-xs flex items-center gap-1.5 active:scale-95"
+              className="h-12 px-5 bg-[#1f2a3c] hover:bg-[#2a3548] text-slate-200 border border-[#2a3548] font-bold rounded-xl shadow-sm transition-all text-xs flex items-center gap-1.5 active:scale-95 cursor-pointer"
             >
               ⚙️ Modifier Configuration / Tableaux
             </button>
             <button
               onClick={() => navigate('/organizer/players')}
-              className="h-12 px-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center"
+              className="h-12 px-6 bg-[#f97316] hover:bg-orange-600 text-white font-bold rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center cursor-pointer"
             >
               Gérer les Joueurs / Pointage
             </button>
@@ -1719,37 +1740,37 @@ export default function Dashboard() {
 
       {/* Contrôle de la Journée Active */}
       {tournament && !['draft', 'closed', 'finished', 'archived'].includes(tournament.status) && (
-        <div className="mb-12 bg-white p-6 rounded-3xl border border-slate-200/80 shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 bottom-0 left-0 w-1.5 bg-indigo-500" />
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 pl-4">
+        <div className="bg-[#152031] p-5 rounded-2xl border border-[#2a3548] shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 bottom-0 left-0 w-1.5 bg-[#f97316]" />
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 pl-2">
             <div>
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-                <h3 className="font-extrabold text-base text-slate-900">
-                  Gestion du Jour Actif : <span className="text-indigo-600">Journée {currentDay}</span>
+                <span className="w-2.5 h-2.5 rounded-full bg-[#f97316] animate-pulse" />
+                <h3 className="font-extrabold text-base text-white">
+                  Gestion du Jour Actif : <span className="text-[#f97316]">Journée {currentDay}</span>
                 </h3>
               </div>
-              <p className="text-slate-500 text-xs mt-1 max-w-xl leading-relaxed">
+              <p className="text-slate-400 text-xs mt-1.5 max-w-xl leading-relaxed">
                 La gestion des poules, tableaux et scores se fait par journée. Vous gérez actuellement les tableaux du Jour {currentDay} ({categoriesToday.length} tableaux programmés).
               </p>
               
-              <div className="flex flex-wrap gap-2.5 mt-3">
-                <div className="bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100 text-[10px] font-bold text-slate-500">
-                  📁 Tableaux : <span className="text-slate-800 font-extrabold">{categoriesToday.map(c => c.name).join(', ') || 'Aucun'}</span>
+              <div className="flex flex-wrap gap-2.5 mt-3.5">
+                <div className="bg-[#0f1f3d] px-3 py-1.5 rounded-xl border border-[#1a3056] text-[10px] font-bold text-[#d8e3fb]">
+                  📁 Tableaux : <span className="text-[#f97316] font-extrabold">{categoriesToday.map(c => c.name).join(', ') || 'Aucun'}</span>
                 </div>
                 {totalMatchesToday > 0 && (
-                  <div className="bg-indigo-50/50 px-3 py-1.5 rounded-xl border border-indigo-100 text-[10px] font-bold text-indigo-700">
-                    🏓 Matchs : <span className="text-indigo-900 font-extrabold">{finishedMatchesToday} / {totalMatchesToday} terminés</span>
+                  <div className="bg-[#10B981]/10 px-3 py-1.5 rounded-xl border border-[#10B981]/25 text-[10px] font-bold text-emerald-400">
+                    🏓 Matchs : <span className="text-emerald-300 font-extrabold">{finishedMatchesToday} / {totalMatchesToday} terminés</span>
                   </div>
                 )}
               </div>
             </div>
 
-            <div className="flex gap-2 shrink-0 self-stretch md:self-auto flex-wrap">
+            <div className="flex gap-2.5 shrink-0 self-stretch md:self-auto flex-wrap">
               {currentDay > 1 && (
                 <button
                   onClick={() => handleSetDay(currentDay - 1)}
-                  className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-extrabold transition-all border border-slate-200 flex items-center gap-1 active:scale-95"
+                  className="px-4 py-2 bg-[#1f2a3c] hover:bg-[#2a3548] text-slate-100 border border-[#2a3548] rounded-xl text-xs font-bold transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
                 >
                   ◀ Jour {currentDay - 1}
                 </button>
@@ -1760,12 +1781,11 @@ export default function Dashboard() {
                 const isLastDay = currentDay >= totalDays;
 
                 if (isLastDay) {
-                  // C'est le dernier jour
                   if (isDayFinished) {
                     return (
                       <button
                         onClick={() => navigate('/organizer/bracket')}
-                        className="px-4 py-2 bg-amber-500 hover:bg-amber-650 hover:text-white text-slate-950 border border-amber-400 rounded-xl text-xs font-black transition-all shadow-md flex items-center gap-1.5 active:scale-95"
+                        className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-xs font-extrabold transition-all shadow-md flex items-center gap-1.5 active:scale-95 cursor-pointer font-sans"
                       >
                         🏆 Clôturer le Tournoi (Dernier Jour) ▶
                       </button>
@@ -1774,7 +1794,7 @@ export default function Dashboard() {
                     return (
                       <button
                         disabled
-                        className="px-4 py-2 bg-slate-50 text-slate-400 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-not-allowed border border-slate-200"
+                        className="px-4 py-2 bg-[#1f2a3c] text-slate-500 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-not-allowed border border-[#2a3548]"
                         title="Tous les matchs de cette dernière journée doivent se terminer en phase finale pour pouvoir procéder à la clôture finale."
                       >
                         🔒 Dernier Jour {currentDay} ({finishedMatchesToday}/{totalMatchesToday} terminés)
@@ -1784,7 +1804,7 @@ export default function Dashboard() {
                     return (
                       <button
                         onClick={() => navigate('/organizer/bracket')}
-                        className="px-4 py-2 bg-slate-900 hover:bg-black text-white rounded-xl text-xs font-extrabold transition-all flex items-center gap-1 active:scale-95"
+                        className="px-4 py-2 bg-[#f97316] hover:bg-orange-600 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 active:scale-95 shadow-md shadow-orange-500/20 cursor-pointer"
                       >
                         Gérer le Tableau Final ▶
                       </button>
@@ -1793,19 +1813,18 @@ export default function Dashboard() {
                     return (
                       <button
                         onClick={() => navigate('/organizer/bracket')}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold transition-all flex items-center gap-1 active:scale-95 shadow-md shadow-indigo-100"
+                        className="px-4 py-2 bg-[#f97316] hover:bg-[#ff6b00] text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 active:scale-95 shadow-md shadow-orange-500/20 cursor-pointer"
                       >
                         Phase Finale ▶
                       </button>
                     );
                   }
                 } else {
-                  // Ce n'est pas le dernier jour, on peut passer au suivant
                   if (isDayFinished) {
                     return (
                       <button
                         onClick={handleNextDay}
-                        className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl text-xs font-extrabold transition-all shadow-md shadow-green-100 flex items-center gap-1 active:scale-95"
+                        className="px-4 py-2 bg-[#10B981] hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-500/20 flex items-center gap-1 active:scale-95 cursor-pointer"
                       >
                         Clôturer le Jour {currentDay} & Passer au Suivant ▶
                       </button>
@@ -1814,7 +1833,7 @@ export default function Dashboard() {
                     return (
                       <button
                         disabled
-                        className="px-4 py-2 bg-slate-50 text-slate-400 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-not-allowed border border-slate-200"
+                        className="px-4 py-2 bg-[#1f2a3c] text-slate-500 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-not-allowed border border-[#2a3548]"
                         title="Tous les matchs du jour en cours doivent être terminés"
                       >
                         🔒 Jour {currentDay} ({finishedMatchesToday}/{totalMatchesToday} terminés)
@@ -1824,7 +1843,7 @@ export default function Dashboard() {
                     return (
                       <button
                         onClick={handleNextDay}
-                        className="px-4 py-2 bg-slate-900 hover:bg-black text-white rounded-xl text-xs font-extrabold transition-all flex items-center gap-1 active:scale-95"
+                        className="px-4 py-2 bg-[#f97316] hover:bg-orange-600 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
                       >
                         Clôturer la journée {currentDay} ▶
                       </button>
@@ -1833,7 +1852,7 @@ export default function Dashboard() {
                     return (
                       <button
                         onClick={handleNextDay}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold transition-all flex items-center gap-1 active:scale-95 shadow-md shadow-indigo-100"
+                        className="px-4 py-2 bg-[#1f2a3c] hover:bg-[#2a3548] text-slate-200 border border-[#2a3548] rounded-xl text-xs font-bold transition-all flex items-center gap-1 active:scale-95 cursor-pointer"
                       >
                         Passer au Jour {currentDay + 1} ▶
                       </button>
@@ -1848,26 +1867,27 @@ export default function Dashboard() {
 
       {/* 3. Bandeau Tournoi Terminé / Clôturé, en attente d'archivage (closed / finished) */}
       {['closed', 'finished'].includes(tournament?.status || '') && (
-        <div className="mb-12 p-8 bg-emerald-50 border border-emerald-100 rounded-3xl flex flex-col md:flex-row justify-between items-center gap-6 shadow-sm">
-          <div>
-            <h3 className="font-bold text-lg text-emerald-950 flex items-center gap-2">
+        <div className="p-5 bg-[#152031] border border-emerald-500/20 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4 shadow-sm relative overflow-hidden">
+          <div className="absolute top-0 bottom-0 left-0 w-1.5 bg-emerald-500" />
+          <div className="relative z-10">
+            <h3 className="font-bold text-lg text-emerald-400 flex items-center gap-2">
               <span>🥇 Tournoi Terminé !</span>
             </h3>
-            <p className="text-emerald-700 text-sm mt-1">
+            <p className="text-slate-300 text-sm mt-1">
               Tous les matchs ont été clôturés. L'archivage du tournoi enregistrera officiellement le bilan de l'événement. Vous pouvez également le réouvrir si besoin de saisir un score manquant.
             </p>
           </div>
-          <div className="flex gap-3 shrink-0 self-stretch md:self-auto justify-end">
+          <div className="flex gap-3 shrink-0 self-stretch md:self-auto justify-end z-10">
             <button
               onClick={handleReopenTournament}
-              className="h-12 px-5 bg-white hover:bg-slate-50 border border-emerald-200 hover:border-emerald-300 text-emerald-800 font-bold rounded-xl transition-all shadow-sm active:scale-95"
+              className="h-12 px-5 bg-[#1f2a3c] hover:bg-[#2a3548] text-slate-100 border border-[#2a3548] font-bold rounded-xl transition-all shadow-sm active:scale-95 cursor-pointer"
             >
               🔄 Réouvrir le Tournoi
             </button>
             <button
               onClick={handleArchive}
               disabled={archiving}
-              className="h-12 px-8 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-200 active:scale-95 disabled:opacity-50 shrink-0"
+              className="h-12 px-8 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-emerald-500/20 active:scale-95 disabled:opacity-50 shrink-0 cursor-pointer"
             >
               {archiving ? 'Archivage...' : 'Archiver ce tournoi'}
             </button>
@@ -1875,58 +1895,58 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
         <motion.div 
           whileHover={{ y: -4 }}
-          className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 relative overflow-hidden group"
+          className="bg-[#152031] p-5 rounded-2xl shadow-sm border border-[#2a3548] relative overflow-hidden group"
         >
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <Users className="w-24 h-24" />
+          <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity text-white">
+            <Users className="w-16 h-16" />
           </div>
-          <h3 className="text-slate-400 text-sm font-bold uppercase tracking-widest">Joueurs inscrits</h3>
-          <p className="text-5xl font-black text-slate-900 mt-4 tracking-tighter">{stats.players}</p>
-          <div className="h-1.5 w-12 bg-indigo-500 rounded-full mt-6" />
+          <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider">Joueurs inscrits</h3>
+          <p className="text-4xl font-extrabold text-white mt-3 tracking-tighter">{stats.players}</p>
+          <div className="h-1.5 w-12 bg-orange-500 rounded-full mt-4" />
         </motion.div>
 
         <motion.div 
           whileHover={{ y: -4 }}
-          className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 relative overflow-hidden group"
+          className="bg-[#152031] p-5 rounded-2xl shadow-sm border border-[#2a3548] relative overflow-hidden group"
         >
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <Play className="w-24 h-24" />
+          <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity text-white">
+            <Play className="w-16 h-16" />
           </div>
-          <h3 className="text-slate-400 text-sm font-bold uppercase tracking-widest">Matchs terminés</h3>
-          <p className="text-5xl font-black text-slate-900 mt-4 tracking-tighter">
-            {stats.matchesDone} <span className="text-2xl text-slate-200 italic">/ {stats.matchesTotal}</span>
+          <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider">Matchs terminés</h3>
+          <p className="text-4xl font-extrabold text-white mt-3 tracking-tighter">
+            {stats.matchesDone} <span className="text-xl text-slate-500 italic">/ {stats.matchesTotal}</span>
           </p>
-          <div className="h-1.5 w-12 bg-green-500 rounded-full mt-6" />
+          <div className="h-1.5 w-12 bg-emerald-500 rounded-full mt-4" />
         </motion.div>
 
         <motion.div 
           whileHover={{ y: -4 }}
-          className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 relative overflow-hidden group"
+          className="bg-[#152031] p-5 rounded-2xl shadow-sm border border-[#2a3548] relative overflow-hidden group"
         >
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <Trophy className="w-24 h-24" />
+          <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:opacity-10 transition-opacity text-white">
+            <Trophy className="w-16 h-16" />
           </div>
-          <h3 className="text-slate-400 text-sm font-bold uppercase tracking-widest">Tables en salle</h3>
-          <p className="text-5xl font-black text-slate-900 mt-4 tracking-tighter">{tournament?.nb_tables || 0}</p>
-          <div className="h-1.5 w-12 bg-amber-500 rounded-full mt-6" />
+          <h3 className="text-slate-400 text-xs font-bold uppercase tracking-wider">Tables en salle</h3>
+          <p className="text-4xl font-extrabold text-white mt-3 tracking-tighter">{tournament?.nb_tables || 0}</p>
+          <div className="h-1.5 w-12 bg-blue-500 rounded-full mt-4" />
         </motion.div>
       </div>
 
       {/* Tableaux de Compétition Actifs */}
       {activeCategories.length > 0 && (
-        <div className="mb-12 bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm" id="active-tournament-categories">
-          <h2 className="text-xl font-black text-slate-950 flex items-center gap-2 mb-1.5">
-            <Trophy className="w-5 h-5 text-indigo-500" />
+        <div className="mb-5 bg-[#152031] p-5 rounded-2xl border border-[#2a3548] shadow-sm" id="active-tournament-categories">
+          <h2 className="text-xl font-extrabold text-white flex items-center gap-2 mb-1.5">
+            <Trophy className="w-5 h-5 text-[#f97316]" />
             Tableaux de Compétition Actifs
           </h2>
           <p className="text-slate-400 text-xs mb-6 font-medium">Liste des catégories sportives configurées pour cet événement avec leur jauge d'inscription.</p>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {activeCategories.map(cat => (
-              <div key={cat.id} className="p-5 bg-slate-50 border border-slate-150 rounded-2xl flex flex-col justify-between hover:shadow-md transition-shadow">
+              <div key={cat.id} className="p-5 bg-[#1f2a3c]/60 border border-[#2a3548] rounded-2xl flex flex-col justify-between hover:border-slate-500 transition-all">
                 <div>
                   <div className="flex justify-between items-start mb-3">
                     <span 
@@ -1935,12 +1955,12 @@ export default function Dashboard() {
                     >
                       {cat.name}
                     </span>
-                    <span className="text-xs font-bold text-indigo-700 bg-indigo-50/50 px-2.5 py-0.5 rounded-full border border-indigo-100">
+                    <span className="text-xs font-bold text-[#f97316] bg-orange-950/30 px-2.5 py-0.5 rounded-full border border-orange-500/20">
                       Jour {cat.day_number}
                     </span>
                   </div>
 
-                  <div className="text-xs font-bold text-slate-700 space-y-1 mt-3">
+                  <div className="text-xs font-bold text-slate-300 space-y-2 mt-3.5">
                     <div className="flex justify-between">
                       <span className="text-slate-400 font-medium">Points requis :</span>
                       <span>📊 {cat.min_points} - {cat.max_points} pts</span>
@@ -1952,13 +1972,13 @@ export default function Dashboard() {
                     {cat.gender_restriction !== 'ALL' && (
                       <div className="flex justify-between">
                         <span className="text-slate-400 font-medium">Catégorie :</span>
-                        <span className="uppercase text-amber-700 font-extrabold">{cat.gender_restriction === 'M' ? 'Messieurs' : 'Dames'}</span>
+                        <span className="uppercase text-amber-400 font-extrabold">{cat.gender_restriction === 'M' ? 'Messieurs' : 'Dames'}</span>
                       </div>
                     )}
                     {cat.age_categories && (
-                      <div className="flex justify-between">
+                      <div className="flex justify-between items-center">
                         <span className="text-slate-400 font-medium">Âges admis :</span>
-                        <span className="font-extrabold text-indigo-700 bg-indigo-50/50 px-2.5 py-0.5 rounded-full border border-indigo-100/60 uppercase text-[9px] tracking-wider shrink-0">
+                        <span className="font-extrabold text-[#d8e3fb] bg-[#0f1f3d] px-2.5 py-0.5 rounded-full border border-[#1a3056] uppercase text-[9px] tracking-wider shrink-0">
                           {formatAgeCategories(cat.age_categories)}
                         </span>
                       </div>
@@ -1966,11 +1986,11 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="mt-5 pt-3 border-t border-slate-200/65 flex justify-between items-center">
-                  <span className="text-xs font-black text-indigo-600">
+                <div className="mt-5 pt-3 border-t border-[#2a3548] flex justify-between items-center">
+                  <span className="text-xs font-black text-[#f97316]">
                     💰 {cat.price} €
                   </span>
-                  <span className="text-[10px] font-black text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                  <span className="text-[10px] font-bold text-slate-350 bg-[#0f1f3d] px-2 py-0.5 rounded border border-[#1a3056]">
                     👥 Joueurs: max {cat.capacity}
                   </span>
                 </div>
@@ -1981,9 +2001,9 @@ export default function Dashboard() {
       )}
 
       {!['draft', 'open', 'registration'].includes(tournament?.status || '') && (
-        <div className="mb-12">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold flex items-center gap-3">
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-extrabold flex items-center gap-3 text-white">
               <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
               Direct Tables
             </h2>
@@ -2000,20 +2020,20 @@ export default function Dashboard() {
 
       {/* Écran de Salle / TV */}
       {tournament && (
-        <div className="mb-12 bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm" id="tv-board-section">
+        <div className="mb-5 bg-[#152031] p-5 rounded-2xl border border-[#2a3548] shadow-sm animate-fade-in" id="tv-board-section">
           <div className="flex flex-col lg:flex-row gap-8 items-start lg:items-center justify-between">
             <div className="flex-1 space-y-4">
-              <h2 className="text-xl font-black text-slate-950 flex items-center gap-2 mb-1">
-                <Tv className="w-5 h-5 text-indigo-500 animate-pulse" />
+              <h2 className="text-xl font-extrabold text-white flex items-center gap-2 mb-1">
+                <Tv className="w-5 h-5 text-[#f97316] animate-pulse" />
                 Écran de Salle & Appels (TV)
               </h2>
               <p className="text-slate-400 text-xs font-semibold max-w-xl leading-relaxed">
                 Affichez en direct l'état de toutes les tables de jeu, les appels de joueurs et les phases finales sur un grand écran ou une TV dans le gymnase. Cet écran se met à jour en temps réel automatiquement.
               </p>
               
-              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-start gap-3">
+              <div className="bg-[#0f1f3d] p-4 rounded-2xl border border-[#1a3056] flex items-start gap-3">
                 <span className="text-lg">💡</span>
-                <p className="text-slate-600 text-xs font-semibold leading-relaxed">
+                <p className="text-slate-300 text-xs font-semibold leading-relaxed">
                   <strong>Aide HDMI :</strong> Branchez la TV ou le projecteur en HDMI au laptop de l'organisateur, configurez l'affichage en mode <strong>"Étendre" (Win+P)</strong>, puis cliquez sur le bouton ci-dessous pour ouvrir l'écran de salle de façon intelligente.
                 </p>
               </div>
@@ -2022,7 +2042,7 @@ export default function Dashboard() {
                 <button
                   type="button"
                   onClick={ouvrirSurTV}
-                  className="px-5 py-3 bg-slate-900 hover:bg-slate-800 text-white font-extrabold rounded-xl transition-all shadow-sm text-xs uppercase tracking-wider active:scale-98 flex items-center gap-2 cursor-pointer"
+                  className="px-5 py-3 bg-[#f97316] hover:bg-orange-600 text-white font-extrabold rounded-xl transition-all shadow-md shadow-orange-500/20 text-xs uppercase tracking-wider active:scale-98 flex items-center gap-2 cursor-pointer"
                 >
                   <Tv className="w-4 h-4" />
                   Afficher sur la TV (2e Écran)
@@ -2031,15 +2051,15 @@ export default function Dashboard() {
                   href="/board"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="px-5 py-3 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl transition-all border border-slate-200 text-center flex items-center justify-center text-xs"
+                  className="px-5 py-3 bg-[#1f2a3c] hover:bg-[#2a3548] text-slate-100 font-bold rounded-xl transition-all border border-[#2a3548] text-center flex items-center justify-center text-xs"
                 >
                   Ouvrir l'adresse publique
                 </a>
               </div>
             </div>
 
-            <div className="shrink-0 p-4 bg-slate-50 border border-slate-100 rounded-3xl flex flex-col items-center gap-2 text-center shadow-xs">
-              <div className="p-2.5 bg-white rounded-2xl border border-slate-150 shadow-inner">
+            <div className="shrink-0 p-4 bg-[#1f2a3c] border border-[#2a3548] rounded-3xl flex flex-col items-center gap-2 text-center shadow-xs">
+              <div className="p-2.5 bg-white rounded-2xl">
                 <QRCodeSVG value={window.location.origin + '/board'} size={110} />
               </div>
               <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">
@@ -2049,30 +2069,6 @@ export default function Dashboard() {
           </div>
         </div>
       )}
-
-      <div className="bg-slate-900 p-8 rounded-[2rem] text-white overflow-hidden relative shadow-2xl shadow-indigo-500/20">
-        <div className="relative z-10">
-          <h2 className="text-2xl font-bold mb-2">Tournoi en cours</h2>
-          <p className="text-slate-400 mb-8 max-w-md">Gerez vos poules et les affectations de tables en temps reel.</p>
-          <div className="flex gap-4">
-            <button 
-              onClick={() => navigate('/organizer/scores')}
-              className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-indigo-600/20 active:scale-95 text-sm"
-            >
-              Superviser les tables
-            </button>
-            <a 
-              href="/organizer/print"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-xl transition-all border border-slate-700 text-center flex items-center justify-center text-sm"
-            >
-              Imprimer les QR
-            </a>
-          </div>
-        </div>
-        <div className="absolute -bottom-12 -right-12 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl" />
-      </div>
 
       {renderModals()}
     </div>

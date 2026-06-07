@@ -3,15 +3,121 @@
  This document keeps track of all released versions and updates of Ping Manager, adhering strictly to **Semantic Versioning (SemVer)**: `MAJOR.MINOR.PATCH`.
  
  ## Configuration active
-- **Version actuelle :** `0.17.7`
-- **Statut :** Allègement global du bandeau d'en-tête (retrait définitif du champ de recherche de l'interface d'administration).
-- **Date :** 2026-06-06
+- **Version actuelle :** `0.19.17`
+- **Statut :** Élargissement des limites d'affichage (max-width augmenté à 1600px/1850px) et réduction des marges/paddings écran pour minimiser l'espace inutilisé sur les côtés gauche et droit.
+- **Date :** 2026-06-07
 
 ---
  
  ## Historique des versions
  
-### v0.17.7 (2026-06-06) - *Version Actuelle*
+### v0.19.17 (2026-06-07) - *Version Actuelle*
+- **Élargissement Fluide des Gabarits :**
+  - **Marges Amorties :** Réduction des espaces horizontaux superflus à gauche et à droite de l'en-tête et de la zone principale de tous les onglets d'organisation générale (en-tête et conteneurs).
+  - **Grands Écrans Épanouis :** Remplacement de la limite rigide `max-w-7xl` (1280px) par des gabarits plus généreux `max-w-[1600px]` s'étendant jusqu'à `2xl:max-w-[1850px]` (appliqué aux Poules, Joueurs, Phases Finales, Tables et Scores).
+  - **Affichage Équilibré :** Les données de vos tableaux de poules s'étirent avec style en occupant pleinement le grand écran disponible, sans espace mort excessif sur les côtés.
+
+### v0.19.16 (2026-06-07)
+- **Densification Avancée de l'Écran des Poules :**
+  - **Grille de Poule Multipolaire :** Passage d'un quadrillage à 2 colonnes à une répartition jusqu'à 3 colonnes sur ordinateurs de grande taille (`2xl`), optimisant l'usage de l'espace latéral.
+  - **Bilan de Classement Tassé :** Positionneur Pos aminci à `w-5 h-5` (text `text-[9px]`), marges intérieures réduites à `py-1 px-1`, et taille des noms de joueurs finement ajustée à `text-[13px] sm:text-xs`.
+  - **Scores de Matchs de Poules Éco-conçus :** Boîtes de score des sets réduites à `w-6.5 h-6.5` et police des noms de joueurs au sein des fiches de match passée à `text-xs`.
+  - **Optimisation Dimensionnelle :** Allègement esthétique du bandeau de l'en-tête de poule avec une hauteur de soulignement réduite à `3.5px` et l'affichage des sélecteurs d'affectation de table simplifié.
+
+### v0.19.15 (2026-06-07)
+- **Module Matchs Rétractable :**
+  - Remplacement de l'en-tête de section statique des matchs par un bouton interactif élégant avec un compteur du nombre de matchs (`{N} matchs`).
+  - Ajout d'une flèche interactive de pliage/dépliage (`ChevronDown` pivotant) pour masquer la liste et recentrer l'affichage sur les tableaux de classement.
+  - État de pliage individuel indexé par identifiant de poule pour un contrôle granulaire par l'organisateur.
+
+### v0.19.14 (2026-06-06) - *Version Précédente*
+- **Densification Ergonomique des Poules :**
+  - Réduction de l'espacement principal externe de la page à `p-3 sm:p-5` et mise en place d'un flux d'écart vertical plus dynamique et équilibré.
+  - Amincissement important du boîtier "Tableaux du Jour" avec un capitonnage réduit à `p-3.5 sm:p-4`, des boutons de filtres très compacts, et des liserés optimisés.
+  - Titraille et sous-titres écourtés et rabaissés pour gagner de l'espace au-dessus du bento de poules.
+  - Grille des poules resserrée, avec réduction de l'épaisseur des cartes de poules, des padding de cellules du tableau de classement (`py-1.5` au lieu de `py-2.5`), et des espaces internes des fiches de match (`p-2 px-3`).
+
+### v0.19.13 (2026-06-06) - *Version Précédente*
+- **Formatage Abbrégé du Prénom :** Dans l'affichage bento des matchs d'une poule, remplacement du nom simple par la combinaison du nom de famille en majuscules suivi de l'initiale du prénom (ex: `VANDAMME A.`), optimisant le rendu sur supports mobiles et tablettes sans troncature brusque.
+
+### v0.19.12 (2026-06-06) - *Version Précédente*
+- **Compression Ergonomique (Marges compactes) :** Réduction des marges extérieures et contours des containers (`rounded-2xl`, etc.), des gapped layout (`gap-5 sm:gap-6` au lieu de `gap-8`) et des capitonnages internes (`p-4 sm:p-5`) pour un confort visuel maximal.
+- **Remplacement Complet des Sets :** Plus d'exhaustivité et de confort dans les colonnes avec réintégration de la section Sets (`s.sets_won / s.sets_lost`) accompagnée de son badge de différentiel coloré (ex: `+3`).
+- **Pérennisation de l'Identité Fédérale :** Restauration conjointe du nom de club (`s.club`) et du classement de points originaux (`s.points_fftt`) sous forme de sous-ligne épurée et très structurée à côté de chaque joueur.
+
+### v0.19.11 (2026-06-06) - *Version Précédente*
+- **Ajustements des Points de Poule :** Grossissement des chiffres de points (`text-lg font-black text-white`) et suppression des mentions de suffixe "pts" redondantes sans couleur d'arrière-plan, conformément aux demandes ergonomiques.
+- **Micro-ajustement d'Intubation Graphique :** Correction de chevauchements et de duplications de balises de fin d'itération cartographique (`Pools.tsx`) pour assurer la parfaite conformité de compilation du template.
+- **Formatage Bento Sombre :** Harmonisation des tables de classement des poules avec liserés `#2a3548/30`, boîtiers de sets ratio épurés et listes de matchs calibrées s'intégrant au thème sport-tech de TournoisTT.
+
+### v0.19.10 (2026-06-06) - *Version Précédente*
+- **Refonte Graphique des Poules :** Migration radicale de l'interface claire vers un design sombre ultra-moderne haute fidélité s'intégrant parfaitement au thème principal de TournoisTT.
+- **Raffinements Visuels des Cartes :** Profilage des cartes de poule (`#152031`) avec liseré de couleur associé au tableau, badges de statut calibrés (`Active`, `Terminée`, `En attente`) et mise en relief du classement sous forme de bento-grid.
+- **Micro-interactions et Scoreboards :** Intégration de boîtiers de scores à haut contraste (`w-7 h-7 bg-[#152031]`) favorisant une immersion d'arbitrage instantanée ainsi que de badges d'activités dynamiques pour les joueurs mobilisés.
+
+### v0.19.9 (2026-06-06) - *Version Précédente*
+- **Rééquilibrage de l'Information des Joueurs :** Réintroduction d'une colonne dédiée "Licence / Tél" pour conserver sans encombrement le numéro de licence et le numéro de téléphone des participants.
+- **Sub-text Club Restructuré :** Préservation sous le nom du joueur du nom de son Club, optimisant l'espace visuel sans sacrifier les coordonnées et l'identité fédérale de l'adhérent.
+
+### v0.19.8 (2026-06-06) - *Version Précédente*
+- **Élimination des Infos Redondantes :** Remplacement des libellés de licence et de téléphone sous le nom du joueur par l'affichage direct du nom de club dans un format épuré et plus lisible.
+- **Simplification Graphique des Points :** Retrait de la mention "pts", suppression de l'arrière-plan de couleur ainsi que de la bordure du badge pour n'afficher que le score de classement en grand format (`text-base font-black`).
+
+### v0.19.7 (2026-06-06) - *Version Précédente*
+- **Éradication des Redondances Visuelles :** Suppression de la mention "SESSION ACTIVE - Journée X" et de sa puce clignotante dans le widget de suivi afin d'alléger l'espace de progression en haut de page.
+- **Micro-ajustement de l'Espace :** Remplacement par un simple label compact "Suivi du pointage en direct" pour une lisibilité optimisée.
+
+### v0.19.6 (2026-06-06) - *Version Précédente*
+- **Purge du Filtre Global de Jours :** Suppression définitive du bouton "Tous les Jours" pour simplifier le sélecteur d'en-tête et concentrer l'arbitrage sur l'action immédiate.
+- **Retour du Filtre Global de Tableaux :** Réintroduction du bouton d'action capital "Tous les Tableaux" à côté du champ de recherche compact, assurant ainsi une flexibilité ergonomique totale de rappel globale en un clic.
+
+### v0.19.5 (2026-06-06) - *Version Précédente*
+- **Fusion Ergo-Compacte de Pointage :** Intégration directe des bulles de filtres de tableaux au sein d'une seule et unique barre d’outils à côté de l’input de recherche rapide.
+- **Désaccouplement des Boutons d'Action Clairs :** Dissolution du bouton "Tous les Tableaux 👥" redondant ; l'activation et la désactivation des filtres s'effectuent par simple bascule (toggle) directe du bouton du tableau.
+- **Miniaturisation Ajustée :** Réduction de la largeur du champ de recherche ("Rechercher...") pour un aménagement haptique à forte densité d'informations.
+
+### v0.19.4 (2026-06-06) - *Version Précédente*
+- **Sélecteur de Journée Intégré :** Remplacement de la barre de recherche supérieure par le sélecteur compact de Journée d'arbitrage active (gain de hauteur de page et d'encombrement).
+- **Miniaturisation du Bouton de Recherche :** Réduction de la zone de recherche rapide sous forme de capsule compacte (`rounded-xl` / `max-w-sm`) placée de manière élégante et ergonomique.
+
+### v0.19.3 (2026-06-06) - *Version Précédente*
+- **Optimisation de l'Espace de Pointage :** Intégration des boutons d'actions ("Actualiser", "Scanner QR" et "Ajouter un Joueur") par portage React direct (Portal) au sein du bandeau supérieur (sub-header).
+- **Simplification du Bloc de Titre :** Suppression du titre redondant "Pointage J-J & Joueurs" et de sa description au profit d'un gain d'espace de travail maximal.
+- **Suppression Badge Redondant :** Retrait de l'indication "Journée d'Arbitrage" du bandeau supérieur afin d'épurer l'interface d'arbitrage.
+
+### v0.19.2 (2026-06-06) - *Version Précédente*
+- **Slick-Design Sport-Tech pour le Pointage :** Traduction intégrale de la page de pointage J-J aux teintes premium de la charte sombre (`#081425`, `#152031`, bordures `#2a3548` et contrastes orange haptiques `#f97316`).
+- **Éradication des Blocs Clairs Résiduels :** Harmonisation de la table d'émulation des inscrits, du formulaire d'ajout rapide, des indicateurs d'état et du bandeau de contrôle des tableaux clôturés.
+
+### v0.19.1 (2026-06-06) - *Version Précédente*
+- **Slick-Menu Simplifié :** Remplacement des trois boutons d'administration individuels ("Pointage J-J", "Poules", "Phase Finale") dans la Sidebar de navigation de gauche et la barre mobile du bas (Bottombar) par un bouton d'accès unifié unique appelé "**Tournoi en cours**".
+- **Préservation Intelligente de l'État :** Configuration de la détection de route dynamique afin de garder le lien "Tournoi en cours" en surbrillance d'activité orange continu, quel que soit le sous-onglet opérationnel affiché pour l'arbitre.
+
+### v0.19.0 (2026-06-06) - *Version Précédente*
+- **Unification d'Espace de Jeu :** Création de l'Espace Opérations en onglets dynamiques (`Pointage J-J` / `Poules` / `Phase Finale`), regroupant ces trois grandes étapes clés de l'arbitrage sur un écran unifié et fluide.
+- **Navigation Optimisée :** Les sous-onglets sont coordonnés en temps réel avec le routeur d'application pour une réactivité instantanée et une conservation parfaite de l'état URL.
+- **Simplification Graphique :** Retrait de la section redondante du Dashboard afin d'épurer l'interface d'administration.
+
+### v0.18.3 (2026-06-06) - *Version Précédente*
+- **Slick-Design Compact :** Réduction significative des marges intérieures (`p-8` à `p-5`) de toutes les cartes, bento-grid de statistiques et sections du Tableau de Bord (Écran TV, bandeaux actifs, listes de catégories).
+- **Densité Optimisée :** Ajustement des marges verticales (`space-y-8` à `space-y-5`, `gap-8 mb-12` à `gap-5 mb-5`) et des arrondis excessifs (`rounded-[2rem]` à `rounded-2xl`) pour un affichage parfaitement fluide, dense et sans espace vide inutile.
+- **Contrôle du Jour Actif :** Diminution de l'espacement gauche (`pl-4` à `pl-2`) pour équilibrer la bordure de focus orange haptique.
+
+### v0.18.2 (2026-06-06) - *Version Précédente*
+- **Slick-Design Sport-Tech Unifié (Sidebar + Header) :** Transition globale vers le mode sombre hautement contrasté pour le menu de navigation gauche (repassé à `#040e1f` avec bordures `#1a3056`) et l'en-tête principal (`#081425`).
+- **Correction typographique et de lisibilité :** Réduction des contrastes agressifs et remplacement des couleurs claires par des tons Sport-Tech profonds avec surbrillance orange `#f97316` sur l'espace d'administration.
+
+### v0.18.1 (2026-06-06) - *Version Précédente*
+- **Slick-Design Sport-Tech du Dashboard :** Application intégrale du design Sport-Tech aux bandeaux Brouillon/Inscriptions, au sélecteur dynamique du Jour Actif, aux cartes de statistiques en grid d'archivage, et à la section HDMI/TV.
+- **Expérience utilisateur active :** Boutons haptiques avec effets de curseur actif, échelle responsive préservée, et design system consolidé sans débordement de container.
+- **Correctif d'implémentation :** Restructuration des tags HTML du sélecteur de jour pour un build de production parfait.
+
+### v0.18.0 (2026-06-06) - *Version Précédente*
+- **Refonte visuelle du Tableau de bord (Dashboard) :** Layout modernisé suivant la charte Sport-Tech avec en-tête épuré et Bento Grid de statistiques sportives de la journée.
+- **Overhaul du bandeau haut fixe (Header) :** Affichage centralisé et dynamique du nom du tournoi actif, de la date d'ouverture de la première journée, et de l'indicateur d'étape Courante (Jour 1 ou Jour 2), fluidifiant la navigation globale.
+- **Redesign du Menu de navigation (Sidebar) :** Intégration de touches électriques orange, de contrastes Marine sombres, d'effets de focus et de transitions soignées.
+
+### v0.17.7 (2026-06-06) - *Version Précédente*
 - **Élimination de la barre de recherche globale :** Retrait complet du moteur de recherche dans l'en-tête (header) de l'espace Club, optimisant ainsi l'espace et épurant le design pour une interface encore plus épurée.
 
 ### v0.17.6 (2026-06-06)

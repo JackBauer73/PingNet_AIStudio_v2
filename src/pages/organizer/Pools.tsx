@@ -8,7 +8,7 @@ import { generatePoolMatches } from '../../utils/generateMatches';
 import { generateBracket } from '../../utils/generateBracket';
 import { supabase } from '../../supabase';
 import toast from 'react-hot-toast';
-import { Play, Grid3X3, Trophy, ChevronRight, Lock as LockIcon } from 'lucide-react';
+import { Play, Grid3X3, Trophy, ChevronRight, ChevronDown, Lock as LockIcon } from 'lucide-react';
 
 function getContrastColor(hexColor: string): string {
   if (!hexColor) return '#ffffff';
@@ -34,6 +34,7 @@ export default function Pools() {
   const [reassigningPool, setReassigningPool] = useState<string | null>(null);
   const [confirmingDeletePools, setConfirmingDeletePools] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [collapsedPools, setCollapsedPools] = useState<Record<string, boolean>>({});
 
   const handleDeletePools = async () => {
     if (!tournament) return;
@@ -682,11 +683,11 @@ export default function Pools() {
   if (loading) return <div className="p-8 text-center text-slate-400">Chargement...</div>;
 
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto">
+    <div className="p-1.5 sm:p-3 w-full max-w-[1600px] 2xl:max-w-[1850px] mx-auto space-y-4">
       {/* Sélecteur de Catégorie / Série de la journée active */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-8">
-        <div className="flex items-center gap-3 flex-wrap">
-          <span className="text-xs font-black uppercase text-slate-400 tracking-wider flex items-center gap-1">
+      <div className="bg-[#152031] p-3.5 sm:p-4 rounded-xl border border-[#2a3548] shadow-md">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <span className="text-xs font-black uppercase text-slate-455 tracking-wider flex items-center gap-1">
             🏓 Tableaux du Jour (Journée {currentDay}) :
           </span>
           {catsToday.map(cat => {
@@ -698,21 +699,21 @@ export default function Pools() {
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.name)}
-                className={`px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 border border-slate-200/60 ${
+                className={`px-3 py-1.5 text-xs font-extrabold rounded-lg transition-all flex items-center gap-1.5 border cursor-pointer ${
                   isActive
-                    ? 'shadow-md font-extrabold'
-                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                    ? 'shadow-md border-transparent font-black text-white'
+                    : 'bg-[#081425] text-slate-300 border-[#1a3056] hover:bg-[#111c2d]'
                 }`}
-                style={isActive ? { backgroundColor: bgCol, borderColor: bgCol, color: textCol } : {}}
+                style={isActive ? { backgroundColor: bgCol, color: textCol } : {}}
               >
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: isActive ? textCol : bgCol }} />
+                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: isActive ? textCol : bgCol }} />
                 <span>{cat.name}</span>
                 {hasPools ? (
-                  <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-black/10 text-current">
+                  <span className="text-[9px] font-extrabold uppercase px-1 py-0.5 rounded bg-black/20 text-current">
                     Prêt
                   </span>
                 ) : (
-                  <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 font-bold">
+                  <span className="text-[9px] font-extrabold uppercase px-1 py-0.5 rounded bg-[#f97316]/20 text-[#f97316]">
                     À générer
                   </span>
                 )}
@@ -723,12 +724,12 @@ export default function Pools() {
       </div>
 
       {selectedCategory === '' ? (
-        <div className="p-8 max-w-2xl mx-auto text-center mt-12 bg-white rounded-2xl border border-slate-200 shadow-sm">
-          <div className="w-20 h-20 bg-slate-50 text-slate-400 rounded-3xl flex items-center justify-center mx-auto mb-6">
+        <div className="p-8 max-w-2xl mx-auto text-center mt-12 bg-[#152031] rounded-2xl border border-[#2a3548] shadow-xl">
+          <div className="w-20 h-20 bg-[#081425] text-amber-500 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-[#2a3548]/55 shadow-inner">
             <Trophy className="w-10 h-10" />
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Aucun tableau aujourd'hui</h2>
-          <p className="text-slate-500 text-sm max-w-md mx-auto">
+          <h2 className="text-2xl font-extrabold text-white mb-2">Aucun tableau aujourd'hui</h2>
+          <p className="text-slate-400 text-sm max-w-md mx-auto">
             Aucun tableau ou série de compétition n'est programmé pour la Journée {currentDay} dans l'organisation de ce tournoi.
           </p>
         </div>
@@ -739,59 +740,59 @@ export default function Pools() {
         const hasEnoughPlayers = presents.length >= 3;
 
         return (
-          <div className="p-8 max-w-2xl mx-auto text-center mt-12">
+          <div className="p-8 max-w-2xl mx-auto text-center mt-12 bg-[#152031] border border-[#2a3548] rounded-3xl shadow-2xl">
             <div className={`w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 transition-all ${
-              isClosed ? 'bg-indigo-50 text-indigo-600' : 'bg-rose-50 text-rose-600'
+              isClosed ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
             }`}>
               {isClosed ? <Grid3X3 className="w-10 h-10 animate-pulse" /> : <LockIcon className="w-10 h-10" />}
             </div>
-            <h1 className="text-3xl font-bold text-slate-900 flex items-center justify-center gap-2">
+            <h1 className="text-3xl font-black text-white flex items-center justify-center gap-2 flex-wrap">
               Poules du Tableau {selectedCategory}
               {isClosed ? (
-                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-indigo-600 text-white leading-none">
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-650 text-emerald-100 border border-emerald-500/20 leading-none">
                   Prêt 🔒
                 </span>
               ) : (
-                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-rose-600 text-white leading-none">
+                <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded bg-rose-650 text-rose-100 border border-rose-500/20 leading-none">
                   Pointage en cours 🔓
                 </span>
               )}
             </h1>
 
             {!isClosed ? (
-              <div className="bg-rose-50/50 border border-rose-100 text-rose-950 p-4 rounded-2xl text-xs sm:text-sm my-6 leading-relaxed font-bold max-w-lg mx-auto">
+              <div className="bg-rose-500/10 border border-rose-500/20 text-rose-200 p-4 rounded-2xl text-xs sm:text-sm my-6 leading-relaxed font-bold max-w-lg mx-auto">
                 ⚠️ Le pointage de ce tableau n'est pas encore clôturé par la table d'arbitrage.
-                <p className="text-slate-500 font-semibold text-xs mt-1">
-                  Veuillez d'abord valider les présences et clôturer le pointage dans la rubrique <strong className="text-slate-750">"Joueurs"</strong> pour pouvoir générer les poules.
+                <p className="text-slate-400 font-semibold text-xs mt-1">
+                  Veuillez d'abord valider les présences et clôturer le pointage dans la rubrique <strong className="text-slate-300">"Joueurs"</strong> pour pouvoir débloquer la génération des poules.
                 </p>
               </div>
             ) : (
-              <p className="text-slate-500 mt-4 text-sm leading-relaxed max-w-md mx-auto">
+              <p className="text-slate-400 mt-4 text-sm leading-relaxed max-w-md mx-auto">
                 Les poules pour le tableau "{selectedCategory}" de la journée en cours ne sont pas encore générées.
                 Le pointage est validé et clos. Vous pouvez dès maintenant lancer la génération robotisée des poules.
               </p>
             )}
             
-            <div className="my-2 inline-flex gap-6 px-6 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs font-bold text-slate-500">
-              <span>Inscrits : <strong className="text-slate-800">{total.length}</strong></span>
-              <span>Presents : <strong className="text-indigo-600">{presents.length}</strong></span>
+            <div className="my-2 inline-flex gap-6 px-6 py-3 bg-[#081425] border border-[#1a3056] rounded-2xl text-xs font-bold text-slate-400">
+              <span>Inscrits : <strong className="text-white">{total.length}</strong></span>
+              <span>Presents : <strong className="text-[#f97316]">{presents.length}</strong></span>
             </div>
 
             <div className="mt-6 flex flex-col items-center gap-3">
               <button
                 onClick={handleGeneratePools}
                 disabled={generating || !isClosed || !hasEnoughPlayers}
-                className={`inline-flex items-center gap-3 px-8 py-4 text-white rounded-2xl font-bold text-lg transition-all shadow-xl active:scale-95 disabled:scale-100 ${
+                className={`inline-flex items-center gap-3 px-8 py-4 text-white rounded-2xl font-black text-sm transition-all shadow-xl active:scale-95 disabled:scale-100 cursor-pointer ${
                   !isClosed 
-                    ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
-                    : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-250 cursor-pointer'
+                    ? 'bg-[#0c1726] border border-[#1a3056] text-slate-500 cursor-not-allowed shadow-none'
+                    : 'bg-[#f97316] hover:bg-[#ea580c] shadow-[#f97316]/10'
                 }`}
               >
                 {generating ? 'Génération en cours...' : !isClosed ? 'En attente de clôture du pointage 🔒' : 'Générer les Poules de cette Série'}
-                <ChevronRight className="w-6 h-6" />
+                <ChevronRight className="w-6 h-6 animate-bounceHorizontal" />
               </button>
               {!hasEnoughPlayers && isClosed && (
-                <span className="text-rose-600 font-bold text-xs">
+                <span className="text-rose-450 font-bold text-xs mt-1">
                   ⚠️ Il faut au moins 3 joueurs présents dans ce tableau pour composer des poules.
                 </span>
               )}
@@ -800,28 +801,28 @@ export default function Pools() {
         );
       })() : (
         <>
-          <div className="flex justify-between items-end mb-8 flex-wrap gap-4">
+          <div className="flex justify-between items-end mb-4 flex-wrap gap-3">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900 border-l-4 border-indigo-500 pl-4">
+              <h1 className="text-2xl font-black tracking-tight text-white border-l-4 border-[#f97316] pl-3">
                 Poules : {selectedCategory}
               </h1>
-              <p className="text-slate-500 mt-2 pl-4">
+              <p className="text-slate-400 mt-1 pl-3 text-xs">
                 Suivez les équipes, classements et fiches de match de ce tableau de niveau.
               </p>
             </div>
-
+ 
             <div className="flex items-center gap-4 flex-wrap">
               {/* Bouton de Suppression des Poules */}
               {confirmingDeletePools ? (
-                <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 animate-fade-in shadow-sm">
-                  <span className="text-xs font-bold text-slate-600 px-2.5">
+                <div className="flex items-center gap-2 bg-[#152031] p-1.5 rounded-2xl border border-[#2a3548] animate-fade-in shadow-lg">
+                  <span className="text-xs font-bold text-slate-350 px-2.5">
                     Supprimer définitivement ces poules et tous leurs matchs ?
                   </span>
                   <button
                     id="btn-confirm-delete-pools"
                     onClick={handleDeletePools}
                     disabled={deleting}
-                    className="px-3.5 py-1.5 bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs rounded-xl transition-all shadow-sm cursor-pointer disabled:opacity-50"
+                    className="px-3.5 py-1.5 bg-red-650 hover:bg-red-750 text-white font-extrabold text-xs rounded-xl transition-all shadow-sm cursor-pointer disabled:opacity-50"
                   >
                     {deleting ? 'Suppression...' : 'Oui, supprimer ✓'}
                   </button>
@@ -829,7 +830,7 @@ export default function Pools() {
                     id="btn-cancel-delete-pools"
                     onClick={() => setConfirmingDeletePools(false)}
                     disabled={deleting}
-                    className="px-3.5 py-1.5 bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 font-bold text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50"
+                    className="px-3.5 py-1.5 bg-[#081425] text-slate-300 hover:bg-[#111c2d] border border-[#1a3056] font-bold text-xs rounded-xl transition-all cursor-pointer disabled:opacity-50"
                   >
                     Annuler
                   </button>
@@ -839,20 +840,20 @@ export default function Pools() {
                   id="btn-init-delete-pools"
                   onClick={() => setConfirmingDeletePools(true)}
                   disabled={deleting || generating}
-                  className="flex items-center gap-2 px-5 py-3 bg-red-50 text-red-600 hover:bg-red-100 border border-red-200/80 rounded-2xl font-bold transition-all shadow-sm disabled:opacity-50 cursor-pointer text-xs"
+                  className="flex items-center gap-2 px-5 py-3 bg-red-500/10 text-red-400 hover:bg-red-500/15 border border-red-500/20 rounded-2xl font-bold transition-all shadow-sm disabled:opacity-50 cursor-pointer text-xs"
                 >
                   <span>🗑️ Supprimer les Poules</span>
                 </button>
               )}
-
+ 
               {matches.filter(m => {
                 const pool = pools.find(p => p.id === m.pool_id);
                 return pool?.table_category_id === currentCategoryObj?.id;
               }).length > 0 && (
                 <div className="flex items-center gap-2">
                   {confirmingClosePools ? (
-                    <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200 animate-fade-in shadow-sm">
-                      <span className="text-xs font-bold text-slate-600 px-2.5">
+                    <div className="flex items-center gap-2 bg-[#152031] p-1.5 rounded-2xl border border-[#2a3548] animate-fade-in shadow-lg">
+                      <span className="text-xs font-bold text-slate-350 px-2.5">
                         {(() => {
                           const categoryMatches = matches.filter(m => {
                             const pool = pools.find(p => p.id === m.pool_id);
@@ -880,13 +881,13 @@ export default function Pools() {
                             setGenerating(false);
                           }
                         }}
-                        className="px-3.5 py-1.5 bg-green-600 hover:bg-green-700 text-white font-extrabold text-xs rounded-xl transition-all shadow-sm cursor-pointer"
+                        className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl transition-all shadow-sm cursor-pointer"
                       >
                         Oui, créer ✓
                       </button>
                       <button
                         onClick={() => setConfirmingClosePools(false)}
-                        className="px-3.5 py-1.5 bg-white text-slate-700 hover:bg-slate-50 border border-slate-200 font-bold text-xs rounded-xl transition-all cursor-pointer"
+                        className="px-3.5 py-1.5 bg-[#081425] text-slate-300 hover:bg-[#111c2d] border border-[#1a3056] font-bold text-xs rounded-xl transition-all cursor-pointer"
                       >
                         Annuler
                       </button>
@@ -895,7 +896,7 @@ export default function Pools() {
                     <button
                       onClick={() => setConfirmingClosePools(true)}
                       disabled={generating}
-                      className="flex items-center gap-2 px-6 py-3 bg-green-600 text-white rounded-2xl font-bold hover:bg-green-700 transition-all shadow-xl shadow-green-100 disabled:opacity-50"
+                      className="flex items-center gap-2 px-6 py-3 bg-[#10b981] hover:bg-[#059669] text-white rounded-2xl font-bold transition-all shadow-xl shadow-green-950/20"
                     >
                       <Trophy className="w-5 h-5" />
                       {generating ? 'Génération...' : 'Créer le Tableau Final'}
@@ -906,31 +907,32 @@ export default function Pools() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-3 gap-3.5">
             {pools.filter(p => p.table_category_id === currentCategoryObj?.id).map((pool) => {
               const poolMatches = matches.filter(m => m.pool_id === pool.id);
+              const highlightColor = currentCategoryObj?.color_code || '#4f46e5';
               return (
-                <div key={pool.id} className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden border-t-4 border-t-indigo-500">
-                  <div className="p-6 bg-slate-50/50 border-b border-slate-100 flex justify-between items-center flex-wrap gap-4">
+                <div key={pool.id} className="bg-[#152031] rounded-xl border border-[#2a3548] shadow-md overflow-hidden transition-all duration-300 flex flex-col" style={{ borderTop: `3.5px solid ${highlightColor}` }}>
+                  <div className="p-2.5 px-3 bg-[#0c1726]/40 border-b border-[#2a3548]/50 flex justify-between items-center flex-wrap gap-2.5">
                       <div>
-                        <div className="flex items-center gap-2 flex-wrap mb-1.5">
-                          <h2 className="text-xl font-bold text-slate-900">{pool.name.replace(`${selectedCategory} - `, '')}</h2>
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <h2 className="text-base sm:text-lg font-black text-white">{pool.name.replace(`${selectedCategory} - `, '')}</h2>
                           {!isPoolFinished(pool.id) && pool.table_number ? (
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-slate-900 text-white tracking-widest shadow-sm">
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-[#152031] text-[#f97316] border border-[#f97316]/30 tracking-widest shadow-sm">
                               Table {pool.table_number}
                             </span>
                           ) : (
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-slate-100 text-slate-400 tracking-wider">
+                            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-[#081425]/50 text-slate-500 border border-[#1a3056]/30 tracking-wider">
                               Aucune table
                             </span>
                           )}
                         </div>
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider ${
                           isPoolFinished(pool.id) 
-                            ? 'bg-green-100 text-green-700' 
+                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
                             : pool.status === 'in_progress'
-                            ? 'bg-amber-100 text-amber-700 font-extrabold animate-pulse'
-                            : 'bg-blue-100 text-blue-700'
+                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20 font-black animate-pulse'
+                            : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
                         }`}>
                           {isPoolFinished(pool.id) 
                             ? 'Terminée' 
@@ -942,9 +944,9 @@ export default function Pools() {
                       </div>
                       
                       {!isPoolFinished(pool.id) && (
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           {reassigningPool === pool.id ? (
-                            <div className="flex items-center gap-1.5 bg-white border border-slate-200 p-1 rounded-xl shadow-sm animate-fade-in">
+                            <div className="flex items-center gap-1 bg-[#081425] border border-[#2a3548] p-1 rounded-lg shadow-lg animate-fade-in">
                               <select
                                 value=""
                                 onChange={(e) => {
@@ -953,28 +955,28 @@ export default function Pools() {
                                     handleReassignTable(pool.id, val);
                                   }
                                 }}
-                                className="text-xs font-bold bg-white border-0 focus:ring-0 p-1 focus:outline-none"
+                                className="text-[11px] font-bold bg-[#081425] text-slate-300 border-0 focus:ring-0 p-1 focus:outline-none cursor-pointer"
                               >
-                                <option value="">-- Assigner Table --</option>
+                                <option value="">-- Assigner --</option>
                                 {Array.from({ length: tournament?.nb_tables || 0 }, (_, i) => i + 1)
                                   .filter(num => !pools.some(p => !isPoolFinished(p.id) && Number(p.table_number) === Number(num)))
                                   .map((num) => (
-                                    <option key={num} value={num}>Table {num}</option>
+                                    <option key={num} value={num} className="bg-[#152031]">Table {num}</option>
                                   ))}
                               </select>
                               <button
                                 onClick={() => setReassigningPool(null)}
-                                className="text-[10px] text-slate-400 hover:text-slate-600 font-bold px-1"
+                                className="text-[9px] text-slate-455 hover:text-slate-200 font-bold px-1.5 cursor-pointer"
                               >
-                                Annuler
+                                X
                               </button>
                             </div>
                           ) : (
                             <button
                               onClick={() => setReassigningPool(pool.id)}
-                              className="px-2.5 py-1.5 border border-slate-200 hover:border-slate-350 text-slate-600 hover:text-slate-900 rounded-xl text-[11px] font-bold transition-all"
+                              className="px-2 py-1 border border-[#1a3056] hover:border-[#2a3548] bg-[#0c1726]/40 text-slate-300 hover:text-white rounded-lg text-[10px] font-extrabold transition-all cursor-pointer"
                             >
-                              {pool.table_number ? 'Déplacer de table' : 'Assigner une table'}
+                              {pool.table_number ? 'Déplacer' : 'Assigner Table'}
                             </button>
                           )}
 
@@ -984,9 +986,9 @@ export default function Pools() {
                             
                             if (isMatchInProgress) {
                               return (
-                                <div className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-50 text-indigo-700 border border-indigo-200/60 rounded-xl text-xs font-black uppercase animate-pulse shadow-sm">
-                                  <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
-                                  Table {pool.table_number || '?'} en cours
+                                <div className="flex items-center gap-1 px-2.5 py-1 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded-lg text-[10px] font-black uppercase animate-pulse shadow-sm">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+                                  T{pool.table_number || '?'} en cours
                                 </div>
                               );
                             }
@@ -998,10 +1000,10 @@ export default function Pools() {
                             return (
                               <button
                                 onClick={() => handleLaunchPool(pool.id)}
-                                className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-850 transition-all shadow-md active:scale-95"
+                                className="flex items-center gap-1.5 px-3 py-1 bg-[#f97316] text-white rounded-lg text-[10px] font-black hover:bg-[#ea580c] transition-all shadow-md active:scale-95 cursor-pointer"
                               >
                                 <Play className="w-3.5 h-3.5 fill-current" />
-                                {pool.status === 'pending' ? 'Lancer la poule' : 'Lancer le match suivant'}
+                                {pool.status === 'pending' ? 'Lancer' : 'Suivant'}
                               </button>
                             );
                           })()}
@@ -1009,19 +1011,19 @@ export default function Pools() {
                       )}
                     </div>
 
-                    <div className="p-6">
-                      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Classement</h3>
-                      <div className="overflow-x-auto mb-8">
+                    <div className="p-2.5 sm:p-3">
+                      <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Classement</h3>
+                      <div className="overflow-x-auto mb-3">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="text-left text-slate-400 italic">
-                              <th className="pb-3 font-medium">Pos</th>
-                              <th className="pb-3 font-medium">Joueur</th>
-                              <th className="pb-3 font-medium text-center">Pts</th>
-                              <th className="pb-3 font-medium text-center">Sets</th>
+                            <tr className="text-[#94a3b8] border-b border-[#2a3548]/30 text-[10px] font-bold uppercase tracking-wider">
+                              <th className="pb-1 text-left pr-1 w-8">Pos</th>
+                              <th className="pb-1 text-left">Joueur</th>
+                              <th className="pb-1 text-center w-10">Pts</th>
+                              <th className="pb-1 text-center w-20">Sets</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-50">
+                          <tbody className="divide-y divide-[#2a3548]/20">
                             {(() => {
                               const poolStandings = standings
                                 .filter(s => s.pool_id === pool.id)
@@ -1030,7 +1032,7 @@ export default function Pools() {
                               if (poolStandings.length === 0) {
                                 return (
                                   <tr>
-                                    <td colSpan={4} className="py-8 text-center text-slate-400 italic">
+                                    <td colSpan={4} className="py-6 text-center text-slate-400 italic text-xs">
                                       En attente des premiers résultats...
                                     </td>
                                   </tr>
@@ -1042,21 +1044,21 @@ export default function Pools() {
                                 const isComplete = poolMatches.length > 0 && poolMatches.every(m => m.status === 'finished');
                                 
                                 return (
-                                  <tr key={s.player_id} className={`group transition-colors ${isTargetRank && isComplete ? 'bg-green-50/40' : ''}`}>
-                                    <td className="py-3 px-2">
-                                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all ${
+                                  <tr key={s.player_id} className={`group transition-colors ${isTargetRank && isComplete ? 'bg-emerald-950/20' : ''}`}>
+                                    <td className="py-1 px-1">
+                                      <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black transition-all ${
                                         isTargetRank && isComplete 
-                                          ? 'bg-green-600 text-white shadow-lg shadow-green-200 scale-110' 
-                                          : 'bg-slate-100 text-slate-400'
+                                          ? 'bg-[#10b981] text-slate-950 scale-105 shadow-md shadow-emerald-500/10' 
+                                          : 'bg-[#081425] text-slate-400 border border-[#1a3056]'
                                       }`}>
                                         {s.standing_rank}
                                       </div>
                                     </td>
-                                    <td className="py-3">
-                                      <div className="flex items-center gap-2 flex-wrap">
+                                    <td className="py-1">
+                                      <div className="flex items-center gap-1.5 flex-wrap">
                                         {s.dossard && (
-                                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase tracking-widest">
-                                            Dossard {s.dossard}
+                                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black bg-[#081425] text-indigo-400 border border-[#1a3056]/50 uppercase tracking-widest">
+                                            D#{s.dossard}
                                           </span>
                                         )}
                                         {(() => {
@@ -1069,20 +1071,20 @@ export default function Pools() {
                                           return activeTables.map(tNum => (
                                             <span 
                                               key={tNum} 
-                                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-red-100 text-red-700 border border-red-200 animate-pulse cursor-default"
+                                              className="inline-flex items-center gap-1 px-1 px-1 rounded-full text-[9px] font-black uppercase bg-red-500/10 text-red-400 border border-red-500/20 animate-pulse cursor-default"
                                               title={`Détecté actif sur la table T${tNum}`}
                                             >
-                                              <span className="w-1 h-1 rounded-full bg-red-500 animate-ping" />
-                                              actif sur T{tNum}
+                                              <span className="w-1 h-1 rounded-full bg-red-400 animate-ping" />
+                                              T{tNum}
                                             </span>
                                           ));
                                         })()}
-                                        <div className="font-semibold text-slate-900">{s.first_name} {s.last_name}</div>
+                                        <div className="font-extrabold text-[#f1f5f9] group-hover:text-[#f97316] text-[13px] sm:text-xs transition-colors">{s.first_name} {s.last_name}</div>
                                         {(() => {
                                           const seed = getPlayerSeed(s.player_id);
                                           if (!seed) return null;
                                           return (
-                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-black bg-yellow-100 text-yellow-800 border border-yellow-200 uppercase cursor-default" title={`Tête de série ${seed}`}>
+                                            <span className="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-black bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase cursor-default" title={`Tête de série ${seed}`}>
                                               TDS {seed}
                                             </span>
                                           );
@@ -1107,7 +1109,7 @@ export default function Pools() {
                                             return (
                                               <span 
                                                 key={reg.id} 
-                                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider text-white shadow-sm border border-white/10"
+                                                className="inline-flex items-center gap-1 px-1 py-0.5 rounded text-[9px] font-black uppercase tracking-wider text-white shadow-sm border border-white/10"
                                                 style={{ backgroundColor: bgCol, color: textCol }}
                                                 title={`Aussi présent dans le tableau : ${reg.serie}`}
                                               >
@@ -1118,18 +1120,26 @@ export default function Pools() {
                                           });
                                         })()}
                                       </div>
-                                      <div className="text-xs text-slate-400 italic">
-                                        {s.club || 'Sans club'}
-                                        {s.points_fftt !== undefined && s.points_fftt !== null && s.points_fftt > 0 ? ` • ${s.points_fftt} pts` : ''}
+                                      <div className="text-[10px] text-slate-400 font-medium mt-0.5 flex items-center gap-1.5 flex-wrap">
+                                        <span>{s.club || 'Sans club'}</span>
+                                        <span className="text-[#202e42]">•</span>
+                                        <span className="text-slate-400">{s.points_fftt !== undefined && s.points_fftt !== null && s.points_fftt > 0 ? `${s.points_fftt} pts` : '500 pts'}</span>
                                       </div>
                                     </td>
-                                    <td className="py-3 text-center font-bold text-slate-700 px-2">
-                                      <span className={s.points > 0 ? 'text-indigo-600' : ''}>{s.points}</span>
+                                    <td className="py-1 text-center px-1">
+                                      <span className="text-sm sm:text-base font-black text-white">{s.points}</span>
                                     </td>
-                                    <td className="py-3 text-center font-medium text-slate-500 tabular-nums text-xs">
-                                      <span className="text-green-600">{s.sets_won}</span>
-                                      <span className="mx-1 text-slate-300">/</span>
-                                      <span className="text-red-500">{s.sets_lost}</span>
+                                    <td className="py-1 text-center font-bold text-slate-455 tabular-nums text-[10px] sm:text-xs">
+                                      <div className="flex items-center justify-center gap-1">
+                                        <span className="text-emerald-400 font-bold">{s.sets_won}</span>
+                                        <span className="text-[#2a3548]">/</span>
+                                        <span className="text-rose-400 font-bold">{s.sets_lost}</span>
+                                        {s.set_diff !== undefined && (
+                                          <span className={`text-[9px] px-1 rounded bg-[#081425] border font-black ${s.set_diff >= 0 ? 'text-emerald-400 border-emerald-500/10' : 'text-rose-450 border-rose-500/10'}`}>
+                                            {s.set_diff >= 0 ? `+${s.set_diff}` : s.set_diff}
+                                          </span>
+                                        )}
+                                      </div>
                                     </td>
                                   </tr>
                                 );
@@ -1139,58 +1149,76 @@ export default function Pools() {
                         </table>
                       </div>
 
-                      <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Matchs</h3>
-                      <div className="space-y-3">
-                        {poolMatches.map((match) => (
-                          <div key={match.id} className="flex flex-col p-3 rounded-xl border border-slate-100 bg-slate-50/10 group hover:border-indigo-200 transition-colors">
-                            <div className="flex items-center justify-between mb-2">
-                               <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
-                                 match.status === 'in_progress' ? 'bg-blue-100 text-blue-700' : 
-                                 match.status === 'finished' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-400'
-                               }`}>
-                                 {match.status === 'in_progress' ? `Table ${match.table_number}` : 
-                                  match.status === 'finished' ? 'Terminé' : 'En attente'}
-                               </span>
-                               {match.status === 'pending' && (
-                                 <button 
-                                   onClick={() => handleLaunchSingleMatch(match.id)}
-                                   className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-900 transition-colors"
-                                 >
-                                   <Play className="w-3 h-3" />
-                                 </button>
-                               )}
-                            </div>
-                            
-                            <div className="flex items-center gap-4">
-                              <div className="flex-1 text-right font-semibold text-slate-700 truncate">
-                                {match.player1?.last_name}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 rounded bg-white border border-slate-200 flex items-center justify-center font-black text-slate-900 tabular-nums">
-                                  {match.sets?.filter(s => s.score_p1 > s.score_p2).length || 0}
-                                </div>
-                                <div className="text-slate-300 font-bold">:</div>
-                                <div className="w-8 h-8 rounded bg-white border border-slate-200 flex items-center justify-center font-black text-slate-900 tabular-nums">
-                                  {match.sets?.filter(s => s.score_p2 > s.score_p1).length || 0}
-                                </div>
-                              </div>
-                              <div className="flex-1 text-left font-semibold text-slate-700 truncate">
-                                {match.player2?.last_name}
-                              </div>
-                            </div>
+                      <button 
+                        onClick={() => {
+                          setCollapsedPools(prev => ({
+                            ...prev,
+                            [pool.id]: !prev[pool.id]
+                          }));
+                        }}
+                        className="w-full flex items-center justify-between text-[11px] font-black text-slate-400 hover:text-white uppercase tracking-widest mb-1 transition-colors cursor-pointer select-none py-0.5"
+                      >
+                        <span>Matchs</span>
+                        <div className="flex items-center gap-1 text-[10px] text-slate-500 font-extrabold font-mono">
+                          <span>{poolMatches.length} match{poolMatches.length > 1 ? 's' : ''}</span>
+                          <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${collapsedPools[pool.id] ? '-rotate-90' : ''}`} />
+                        </div>
+                      </button>
 
-                            {match.sets && match.sets.length > 0 && (
-                              <div className="mt-2 flex justify-center gap-3 text-[10px] tabular-nums font-medium">
-                                {match.sets.map((s, idx) => (
-                                  <div key={s.id || idx} className="bg-white px-1.5 py-0.5 rounded border border-slate-100 shadow-sm text-slate-500">
-                                    {s.score_p1}-{s.score_p2}
-                                  </div>
-                                ))}
+                      {!collapsedPools[pool.id] && (
+                        <div className="space-y-1.5 mt-1">
+                          {poolMatches.map((match) => (
+                            <div key={match.id} className="flex flex-col p-1.5 px-2.5 rounded-lg border border-[#2a3548]/30 bg-[#0a1523]/40 group hover:border-[#3b4b68] transition-colors">
+                              <div className="flex items-center justify-between mb-1">
+                                 <span className={`text-[9px] font-black px-1.5 py-0.5 rounded uppercase tracking-wider ${
+                                   match.status === 'in_progress' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/20' : 
+                                   match.status === 'finished' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' : 'bg-slate-500/10 text-slate-400 border border-[#1a3056]/40'
+                                 }`}>
+                                   {match.status === 'in_progress' ? `Table ${match.table_number}` : 
+                                    match.status === 'finished' ? 'Terminé' : 'En attente'}
+                                 </span>
+                                 {match.status === 'pending' && (
+                                   <button 
+                                     onClick={() => handleLaunchSingleMatch(match.id)}
+                                     className="p-1 hover:bg-[#081425] rounded text-slate-400 hover:text-white transition-colors cursor-pointer"
+                                     title="Lancer le match"
+                                   >
+                                     <Play className="w-2.5 h-2.5 fill-current" />
+                                   </button>
+                                 )}
                               </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                              
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1 text-right font-bold text-slate-200 truncate group-hover:text-white text-xs">
+                                  {match.player1 ? `${(match.player1.last_name || '').toUpperCase()} ${match.player1.first_name ? `${match.player1.first_name.trim().charAt(0).toUpperCase()}.` : ''}`.trim() : 'Inconnu'}
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <div className="w-6.5 h-6.5 rounded bg-[#081425] border border-[#2a3548]/50 flex items-center justify-center font-black text-[#f97316] tabular-nums text-xs shadow-inner">
+                                    {match.sets?.filter(s => s.score_p1 > s.score_p2).length || 0}
+                                  </div>
+                                  <div className="text-slate-600 font-bold text-xs">:</div>
+                                  <div className="w-6.5 h-6.5 rounded bg-[#081425] border border-[#2a3548]/50 flex items-center justify-center font-black text-[#f97316] tabular-nums text-xs shadow-inner">
+                                    {match.sets?.filter(s => s.score_p2 > s.score_p1).length || 0}
+                                  </div>
+                                </div>
+                                <div className="flex-1 text-left font-bold text-slate-200 truncate group-hover:text-white text-xs">
+                                  {match.player2 ? `${(match.player2.last_name || '').toUpperCase()} ${match.player2.first_name ? `${match.player2.first_name.trim().charAt(0).toUpperCase()}.` : ''}`.trim() : 'Inconnu'}
+                                </div>
+                              </div>
+
+                              {match.sets && match.sets.length > 0 && (
+                                <div className="mt-1 flex justify-center gap-2 text-[9px] tabular-nums font-semibold">
+                                  {match.sets.map((s, idx) => (
+                                    <div key={s.id || idx} className="bg-[#081425] px-1 py-0.5 rounded border border-[#2a3548]/20 text-slate-455">
+                                      {s.score_p1}-{s.score_p2}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
