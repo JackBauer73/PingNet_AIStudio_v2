@@ -20,10 +20,13 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 
 // Temporary placeholders
 import Settings from './pages/organizer/Settings';
+import Splash from '../Splash';
 
 export default function App() {
   return (
-    <BrowserRouter>
+    <>
+      <Splash />
+      <BrowserRouter>
       <Toaster position="top-right" />
       <Routes>
         {/* Public Player Route */}
@@ -75,5 +78,6 @@ export default function App() {
         <Route path="/live-scores" element={<LiveScores />} />
       </Routes>
     </BrowserRouter>
+    </>
   );
 }

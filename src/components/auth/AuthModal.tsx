@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { supabase } from '../../supabase';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { X, LogIn, UserPlus, Mail, Lock, Shield, Sparkles, Trophy } from 'lucide-react';
+import { X, LogIn, UserPlus, Mail, Lock, Shield, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import Logo from '../layout/Logo';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -91,9 +92,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
             {/* Header */}
             <div className="text-center mb-8">
-              <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-[#f97316]/90 text-white rounded-[1.25rem] flex items-center justify-center mx-auto mb-4 shadow-xl shadow-indigo-500/10 dark:shadow-none ring-4 ring-indigo-500/5 dark:ring-white/5">
-                <Trophy className="w-6 h-6 text-white" />
-              </div>
+              <Logo className="w-16 h-16 mx-auto mb-4 animate-in zoom-in-50 duration-300" />
               <h3 className="text-2xl font-black font-display text-slate-900 dark:text-white tracking-tight">
                 {isSignUp ? 'Créer un accès club' : 'Espace Club'}
               </h3>
@@ -188,15 +187,17 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             </div>
 
             {/* Helper info inside modal */}
-            <div className="mt-6 p-4.5 bg-slate-50/50 dark:bg-[#0c1524]/60 rounded-2.5xl border border-slate-200/50 dark:border-[#2a3548]/30 text-[11px] text-slate-500 dark:text-slate-400 space-y-2">
-              <p className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                <Shield className="w-4 h-4 text-indigo-500 dark:text-[#f97316] shrink-0" />
-                Note de configuration
-              </p>
-              <p className="leading-relaxed">
-                Chaque club gère <strong className="text-slate-700 dark:text-slate-200 font-bold">ses propres tournois, poules et tables</strong> de façon cloisonnée. Si le courriel de confirmation d'inscription ne vous parvient pas, demandez à l'administrateur de désactiver l'option <span className="text-indigo-500 dark:text-slate-300 font-mono font-semibold">"Confirm email"</span> dans Supabase Providers.
-              </p>
-            </div>
+            {!isSignUp && (
+              <div className="mt-6 p-4.5 bg-slate-50/50 dark:bg-[#0c1524]/60 rounded-2.5xl border border-slate-200/50 dark:border-[#2a3548]/30 text-[11px] text-slate-500 dark:text-slate-400 space-y-2">
+                <p className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-indigo-500 dark:text-[#f97316] shrink-0" />
+                  Note de configuration
+                </p>
+                <p className="leading-relaxed">
+                  Chaque club gère <strong className="text-slate-700 dark:text-slate-200 font-bold">ses propres tournois, poules et tables</strong> de façon cloisonnée. Si le courriel de confirmation d'inscription ne vous parvient pas, demandez à l'administrateur de désactiver l'option <span className="text-indigo-500 dark:text-slate-300 font-mono font-semibold">"Confirm email"</span> dans Supabase Providers.
+                </p>
+              </div>
+            )}
           </motion.div>
         </div>
       )}
