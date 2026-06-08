@@ -4,6 +4,7 @@ import { Bell, Trophy } from 'lucide-react';
 import { useTournament } from '../../hooks/useTournament';
 import { supabase } from '../../supabase';
 import Logo from './Logo';
+import ThemeSelector from './ThemeSelector';
 
 export default function Header() {
   const { tournament, allTournaments, selectTournament } = useTournament();
@@ -66,6 +67,8 @@ export default function Header() {
 
       {/* Right side controls */}
       <div className="flex items-center gap-3 sm:gap-6 shrink-0">
+        <ThemeSelector />
+        
         <button className="relative p-2 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer">
           <Bell className="w-5 h-5" />
           <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border border-[#081425]"></span>

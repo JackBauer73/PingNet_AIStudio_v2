@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import Login from './pages/Login';
@@ -23,6 +24,21 @@ import Settings from './pages/organizer/Settings';
 import Splash from '../Splash';
 
 export default function App() {
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('pm-theme') || 'classic';
+    const html = document.documentElement;
+    html.classList.remove('theme-apex', 'theme-retro', 'theme-emerald', 'theme-light');
+    if (savedTheme === 'apex') {
+      html.classList.add('theme-apex');
+    } else if (savedTheme === 'retro') {
+      html.classList.add('theme-retro');
+    } else if (savedTheme === 'emerald') {
+      html.classList.add('theme-emerald');
+    } else if (savedTheme === 'light') {
+      html.classList.add('theme-light');
+    }
+  }, []);
+
   return (
     <>
       <Splash />

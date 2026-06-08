@@ -4,3 +4,441 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Bricolage Grotesque", "Inter", sans-serif;
 }
+
+/* ==========================================
+   APEX PERFORMANCE SYSTEM DESIGN SYSTEM (theme-apex)
+   ========================================== */
+html.theme-apex {
+  --apex-bg: #081425;
+  --apex-bg-dark: #040e1f;
+  --apex-surface: #152031;
+  --apex-surface-low: #111c2d;
+  --apex-surface-highest: #2a3548;
+  --apex-border: #5a4136; /* outline-variant (bronze/cuivré foncé) */
+  --apex-border-bright: #a98a7d; /* outline (cuivré plus clair) */
+  --apex-primary: #ffb693; /* pêche magnifique pour les accents textuels */
+  --apex-primary-container: #ff6b00; /* orange électrique pour les boutons principaux */
+  --apex-primary-hover: #e05e00;
+
+  font-family: 'Inter', system-ui, sans-serif !important;
+}
+
+html.theme-apex {
+  /* Override bg-#0a1729, bg-#081425, bg-[#0f1f3d], etc to the Apex Navy #081425 */
+  & .bg-\[\#0a1729\],
+  & .bg-\[\#081425\],
+  & .bg-\[\#0f1f3d\],
+  & .bg-\[\#0f172a\] {
+    background-color: var(--apex-bg) !important;
+  }
+  
+  & .bg-\[\#0a1729\]\/90 {
+    background-color: rgba(8, 20, 37, 0.9) !important;
+  }
+
+  & .bg-\[\#040e1f\] {
+    background-color: var(--apex-bg-dark) !important;
+  }
+
+  & .bg-\[\#040e1f\]\/95 {
+    background-color: rgba(4, 14, 31, 0.95) !important;
+  }
+
+  /* Override cards / surface containers to #152031 or #111c2d */
+  & .bg-\[\#152031\],
+  & .bg-\[\#111c2d\] {
+    background-color: var(--apex-surface) !important;
+  }
+
+  & .bg-\[\#111c2d\] {
+    background-color: var(--apex-surface-low) !important;
+  }
+
+  & .bg-\[\#152031\]\/50,
+  & .bg-\[\#111c2d\]\/50 {
+    background-color: rgba(21, 32, 49, 0.5) !important;
+  }
+
+  & .bg-\[\#152031\]\/80 {
+    background-color: rgba(21, 32, 49, 0.8) !important;
+  }
+
+  /* Borders override to fine coppery-bronze / Border outline or outline-variant */
+  & .border-\[\#2a3548\],
+  & .border-\[\#1a3056\],
+  & .border-slate-800,
+  & .border-slate-700 {
+    border-color: rgba(169, 138, 125, 0.25) !important; /* outline transparentisé */
+  }
+
+  & .border-\[\#1a3056\] {
+    border-color: var(--apex-border) !important;
+  }
+
+  & .border-\[\#2a3548\]\/30,
+  & .border-\[\#2a3548\]\/50 {
+    border-color: rgba(90, 65, 54, 0.4) !important;
+  }
+
+  /* Primary text coloring - peach (#ffb693) */
+  & .text-\[\#f97316\],
+  & .text-primary {
+    color: var(--apex-primary) !important;
+  }
+
+  & .text-\[\#f97316\]\/90 {
+    color: rgba(255, 182, 147, 0.9) !important;
+  }
+
+  & .border-\[\#f97316\] {
+    border-color: var(--apex-primary) !important;
+  }
+
+  /* Main Action Button / CTA background: Solid Electric Orange (#ff6b00) */
+  & .bg-\[\#f97316\] {
+    background-color: var(--apex-primary-container) !important;
+    color: #ffffff !important;
+  }
+
+  & .hover\:bg-\[\#ea6a0a\]:hover,
+  & .hover\:bg-\[\#ea580c\]:hover {
+    background-color: var(--apex-primary-hover) !important;
+  }
+
+  & .bg-\[\#f97316\]\/10 {
+    background-color: rgba(255, 107, 0, 0.1) !important;
+  }
+
+  /* Font-family overrides to prioritize crisp Inter & JetBrains Mono for data readouts */
+  & h1, & h2, & h3, & h4, & h5, & h6 {
+    font-family: 'Inter', system-ui, sans-serif !important;
+    letter-spacing: -0.02em !important;
+  }
+
+  & .font-mono {
+    font-family: 'JetBrains Mono', ui-monospace, monospace !important;
+  }
+
+  /* Crisp shape language - 6px/8px corners inside theme-apex for professional tool feel */
+  & [class*="rounded-2xl"],
+  & [class*="rounded-3xl"],
+  & [class*="rounded-[2rem]"],
+  & [class*="rounded-[2.25rem]"],
+  & [class*="rounded-1.5xl"] {
+    border-radius: 8px !important;
+  }
+
+  & [class*="rounded-xl"] {
+    border-radius: 6px !important;
+  }
+
+  & [class*="rounded-2.5xl"],
+  & [class*="rounded-[2.5rem]"] {
+    border-radius: 10px !important;
+  }
+
+  /* Circular elements remain round */
+  & .rounded-full {
+    border-radius: 9999px !important;
+  }
+}
+
+/* ==========================================
+   RETRO ARCADE CARBON DESIGN SYSTEM (theme-retro)
+   ========================================== */
+html.theme-retro {
+  --retro-bg: #000000;
+  --retro-card: #0a0a0a;
+  --retro-accent: #22c55e;
+  --retro-accent-hover: #15803d;
+  --retro-border: #15803d;
+
+  font-family: 'JetBrains Mono', ui-monospace, monospace !important;
+}
+
+html.theme-retro {
+  & .bg-\[\#0a1729\],
+  & .bg-\[\#081425\],
+  & .bg-\[\#0f1f3d\],
+  & .bg-\[\#0f172a\],
+  & .bg-\[\#040e1f\] {
+    background-color: var(--retro-bg) !important;
+  }
+
+  & .bg-\[\#0a1729\]\/90 {
+    background-color: rgba(0, 0, 0, 0.9) !important;
+  }
+
+  & .bg-\[\#152031\],
+  & .bg-\[\#111c2d\] {
+    background-color: var(--retro-card) !important;
+  }
+
+  & .border-\[\#2a3548\],
+  & .border-\[\#1a3056\],
+  & .border-slate-850,
+  & .border-slate-800 {
+    border-color: var(--retro-border) !important;
+  }
+
+  & .text-\[\#f97316\],
+  & .text-\[\#f97316\]\/90,
+  & .text-primary {
+    color: var(--retro-accent) !important;
+  }
+
+  & .border-\[\#f97316\] {
+    border-color: var(--retro-accent) !important;
+  }
+
+  & .bg-\[\#f97316\] {
+    background-color: var(--retro-accent) !important;
+    color: #000000 !important;
+    font-weight: bold !important;
+  }
+
+  & .hover\:bg-\[\#ea6a0a\]:hover,
+  & .hover\:bg-\[\#ea580c\]:hover {
+    background-color: var(--retro-accent-hover) !important;
+  }
+
+  & .bg-\[\#f97316\]\/10 {
+    background-color: rgba(34, 197, 94, 0.1) !important;
+  }
+
+  /* Sharp pure-brutalist edges */
+  & [class*="rounded-"] {
+    border-radius: 0px !important;
+  }
+
+  & .rounded-full {
+    border-radius: 0px !important;
+  }
+
+  & h1, & h2, & h3, & h4, & h5, & h6, & p, & span, & select, & input, & button, & a {
+    font-family: 'JetBrains Mono', ui-monospace, monospace !important;
+  }
+}
+
+/* ==========================================
+   MIDNIGHT SLATE & EMERALD DESIGN SYSTEM (theme-emerald)
+   ========================================== */
+html.theme-emerald {
+  --emerald-bg: #091118;
+  --emerald-bg-dark: #050a0e;
+  --emerald-surface: #111e26;
+  --emerald-border: #1a2d39;
+  --emerald-primary: #10b981;
+  --emerald-primary-hover: #059669;
+
+  font-family: 'Inter', system-ui, sans-serif !important;
+}
+
+html.theme-emerald {
+  & .bg-\[\#0a1729\],
+  & .bg-\[\#081425\],
+  & .bg-\[\#0f1f3d\],
+  & .bg-\[\#0f172a\] {
+    background-color: var(--emerald-bg) !important;
+  }
+
+  & .bg-\[\#0a1729\]\/90 {
+    background-color: rgba(9, 17, 24, 0.9) !important;
+  }
+
+  & .bg-\[\#040e1f\] {
+    background-color: var(--emerald-bg-dark) !important;
+  }
+
+  & .bg-\[\#040e1f\]\/95 {
+    background-color: rgba(5, 10, 14, 0.95) !important;
+  }
+
+  & .bg-\[\#152031\],
+  & .bg-\[\#111c2d\] {
+    background-color: var(--emerald-surface) !important;
+  }
+
+  & .bg-\[\#152031\]\/50,
+  & .bg-\[\#111c2d\]\/50 {
+    background-color: rgba(17, 30, 38, 0.5) !important;
+  }
+
+  & .bg-\[\#152031\]\/80 {
+    background-color: rgba(17, 30, 38, 0.8) !important;
+  }
+
+  & .border-\[\#2a3548\],
+  & .border-\[\#1a3056\],
+  & .border-slate-800,
+  & .border-slate-700 {
+    border-color: var(--emerald-border) !important;
+  }
+
+  & .text-\[\#f97316\],
+  & .text-primary {
+    color: var(--emerald-primary) !important;
+  }
+
+  & .text-\[\#f97316\]\/90 {
+    color: rgba(16, 185, 129, 0.9) !important;
+  }
+
+  & .border-\[\#f97316\] {
+    border-color: var(--emerald-primary) !important;
+  }
+
+  & .bg-\[\#f97316\] {
+    background-color: var(--emerald-primary) !important;
+    color: #050a0e !important;
+    font-weight: 800 !important;
+  }
+
+  & .hover\:bg-\[\#ea6a0a\]:hover,
+  & .hover\:bg-\[\#ea580c\]:hover {
+    background-color: var(--emerald-primary-hover) !important;
+  }
+
+  & .bg-\[\#f97316\]\/10 {
+    background-color: rgba(16, 185, 129, 0.1) !important;
+  }
+
+  & [class*="rounded-2xl"],
+  & [class*="rounded-3xl"],
+  & [class*="rounded-[2rem]"],
+  & [class*="rounded-[2.25rem]"] {
+    border-radius: 12px !important;
+  }
+
+  & [class*="rounded-xl"] {
+    border-radius: 8px !important;
+  }
+}
+
+/* ==========================================
+   CLAIR SOPHISTIQUÉ DESIGN SYSTEM (theme-light)
+   ========================================== */
+html.theme-light {
+  --light-bg: #f8fafc;
+  --light-bg-dark: #f1f5f9;
+  --light-surface: #ffffff;
+  --light-border: #cbd5e1;
+  --light-primary: #f97316;
+  --light-primary-hover: #ea580c;
+  --light-text: #0f172a;
+  --light-text-secondary: #475569;
+
+  color-scheme: light !important;
+  font-family: 'Inter', system-ui, sans-serif !important;
+}
+
+html.theme-light {
+  /* Layout backgrounds */
+  & .bg-\[\#0a1729\],
+  & .bg-\[\#081425\],
+  & .bg-\[\#0f1f3d\],
+  & .bg-\[\#0f172a\] {
+    background-color: var(--light-bg) !important;
+  }
+
+  & .bg-\[\#0a1729\]\/90 {
+    background-color: rgba(248, 250, 252, 0.9) !important;
+  }
+
+  & .bg-\[\#040e1f\] {
+    background-color: var(--light-bg-dark) !important;
+  }
+
+  & .bg-\[\#040e1f\]\/95 {
+    background-color: rgba(241, 245, 249, 0.95) !important;
+  }
+
+  /* Cards & Surface Container Panels */
+  & .bg-\[\#152031\],
+  & .bg-\[\#111c2d\] {
+    background-color: var(--light-surface) !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03) !important;
+  }
+
+  & .bg-\[\#152031\]\/50,
+  & .bg-\[\#111c2d\]\/50 {
+    background-color: rgba(255, 255, 255, 0.5) !important;
+  }
+
+  & .bg-\[\#152031\]\/80 {
+    background-color: rgba(255, 255, 255, 0.8) !important;
+  }
+
+  /* Text color corrections for light mode */
+  &,
+  & body,
+  & h1, & h2, & h3, & h4, & h5, & h6,
+  & .text-white,
+  & .text-slate-100,
+  & .text-slate-200,
+  & .text-slate-300 {
+    color: var(--light-text) !important;
+  }
+
+  & .text-slate-400,
+  & .text-slate-500 {
+    color: var(--light-text-secondary) !important;
+  }
+
+  /* Borders override */
+  & .border-\[\#2a3548\],
+  & .border-\[\#1a3056\],
+  & .border-slate-800,
+  & .border-slate-700 {
+    border-color: var(--light-border) !important;
+  }
+
+  & .border-\[\#2a3548\]\/30,
+  & .border-\[\#2a3548\]\/50 {
+    border-color: rgba(203, 213, 225, 0.5) !important;
+  }
+
+  /* Primary Accent & CTAs */
+  & .text-\[\#f97316\],
+  & .text-primary {
+    color: var(--light-primary) !important;
+  }
+
+  & .bg-\[\#f97316\] {
+    background-color: var(--light-primary) !important;
+    color: #ffffff !important;
+  }
+
+  & .hover\:bg-\[\#ea6a0a\]:hover,
+  & .hover\:bg-\[\#ea580c\]:hover {
+    background-color: var(--light-primary-hover) !important;
+  }
+
+  & .bg-\[\#f97316\]\/10 {
+    background-color: rgba(249, 115, 22, 0.1) !important;
+  }
+
+  /* Keep input fields looking like light inputs */
+  & input,
+  & select,
+  & textarea {
+    background-color: #ffffff !important;
+    color: var(--light-text) !important;
+    border-color: var(--light-border) !important;
+  }
+
+  & input:focus,
+  & select:focus,
+  & textarea:focus {
+    background-color: #ffffff !important;
+    border-color: var(--light-primary) !important;
+  }
+
+  /* Exclude elements that MUST remain dark (like active status badges) */
+  & .bg-emerald-500, & .bg-green-500 {
+    background-color: #10b981 !important;
+    color: white !important;
+  }
+}
+
+
