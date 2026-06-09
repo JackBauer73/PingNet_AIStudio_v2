@@ -7,7 +7,6 @@ import { Trophy, Calendar, MapPin, Users, HeartHandshake, LogIn, ChevronRight, S
 import { fetchPlayerByLicence } from '../../services/ffttApi';
 import { sendPlayerEmail } from '../../services/emailService';
 import Logo from '../../components/layout/Logo';
-import ThemeSelector from '../../components/layout/ThemeSelector';
 import { motion } from 'motion/react';
 import { QRCodeSVG } from 'qrcode.react';
 import toast from 'react-hot-toast';
@@ -1489,7 +1488,6 @@ export default function Landing() {
           </div>
           
           <div className="flex items-center gap-3">
-            <ThemeSelector />
             {activeTournamentId !== null && (
               <button
                 onClick={() => setActiveTournamentId(null)}

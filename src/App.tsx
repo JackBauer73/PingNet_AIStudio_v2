@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import Login from './pages/Login';
@@ -10,7 +9,9 @@ import Archives from './pages/organizer/Archives';
 import PrintQR from './pages/organizer/PrintQR';
 import CheckInScan from './pages/organizer/CheckInScan';
 import TableView from './pages/player/TableView';
-import Landing from './pages/player/Landing';
+import Accueil from './pages/player/Accueil';
+import Tournois from './pages/player/Tournois';
+import Tutoriel from './pages/player/Tutoriel';
 import LiveScores from './pages/player/LiveScores';
 import Board from './pages/board/Board';
 import PlayerSpace from './pages/player/PlayerSpace';
@@ -24,21 +25,6 @@ import Settings from './pages/organizer/Settings';
 import Splash from '../Splash';
 
 export default function App() {
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('pm-theme') || 'classic';
-    const html = document.documentElement;
-    html.classList.remove('theme-apex', 'theme-retro', 'theme-emerald', 'theme-light');
-    if (savedTheme === 'apex') {
-      html.classList.add('theme-apex');
-    } else if (savedTheme === 'retro') {
-      html.classList.add('theme-retro');
-    } else if (savedTheme === 'emerald') {
-      html.classList.add('theme-emerald');
-    } else if (savedTheme === 'light') {
-      html.classList.add('theme-light');
-    }
-  }, []);
-
   return (
     <>
       <Splash />
@@ -90,7 +76,9 @@ export default function App() {
         <Route path="/player/:token/pool/:poolId" element={<PoolStandingsPage />} />
         
         {/* Public Landing & Register Route */}
-        <Route path="/" element={<Landing />} />
+        <Route path="/" element={<Accueil />} />
+        <Route path="/tournois" element={<Tournois />} />
+        <Route path="/tutoriel" element={<Tutoriel />} />
         <Route path="/live-scores" element={<LiveScores />} />
       </Routes>
     </BrowserRouter>
