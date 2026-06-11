@@ -307,17 +307,31 @@ export function usePlayers(tournamentId?: string) {
             if (regDelError) throw regDelError;
 
             // 2. Supprimer le token d'accueil du joueur
-            await supabase
-              .from('player_tokens')
-              .delete()
-              .eq('player_id', reg.player_id)
-              .eq('tournament_id', reg.tournament_id);
+            try {
+              const { error: tDelError } = await supabase
+                .from('player_tokens')
+                .delete()
+                .eq('player_id', reg.player_id)
+                .eq('tournament_id', reg.tournament_id);
+              if (tDelError) {
+                console.warn('Failed to clean up player token: ', tDelError);
+              }
+            } catch (tError) {
+              console.warn('Could not clean up player token:', tError);
+            }
 
             // 3. Supprimer le joueur physique
-            await supabase
-              .from('players')
-              .delete()
-              .eq('id', reg.player_id);
+            try {
+              const { error: pDelError } = await supabase
+                .from('players')
+                .delete()
+                .eq('id', reg.player_id);
+              if (pDelError) {
+                console.warn('Failed to clean up physical player (likely referenced in matches/pools): ', pDelError);
+              }
+            } catch (pError) {
+              console.warn('Could not clean up physical player:', pError);
+            }
 
             setPlayers(prev => prev.filter(p => p.id !== id));
             toast.success('Dernière inscription supprimée : joueur retiré du tournoi ✓');

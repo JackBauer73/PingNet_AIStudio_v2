@@ -163,9 +163,16 @@ export default function Feedback() {
     try {
       // 1. Supprimer l'image du Storage d'abord pour garder propre
       if (screenshotPath) {
-        await supabase.storage
-          .from('feedback-screenshots')
-          .remove([screenshotPath]);
+        try {
+          const { error: storageErr } = await supabase.storage
+            .from('feedback-screenshots')
+            .remove([screenshotPath]);
+          if (storageErr) {
+            console.warn('Could not clean up feedback screenshot:', storageErr);
+          }
+        } catch (sErr) {
+          console.warn('Unhandled exception while deleting screenshot:', sErr);
+        }
       }
 
       // 2. Supprimer la ligne de la table feedback

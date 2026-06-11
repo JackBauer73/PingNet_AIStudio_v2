@@ -246,9 +246,16 @@ export default function SuperadminDashboard() {
 
     try {
       if (screenshotPath) {
-        await supabase.storage
-          .from('feedback-screenshots')
-          .remove([screenshotPath]);
+        try {
+          const { error: storageErr } = await supabase.storage
+            .from('feedback-screenshots')
+            .remove([screenshotPath]);
+          if (storageErr) {
+            console.warn('Could not clean up feedback screenshot:', storageErr);
+          }
+        } catch (sErr) {
+          console.warn('Unhandled exception while deleting screenshot:', sErr);
+        }
       }
 
       const { error } = await supabase
