@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../supabase';
+import { supabase, isSupabaseConfigured } from '../supabase';
 import { Player } from '../types';
 import toast from 'react-hot-toast';
 
@@ -8,6 +8,11 @@ export function usePlayers(tournamentId?: string) {
   const [loading, setLoading] = useState(true);
 
   const fetchPlayers = async () => {
+    if (!isSupabaseConfigured) {
+      setPlayers([]);
+      setLoading(false);
+      return;
+    }
     if (!tournamentId) {
       setPlayers([]);
       setLoading(false);

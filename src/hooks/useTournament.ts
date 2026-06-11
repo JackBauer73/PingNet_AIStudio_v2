@@ -82,10 +82,11 @@ export function useTournament(options: UseTournamentOptions = {}) {
           localStorage.setItem(storageKey, fetchedTournament.id);
         }
       } else {
-        // Public mode: list all tournaments in the system across clubs
+        // Public mode: list all tournaments in the system across clubs (excluding drafts)
         const { data, error } = await supabase
           .from('tournaments')
           .select('*')
+          .neq('status', 'draft')
           .order('created_at', { ascending: false });
 
         if (error) throw error;

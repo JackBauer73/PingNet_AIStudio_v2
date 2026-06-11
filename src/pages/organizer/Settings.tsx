@@ -34,18 +34,59 @@ export default function Settings() {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           setUserEmail(user.email || '');
-          const metadata = user.user_metadata || {};
-          setClubName(metadata.club_name || '');
-          setClubCity(metadata.club_city || '');
-          setClubAddress(metadata.club_address || '');
-          setClubPhone(metadata.club_phone || '');
-          setClubWebsite(metadata.club_website || '');
-          setPresidentName(metadata.president_name || '');
-          setClubColor(metadata.club_color || 'indigo');
-          setClubLogo(metadata.club_logo || '');
+          
+          // Récupération depuis la table SQL dédiée club_profiles
+          let profileData = null;
+          try {
+            const { data, error } = await supabase
+              .from('club_profiles')
+              .select('*')
+              .eq('id', user.id)
+              .maybeSingle();
+            
+            if (!error && data) {
+              profileData = data;
+            }
+          } catch (dbErr) {
+            console.warn("La table 'club_profiles' n'est peut-être pas encore complètement accessible ou vide, utilisation du repli user_metadata.", dbErr);
+          }
+
+          if (profileData) {
+            setClubName(profileData.club_name || '');
+            setClubCity(profileData.club_city || '');
+            setClubAddress(profileData.club_address || '');
+            setClubPhone(profileData.club_phone || '');
+            setClubWebsite(profileData.club_website || '');
+            setPresidentName(profileData.president_name || '');
+            setClubColor(profileData.club_color || 'indigo');
+            setClubLogo(profileData.club_logo || '');
+
+            if (profileData.club_name) localStorage.setItem('organizer_club_name', profileData.club_name);
+            if (profileData.club_phone) localStorage.setItem('organizer_club_phone', profileData.club_phone);
+            if (user.email) localStorage.setItem('organizer_club_email', user.email);
+            localStorage.setItem('organizer_user_id', user.id);
+          } else {
+            // Repli historique sur l'utilisateur de session (sans surcharge inutile)
+            const metadata = user.user_metadata || {};
+            const cName = metadata.club_name || '';
+            const cPhone = metadata.club_phone || '';
+            setClubName(cName);
+            setClubCity(metadata.club_city || '');
+            setClubAddress(metadata.club_address || '');
+            setClubPhone(cPhone);
+            setClubWebsite(metadata.club_website || '');
+            setPresidentName(metadata.president_name || '');
+            setClubColor(metadata.club_color || 'indigo');
+            setClubLogo(metadata.club_logo || '');
+
+            if (cName) localStorage.setItem('organizer_club_name', cName);
+            if (cPhone) localStorage.setItem('organizer_club_phone', cPhone);
+            if (user.email) localStorage.setItem('organizer_club_email', user.email);
+            localStorage.setItem('organizer_user_id', user.id);
+          }
         }
       } catch (err) {
-        console.error('Erreur de récupération du profil:', err);
+        console.error('Erreur générale de récupération du profil:', err);
       } finally {
         setLoading(false);
       }
@@ -57,15 +98,44 @@ export default function Settings() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 800000) { // Limit to ~800KB for easy metadata storage
-      toast.error("L'image est trop lourde. Veuillez choisir une image de moins de 800 Ko.");
-      return;
-    }
-
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setClubLogo(reader.result as string);
-      toast.success('Le logo a été chargé localement ! N\'oubliez pas d\'enregistrer.');
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 120;
+        const MAX_HEIGHT = 120;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          setClubLogo(compressedDataUrl);
+          toast.success('Le logo a été chargé et optimisé avec succès (format vignette) ! N\'oubliez pas d\'enregistrer.');
+        } else {
+          toast.error("Erreur lors de l'optimisation de l'image.");
+        }
+      };
+      img.onerror = () => {
+        toast.error("Erreur lors du chargement de l'image.");
+      };
+      img.src = event.target?.result as string;
     };
     reader.readAsDataURL(file);
   };
@@ -76,8 +146,14 @@ export default function Settings() {
     const toastId = toast.loading('Sauvegarde en cours...');
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        data: {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Utilisateur déconnecté");
+
+      // 1. Sauvegarde principale dans la table SQL dédiée club_profiles
+      const { error: dbError } = await supabase
+        .from('club_profiles')
+        .upsert({
+          id: user.id,
           club_name: clubName.trim(),
           club_city: clubCity.trim(),
           club_address: clubAddress.trim(),
@@ -85,15 +161,68 @@ export default function Settings() {
           club_website: clubWebsite.trim(),
           president_name: presidentName.trim(),
           club_color: clubColor,
-          club_logo: clubLogo // base64
-        }
-      });
+          club_logo: clubLogo, // base64 d'image vignette
+          updated_at: new Date().toISOString()
+        });
 
-      if (error) throw error;
-      toast.success('Profil du club mis à jour avec succès !', { id: toastId });
+      if (dbError) {
+        console.error("Erreur d'écriture dans la table SQL club_profiles :", dbError);
+        throw new Error("Impossible d'écrire dans la base SQL : " + dbError.message);
+      }
+
+      // 2. Sauvegarde allégée complémentaire dans l'authentification (sans le LOGO lourd pour éviter bloquer les Jetons de session)
+      try {
+        await supabase.auth.updateUser({
+          data: {
+            club_name: clubName.trim(),
+            club_city: clubCity.trim(),
+            club_address: clubAddress.trim(),
+            club_phone: clubPhone.trim(),
+            club_website: clubWebsite.trim(),
+            president_name: presidentName.trim(),
+            club_color: clubColor,
+            // Surtout pas de logo base64 lourd ici
+          }
+        });
+      } catch (authError) {
+        console.warn("Mise à jour secondaire des métadonnées utilisateur passée en second plan:", authError);
+      }
+
+      localStorage.setItem('organizer_club_name', clubName.trim());
+      localStorage.setItem('organizer_club_phone', clubPhone.trim());
+      localStorage.setItem('organizer_club_email', userEmail);
+      localStorage.setItem('organizer_user_id', user.id);
+
+      toast.success('Profil du club enregistré avec succès dans la base de données !', { id: toastId });
     } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || 'Erreur lors de la sauvegarde du profil', { id: toastId });
+      console.error("Détail de l'erreur détectée lors de la sauvegarde du profil:", err);
+      const isMissingColumn = err.message && (
+        err.message.includes('column') || 
+        err.message.includes('club_address') || 
+        err.message.includes('club_profiles') ||
+        err.message.includes('cache')
+      );
+      
+      if (isMissingColumn) {
+        toast.error("⚠️ Des colonnes SQL sont manquantes ou obsolètes dans 'club_profiles' !", { id: toastId, duration: 8000 });
+        setTimeout(() => {
+          alert(
+            "⚠️ ERREUR : La structure de votre table 'club_profiles' n'est pas à jour.\n\n" +
+            "Pour corriger ce problème instantanément, copiez-collez et exécutez ce code SQL dans votre éditeur de requêtes Supabase (SQL Editor) :\n\n" +
+            "ALTER TABLE public.club_profiles ADD COLUMN IF NOT EXISTS club_address TEXT;\n" +
+            "ALTER TABLE public.club_profiles ADD COLUMN IF NOT EXISTS club_city TEXT;\n" +
+            "ALTER TABLE public.club_profiles ADD COLUMN IF NOT EXISTS club_phone TEXT;\n" +
+            "ALTER TABLE public.club_profiles ADD COLUMN IF NOT EXISTS club_website TEXT;\n" +
+            "ALTER TABLE public.club_profiles ADD COLUMN IF NOT EXISTS president_name TEXT;\n" +
+            "ALTER TABLE public.club_profiles ADD COLUMN IF NOT EXISTS club_color TEXT DEFAULT 'indigo';\n" +
+            "ALTER TABLE public.club_profiles ADD COLUMN IF NOT EXISTS club_logo TEXT;\n" +
+            "NOTIFY pgrst, 'reload schema';\n\n" +
+            "Après exécution du script SQL, cliquez à nouveau sur 'Enregistrer' !"
+          );
+        }, 500);
+      } else {
+        toast.error(err.message || 'Erreur lors de la sauvegarde du profil', { id: toastId });
+      }
     } finally {
       setSaving(false);
     }
@@ -157,7 +286,7 @@ export default function Settings() {
                   <p className="text-sm text-slate-300 leading-relaxed mb-2">
                     Téléchargez un logo (PNG, JPG) pour représenter votre club sur les affiches, les interfaces de scoring et le site.
                   </p>
-                  <p className="text-xs text-slate-500">Recommandé : image carrée, max. 500 Ko.</p>
+                  <p className="text-xs text-slate-500">Le logo est automatiquement recadré et compressé au format vignette pour optimiser l'envoi réseau.</p>
                 </div>
               </div>
 

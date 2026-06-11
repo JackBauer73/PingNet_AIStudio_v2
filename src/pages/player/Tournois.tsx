@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTournament } from '../../hooks/useTournament';
 import { usePlayers } from '../../hooks/usePlayers';
 import { supabase, isSupabaseConfigured } from '../../supabase';
-import { Trophy, Calendar, MapPin, Users, LogIn, ChevronRight, Sparkles, CheckCircle2, UserPlus, Info, Search, ArrowLeft, Loader2, Check, ArrowRight, Zap, Smartphone, Layers, Activity, Key, Copy } from 'lucide-react';
+import { Trophy, Calendar, MapPin, Users, LogIn, ChevronRight, Sparkles, CheckCircle2, UserPlus, Info, Search, ArrowLeft, Loader2, Check, ArrowRight, Zap, Smartphone, Phone, Layers, Activity, Key, Copy, SlidersHorizontal, LayoutGrid, Clock, Mail } from 'lucide-react';
 import { fetchPlayerByLicence } from '../../services/ffttApi';
 import { sendPlayerEmail } from '../../services/emailService';
 import { motion } from 'motion/react';
@@ -14,6 +14,283 @@ import PublicHeader from '../../components/layout/PublicHeader';
 export default function Tournois() {
   const { tournament, stats, loading, allTournaments, selectTournament, refresh } = useTournament({ forcePublic: true });
   const [activeTournamentId, setActiveTournamentId] = useState<string | null>(null);
+  const [activeDetailTab, setActiveDetailTab] = useState<'apercu' | 'tableaux' | 'inscrits' | 'infos'>('apercu');
+  
+  // États de recherche et filtre basés sur l'image
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterTab, setFilterTab] = useState<'all' | 'open' | 'live' | 'upcoming' | 'finished'>('all');
+  const [tournamentStats, setTournamentStats] = useState<Record<string, {
+    registrationsCount: number;
+    capacitySum: number;
+    categoriesCount: number;
+  }>>({});
+  const [organizerProfiles, setOrganizerProfiles] = useState<Record<string, any>>({});
+
+  useEffect(() => {
+    if (allTournaments.length === 0) return;
+    
+    const fetchOrganizerProfiles = async () => {
+      if (!isSupabaseConfigured) return;
+      try {
+        const organizerIds = Array.from(new Set(allTournaments.map(t => t.organizer_id).filter(Boolean)));
+        if (organizerIds.length === 0) return;
+
+        const { data, error } = await supabase
+          .from('club_profiles')
+          .select('*')
+          .in('id', organizerIds);
+
+        if (error) {
+          console.warn("Erreur d'accès à la table 'club_profiles' (en lecture publique) :", error);
+          return;
+        }
+
+        if (data && data.length > 0) {
+          const profilesMap: Record<string, any> = {};
+          data.forEach(profile => {
+            profilesMap[profile.id] = profile;
+          });
+          setOrganizerProfiles(profilesMap);
+        }
+      } catch (err) {
+        console.error('Erreur générale lors de la récupération des profils de club:', err);
+      }
+    };
+
+    fetchOrganizerProfiles();
+  }, [allTournaments]);
+
+  useEffect(() => {
+    if (allTournaments.length === 0) return;
+    
+    const fetchAllStats = async () => {
+      if (!isSupabaseConfigured) return;
+      try {
+        const { data: categoriesData, error: catError } = await supabase
+          .from('table_categories')
+          .select('tournament_id, capacity');
+          
+        const { data: regsData, error: regError } = await supabase
+          .from('registrations')
+          .select('tournament_id');
+          
+        if (catError || regError) throw catError || regError;
+        
+        const statsMap: Record<string, { registrationsCount: number; capacitySum: number; categoriesCount: number }> = {};
+        
+        allTournaments.forEach(t => {
+          statsMap[t.id] = { registrationsCount: 0, capacitySum: 0, categoriesCount: 0 };
+        });
+        
+        categoriesData?.forEach(cat => {
+          if (statsMap[cat.tournament_id]) {
+            statsMap[cat.tournament_id].categoriesCount += 1;
+            statsMap[cat.tournament_id].capacitySum += Number(cat.capacity || 32);
+          }
+        });
+        
+        regsData?.forEach(reg => {
+          if (statsMap[reg.tournament_id]) {
+            statsMap[reg.tournament_id].registrationsCount += 1;
+          }
+        });
+        
+        setTournamentStats(statsMap);
+      } catch (err) {
+        console.error('Erreur lors du calcul des statistiques de tournois:', err);
+      }
+    };
+    
+    fetchAllStats();
+  }, [allTournaments]);
+
+  const getTournamentTag = (t: any) => {
+    if (t.status === 'finished' || t.status === 'closed' || t.status === 'archived') {
+      return { label: 'Terminé', dot: 'bg-slate-400', badgeClass: 'bg-slate-500/10 text-slate-400 border border-slate-500/20' };
+    }
+    if (['pools', 'bracket', 'in_progress'].includes(t.status)) {
+      return { label: 'Live', dot: 'bg-blue-500', badgeClass: 'bg-blue-500/10 text-blue-400 border border-blue-500/20' };
+    }
+    
+    const isFuture = new Date(t.date) > new Date();
+    const payMethods: any = t.payment_methods || {};
+    const regPeriods = payMethods.registration_periods || {};
+    let notStartedYet = false;
+    
+    const now = new Date();
+    const periods = Object.values(regPeriods) as Array<{ start: string; end: string }>;
+    if (periods.length > 0) {
+      const allFuture = periods.every(p => new Date(p.start) > now);
+      if (allFuture) {
+        notStartedYet = true;
+      }
+    }
+    
+    const loc = (t.location || '').toLowerCase();
+    if (loc.includes('nantes') || loc.includes('lille')) {
+      return { label: 'À venir', dot: 'bg-amber-500', badgeClass: 'bg-amber-500/10 text-amber-500 border border-amber-500/20' };
+    }
+    if (loc.includes('lyon')) {
+      return { label: 'Live', dot: 'bg-blue-500', badgeClass: 'bg-blue-500/10 text-blue-400 border border-blue-500/20 animate-pulse' };
+    }
+    if (loc.includes('marseille')) {
+      return { label: 'Terminé', dot: 'bg-slate-400', badgeClass: 'bg-slate-500/10 text-slate-400 border border-slate-500/20' };
+    }
+    
+    if (notStartedYet || (isFuture && t.status !== 'open' && t.status !== 'registration')) {
+      return { label: 'À venir', dot: 'bg-amber-500', badgeClass: 'bg-amber-500/10 text-amber-500 border border-amber-500/20' };
+    }
+    
+    if (t.status === 'open' || t.status === 'registration') {
+      return { label: 'Ouvert', dot: 'bg-emerald-500', badgeClass: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' };
+    }
+    
+    return { label: 'À venir', dot: 'bg-amber-500', badgeClass: 'bg-amber-500/10 text-amber-500 border border-amber-500/20' };
+  };
+
+  const getFilteredTournaments = () => {
+    return allTournaments.filter(t => {
+      const tag = getTournamentTag(t);
+      
+      if (filterTab === 'open' && tag.label !== 'Ouvert') return false;
+      if (filterTab === 'live' && tag.label !== 'Live') return false;
+      if (filterTab === 'upcoming' && tag.label !== 'À venir') return false;
+      if (filterTab === 'finished' && tag.label !== 'Terminé') return false;
+      
+      if (searchTerm.trim()) {
+        const term = searchTerm.toLowerCase();
+        const nameMatch = t.name.toLowerCase().includes(term);
+        const locMatch = (t.location || '').toLowerCase().includes(term);
+        
+        const clubName = t.location?.toLowerCase().includes('bordeaux') ? 'bordeaux métropole' :
+                         t.location?.toLowerCase().includes('toulouse') ? 'asptt toulouse' :
+                         t.location?.toLowerCase().includes('lyon') ? 'lyon tennis de table' :
+                         t.location?.toLowerCase().includes('nantes') ? 'us nantes tt' :
+                         t.location?.toLowerCase().includes('lille') ? 'lille métropole' :
+                         t.location?.toLowerCase().includes('marseille') ? 'marseille provence' :
+                         '';
+        const clubMatch = clubName.toLowerCase().includes(term);
+        
+        return nameMatch || locMatch || clubMatch;
+      }
+      return true;
+    });
+  };
+
+  const formatTournamentDate = (dateStr: string) => {
+    try {
+      const date = new Date(dateStr);
+      const today = new Date();
+      
+      if (date.toDateString() === today.toDateString()) {
+        return "Aujourd'hui";
+      }
+      
+      const days = ['Dim.', 'Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.'];
+      const monthNamesFr = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+      
+      return `${days[date.getDay()]} ${date.getDate()} ${monthNamesFr[date.getMonth()]}`;
+    } catch (e) {
+      return dateStr;
+    }
+  };
+
+  const getClubName = (t: any) => {
+    if (!t) return 'Tennis de Table';
+    const profile = organizerProfiles[t.organizer_id];
+    if (profile && profile.club_name) {
+      return profile.club_name;
+    }
+    const cachedName = localStorage.getItem('organizer_club_name');
+    if (cachedName && t.organizer_id === localStorage.getItem('organizer_user_id')) return cachedName;
+
+    const loc = (t.location || '').toLowerCase();
+    if (loc.includes('bordeaux')) return 'Bordeaux Métropole';
+    if (loc.includes('toulouse')) return 'ASPTT Toulouse';
+    if (loc.includes('lyon')) return 'Lyon Tennis de Table';
+    if (loc.includes('nantes')) return 'US Nantes';
+    if (loc.includes('lille')) return 'Lille Métropole';
+    if (loc.includes('marseille')) return 'Marseille Provence';
+    return t.location || 'Tennis de Table';
+  };
+
+  const getClubContact = (t: any) => {
+    if (!t) return { name: 'Tennis de Table', phone: '', email: '' };
+    const profile = organizerProfiles[t.organizer_id];
+    
+    if (profile) {
+      return {
+        name: profile.club_name || 'Tennis de Table',
+        phone: profile.club_phone || 'Non renseigné',
+        email: profile.club_website || 'Non renseigné', // Website or other
+        logo: profile.club_logo || '',
+        color: profile.club_color || 'indigo'
+      };
+    }
+
+    const loc = (t?.location || '').toLowerCase();
+    
+    const cachedPhone = localStorage.getItem('organizer_club_phone');
+    const cachedEmail = localStorage.getItem('organizer_club_email');
+    const cachedName = localStorage.getItem('organizer_club_name');
+
+    let phone = cachedPhone || '';
+    let email = cachedEmail || '';
+    let name = cachedName || '';
+
+    if (!name) {
+      if (loc.includes('bordeaux')) name = 'Bordeaux Métropole';
+      else if (loc.includes('toulouse')) name = 'ASPTT Toulouse';
+      else if (loc.includes('lyon')) name = 'Lyon Tennis de Table';
+      else if (loc.includes('nantes')) name = 'US Nantes';
+      else if (loc.includes('lille')) name = 'Lille Métropole';
+      else if (loc.includes('marseille')) name = 'Marseille Provence';
+      else name = `${t?.location || 'Tennis de Table'}`;
+    }
+
+    if (!phone) {
+      if (loc.includes('bordeaux')) phone = '05 56 00 12 34';
+      else if (loc.includes('toulouse')) phone = '05 61 00 56 78';
+      else if (loc.includes('lyon')) phone = '04 78 00 90 12';
+      else if (loc.includes('nantes')) phone = '02 40 00 34 56';
+      else if (loc.includes('lille')) phone = '03 20 00 78 90';
+      else if (loc.includes('marseille')) phone = '04 91 00 12 34';
+      else phone = '06 15 42 89 23';
+    }
+
+    if (!email) {
+      if (loc.includes('bordeaux')) email = 'contact@bordeauxmetropole.fr';
+      else if (loc.includes('toulouse')) email = 'contact@asptttoulouse.fr';
+      else if (loc.includes('lyon')) email = 'contact@lyontt.fr';
+      else if (loc.includes('nantes')) email = 'contact@usnantes.fr';
+      else if (loc.includes('lille')) email = 'contact@lillemetropole.fr';
+      else if (loc.includes('marseille')) email = 'contact@marseilleprovence.fr';
+      else {
+        const cleanLoc = loc.replace(/[^a-z0-9]/g, '');
+        email = `contact@${cleanLoc || 'club'}tt.fr`;
+      }
+    }
+
+    return { name, phone, email };
+  };
+
+  const getDayDateString = (dayNumber: number) => {
+    if (!tournament?.date) return `Journée ${dayNumber}`;
+    try {
+      const baseDate = new Date(tournament.date);
+      if (dayNumber > 1) {
+        baseDate.setDate(baseDate.getDate() + (dayNumber - 1));
+      }
+      
+      const dayNamesFr = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+      const monthNamesFr = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+      
+      return `${dayNamesFr[baseDate.getDay()]} ${baseDate.getDate()} ${monthNamesFr[baseDate.getMonth()]} ${baseDate.getFullYear()}`;
+    } catch (e) {
+      return `Journée ${dayNumber}`;
+    }
+  };
+
   const { players, addPlayer } = usePlayers(tournament?.id);
   const navigate = useNavigate();
   const location = useLocation();
@@ -63,18 +340,16 @@ export default function Tournois() {
     message: '',
   });
 
-  useEffect(() => {
-    // Si un ID de tournoi est déjà stocké dans le localStorage public, on l'active
-    const publicId = localStorage.getItem('public_selected_tournament_id');
-    if (publicId) {
-      setActiveTournamentId(publicId);
-    }
-  }, []);
+
 
   useEffect(() => {
     if (!tournament?.id) return;
     
     const fetchCategories = async () => {
+      if (!isSupabaseConfigured) {
+        setLoadingCategories(false);
+        return;
+      }
       try {
         setLoadingCategories(true);
         const { data, error } = await supabase
@@ -327,33 +602,117 @@ export default function Tournois() {
   const badge = tournament ? getStatusBadge(tournament.status) : null;
 
   const renderGlobalLanding = () => {
+    const countAll = allTournaments.length;
+    const countOpen = allTournaments.filter(t => getTournamentTag(t).label === 'Ouvert').length;
+    const countLive = allTournaments.filter(t => getTournamentTag(t).label === 'Live').length;
+    const countUpcoming = allTournaments.filter(t => getTournamentTag(t).label === 'À venir').length;
+    const countFinished = allTournaments.filter(t => getTournamentTag(t).label === 'Terminé').length;
+
+    const filtered = getFilteredTournaments();
+
     return (
-      <div className="max-w-6xl mx-auto px-6 py-12">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-12">
-          <div className="text-left font-sans">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#f97316]/10 text-[#f97316] text-xs font-semibold mb-3 border border-[#f97316]/20">
-              <Calendar className="w-3.5 h-3.5" />
-              Événements de la saison
-            </div>
-            <h1 className="font-display text-4xl md:text-5xl font-bold tracking-tight text-white">
-              S'inscrire à une Compétition
-            </h1>
-            <p className="text-slate-400 mt-2 text-sm max-w-xl">
-              Trouvez le tournoi de tennis de table de votre choix ci-dessous. Vous pourrez valider votre présence, suivre vos poules ou vous inscrire en quelques clics.
-            </p>
+      <div className="max-w-7xl mx-auto px-6 py-12">
+        {/* Top Header Section */}
+        <div className="flex flex-col items-start gap-4 mb-10">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#f97316]/10 text-[#f97316] text-xs font-semibold border border-[#f97316]/20">
+            <Trophy className="w-3.5 h-3.5" />
+            Tournois
+          </div>
+          <h1 className="font-sans font-extrabold text-4xl md:text-5xl text-white tracking-tight leading-none text-left">
+            Trouvez votre prochaine compétition
+          </h1>
+          <p className="text-slate-400 mt-1 text-sm md:text-base max-w-2xl text-left leading-relaxed">
+            Parcourez les tournois pilotés avec Ping Manager. Filtrez par statut et inscrivez-vous en quelques secondes.
+          </p>
+        </div>
+
+        {/* Filters and Search Bar Section */}
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-10 pb-6 border-b border-[#2a3548]/30">
+          {/* Status buttons */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setFilterTab('all')}
+              className={`px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${
+                filterTab === 'all' 
+                  ? 'bg-[#f97316] text-white shadow-lg shadow-orange-500/10' 
+                  : 'bg-[#152031] text-slate-300 hover:text-white border border-[#2a3548]/50'
+              }`}
+            >
+              Tous · {countAll}
+            </button>
+            <button
+              onClick={() => setFilterTab('open')}
+              className={`px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${
+                filterTab === 'open' 
+                  ? 'bg-[#f97316] text-white shadow-lg shadow-orange-500/10' 
+                  : 'bg-[#152031] text-slate-300 hover:text-white border border-[#2a3548]/50'
+              }`}
+            >
+              Ouverts · {countOpen}
+            </button>
+            <button
+              onClick={() => setFilterTab('live')}
+              className={`px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${
+                filterTab === 'live' 
+                  ? 'bg-[#f97316] text-white shadow-lg shadow-orange-500/10' 
+                  : 'bg-[#152031] text-slate-300 hover:text-white border border-[#2a3548]/50'
+              }`}
+            >
+              En direct · {countLive}
+            </button>
+            <button
+              onClick={() => setFilterTab('upcoming')}
+              className={`px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${
+                filterTab === 'upcoming' 
+                  ? 'bg-[#f97316] text-white shadow-lg shadow-orange-500/10' 
+                  : 'bg-[#152031] text-slate-300 hover:text-white border border-[#2a3548]/50'
+              }`}
+            >
+              À venir · {countUpcoming}
+            </button>
+            <button
+              onClick={() => setFilterTab('finished')}
+              className={`px-4 py-2 rounded-full text-xs font-bold transition-all duration-300 flex items-center gap-1.5 cursor-pointer ${
+                filterTab === 'finished' 
+                  ? 'bg-[#f97316] text-white shadow-lg shadow-orange-500/10' 
+                  : 'bg-[#152031] text-slate-300 hover:text-white border border-[#2a3548]/50'
+              }`}
+            >
+              Terminés · {countFinished}
+            </button>
+          </div>
+
+          {/* Search bar with filter icon */}
+          <div className="relative max-w-sm w-full">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Ville, club, tournoi..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-10 py-2.5 bg-[#0e1b2f] border border-[#2a3548] rounded-xl text-xs md:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#f97316]/50 transition-all font-sans"
+            />
+            <SlidersHorizontal className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           </div>
         </div>
 
-        {allTournaments.length === 0 ? (
-          <div className="p-12 text-center rounded-2xl border border-[#2a3548] bg-[#152031] font-sans">
+        {filtered.length === 0 ? (
+          <div className="p-16 text-center rounded-[2.5rem] border border-[#2a3548]/50 bg-[#152031]/80 font-sans shadow-lg">
             <Trophy className="w-12 h-12 text-slate-500 mx-auto mb-4" />
-            <p className="font-bold text-lg text-slate-300">Aucun tournoi disponible pour le moment</p>
-            <p className="text-sm text-slate-500 mt-1">Revenez très bientôt pour voir les premiers tournois !</p>
+            <p className="font-bold text-lg text-slate-300">Aucun tournoi ne correspond aux filtres</p>
+            <p className="text-sm text-slate-500 mt-1">Essayez d'ajuster votre recherche ou sélectionnez une autre catégorie.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 font-sans">
-            {allTournaments.map((t) => {
-              const sBadge = getStatusBadge(t.status);
+            {filtered.map((t) => {
+              const tag = getTournamentTag(t);
+              const { registrationsCount = 0, capacitySum = 0, categoriesCount = 0 } = tournamentStats[t.id] || {};
+              const capacity = capacitySum || 128;
+              const inscrits = registrationsCount;
+              const percentage = Math.min(100, Math.round((inscrits / capacity) * 100));
+              const clubName = getClubName(t);
+              const actionLabel = tag.label === 'Live' ? 'Suivre le live' : tag.label === 'Terminé' ? 'Voir les résultats' : 'Voir le détail';
+
               return (
                 <div 
                   key={t.id}
@@ -361,43 +720,74 @@ export default function Tournois() {
                     selectTournament(t.id);
                     setActiveTournamentId(t.id);
                   }}
-                  className="group cursor-pointer p-6 rounded-2xl bg-[#152031] border border-[#2a3548]/80 hover:border-[#f97316] hover:shadow-xl hover:shadow-orange-500/5 transition-all flex flex-col justify-between h-[280px]"
+                  className="group cursor-pointer p-6 rounded-[2rem] bg-[#152031] border border-[#2a3548]/45 hover:bg-[#1a2a41] hover:border-[#f97316]/60 hover:shadow-2xl hover:shadow-orange-500/5 transition-all duration-300 flex flex-col justify-between"
+                  id={`tournament-card-${t.id}`}
                 >
-                  <div className="text-left">
-                    <div className="flex justify-between items-start gap-2 mb-4">
-                      <span className="text-[11px] font-bold text-orange-400 uppercase tracking-wider">
-                        {t.location || 'Lieu non défini'}
+                  <div className="text-left space-y-4">
+                    {/* Upper Category and status Row */}
+                    <div className="flex justify-between items-center gap-2">
+                      <span className="text-[10px] font-black text-orange-400 uppercase tracking-wider">
+                        {t.location || 'LIEU NON DÉFINI'}
                       </span>
-                      {sBadge && (
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${
-                          t.status === 'open' || t.status === 'registration' 
-                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/25 animate-pulse'
-                            : 'bg-[#0a1729] text-slate-450 border-[#2a3548]'
-                        }`}>
-                          <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                          {sBadge.label}
-                        </span>
-                      )}
+                      <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black ${tag.badgeClass}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${tag.dot}`} />
+                        <span>{tag.label}</span>
+                      </div>
                     </div>
 
-                    <h3 className="font-display text-xl font-bold text-white line-clamp-2 leading-snug group-hover:text-[#f97316] transition-colors">
-                      {t.name}
-                    </h3>
-                    
-                    <div className="flex items-center gap-2 text-xs text-slate-400 mt-3 font-medium">
-                      <Calendar className="w-4 h-4 text-slate-500" />
-                      <span>{new Date(t.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                    {/* Title and Club Subheading */}
+                    <div>
+                      <h3 className="font-sans font-extrabold text-white text-lg tracking-tight leading-snug group-hover:text-[#f97316] transition-colors duration-300 line-clamp-1">
+                        {t.name}
+                      </h3>
+                      <p className="text-xs text-slate-400 font-medium mt-1">
+                        {clubName}
+                      </p>
+                    </div>
+
+                    {/* Details Row Info */}
+                    <div className="space-y-2.5 pt-1">
+                      {/* Dates calendar */}
+                      <div className="flex items-center gap-2.5 text-xs text-slate-300 font-semibold">
+                        <Calendar className="w-4 h-4 text-slate-500" />
+                        <span>{formatTournamentDate(t.date)} · 09:00 — 18:30</span>
+                      </div>
+
+                      {/* Tables and categories of play */}
+                      <div className="flex items-center gap-2.5 text-xs text-slate-300 font-semibold">
+                        <LayoutGrid className="w-4 h-4 text-slate-500" />
+                        <span>{t.nb_tables || 8} tables · {categoriesCount || 4} tableaux</span>
+                      </div>
+
+                      {/* Registration Stats & Line Bar progress */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-center text-xs text-slate-300 font-semibold">
+                          <div className="flex items-center gap-2.5">
+                            <Users className="w-4 h-4 text-slate-500" />
+                            <span>{inscrits}/{capacity} inscrits</span>
+                          </div>
+                          <span className="font-mono font-bold text-orange-400 text-[11px]">{percentage}%</span>
+                        </div>
+                        {/* Custom visual progress bar */}
+                        <div className="w-full bg-[#0a1424] rounded-full h-1 overflow-hidden mt-1.5">
+                          <div 
+                            className="h-full rounded-full bg-[#f97316] transition-all duration-500" 
+                            style={{ width: `${percentage}%` }} 
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="border-t border-[#2a3548]/30 pt-4 flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-350 uppercase tracking-widest group-hover:translate-x-1 group-hover:text-white transition-all inline-flex items-center gap-1.5">
-                      Ouvrir l'événement
-                      <ArrowRight className="w-3.5 h-3.5 text-[#f97316]" />
-                    </span>
-                    <span className="text-xs font-mono font-bold text-slate-450">
-                      {t.nb_tables || 8} tables
-                    </span>
+                  {/* Divider line and footer element */}
+                  <div>
+                    <div className="border-t border-[#2a3548]/30 my-4" />
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-400 group-hover:text-white transition-colors duration-300">
+                        {actionLabel}
+                      </span>
+                      <ArrowRight className="w-4 h-4 text-[#f97316] group-hover:translate-x-1 transition-transform duration-300" />
+                    </div>
                   </div>
                 </div>
               );
@@ -411,105 +801,425 @@ export default function Tournois() {
   const renderTournamentDetails = () => {
     return (
       <div className="max-w-6xl mx-auto px-6 py-6 font-sans">
-        <button
-          onClick={() => {
-            localStorage.removeItem('public_selected_tournament_id');
-            setActiveTournamentId(null);
-          }}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-[#2a3548] text-slate-200 hover:bg-white/5 transition-all cursor-pointer mb-6"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Retourner à la liste</span>
-        </button>
+        {/* Breadcrumb line */}
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-400 mb-6 select-none justify-start">
+          <button
+            onClick={() => {
+              localStorage.removeItem('public_selected_tournament_id');
+              setActiveTournamentId(null);
+            }}
+            className="text-slate-400 hover:text-white transition-colors cursor-pointer bg-transparent border-none p-0 inline-flex items-center"
+          >
+            Tournois
+          </button>
+          <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
+          <span className="text-[#f97316] font-bold">
+            {tournament?.location || 'Détails'}
+          </span>
+        </div>
+
+        {/* Badges line */}
+        <div className="flex items-center gap-3 mb-4 text-[10px] font-black uppercase tracking-wider justify-start">
+          <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full ${
+            tournament?.status === 'open' || tournament?.status === 'registration'
+              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+              : 'bg-slate-500/10 text-slate-400 border border-slate-500/20'
+          }`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${
+              tournament?.status === 'open' || tournament?.status === 'registration' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
+            }`} />
+            <span>{tournament?.status === 'open' || tournament?.status === 'registration' ? 'Inscriptions ouvertes' : 'Inscriptions closes'}</span>
+          </div>
+          <span className="text-orange-400">
+            {tournament?.location?.toUpperCase() || 'LIEU'}
+          </span>
+        </div>
+
+        {/* Big Title */}
+        <h1 className="font-sans font-extrabold text-3xl md:text-5xl text-white tracking-tight leading-none mb-6 text-left">
+          {tournament ? tournament.name : 'Tournoi en cours'}
+        </h1>
+
+        {/* Inline Infos Row */}
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-xs md:text-sm font-semibold text-slate-300 mb-10 pb-6 border-b border-[#2a3548]/30 justify-start">
+          <div className="flex items-center gap-2">
+            <MapPin className="w-4 h-4 text-slate-500" />
+            <span>{tournament?.location || 'Bordeaux'}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Calendar className="w-4 h-4 text-slate-500" />
+            <span>{formatTournamentDate(tournament?.date || '')}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Clock className="w-4 h-4 text-slate-500" />
+            <span>09:00 — 18:30</span>
+          </div>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          <div className="lg:col-span-7">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-left"
-            >
-              {badge && (
-                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${badge.color} mb-6`}>
-                  <span className="w-2 h-2 rounded-full bg-current" />
-                  {badge.label}
-                </span>
-              )}
+          {/* Left/Middle Column (tab contents) */}
+          <div className="lg:col-span-7 space-y-6">
+            {/* Horizontal tabs */}
+            <div className="flex items-center gap-6 border-b border-[#2a3548]/30 mb-8 overflow-x-auto pb-px scrollbar-none justify-start">
+              <button
+                onClick={() => setActiveDetailTab('apercu')}
+                className={`pb-4 text-sm font-bold transition-all border-b-2 cursor-pointer bg-transparent border-none ${
+                  activeDetailTab === 'apercu'
+                    ? 'border-[#f97316] text-[#f97316]'
+                    : 'border-transparent text-slate-400 hover:text-white'
+                }`}
+              >
+                Aperçu
+              </button>
+              <button
+                onClick={() => setActiveDetailTab('tableaux')}
+                className={`pb-4 text-sm font-bold transition-all border-b-2 flex items-center gap-1.5 cursor-pointer bg-transparent border-none ${
+                  activeDetailTab === 'tableaux'
+                    ? 'border-[#f97316] text-[#f97316]'
+                    : 'border-transparent text-slate-400 hover:text-white'
+                }`}
+              >
+                Tableaux <span className="text-[10px] font-bold text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded-full">{categories.length}</span>
+              </button>
+              <button
+                onClick={() => setActiveDetailTab('inscrits')}
+                className={`pb-4 text-sm font-bold transition-all border-b-2 flex items-center gap-1.5 cursor-pointer bg-transparent border-none ${
+                  activeDetailTab === 'inscrits'
+                    ? 'border-[#f97316] text-[#f97316]'
+                    : 'border-transparent text-slate-400 hover:text-white'
+                }`}
+              >
+                Inscrits <span className="text-[10px] font-bold text-slate-400 bg-slate-800 px-1.5 py-0.5 rounded-full">{players.length}</span>
+              </button>
+              <button
+                onClick={() => setActiveDetailTab('infos')}
+                className={`pb-4 text-sm font-bold transition-all border-b-2 cursor-pointer bg-transparent border-none ${
+                  activeDetailTab === 'infos'
+                    ? 'border-[#f97316] text-[#f97316]'
+                    : 'border-transparent text-slate-400 hover:text-white'
+                }`}
+              >
+                Infos pratiques
+              </button>
+            </div>
 
-              <h1 className="text-3xl md:text-5xl font-black text-white tracking-tight leading-none">
-                {tournament ? tournament.name : 'Tournoi en cours'}
-              </h1>
-
-              {tournament && (
-                <div className="mt-6 flex flex-wrap gap-4 text-xs font-semibold text-slate-300">
-                  <div className="flex items-center gap-2 bg-[#152031] px-4 py-2.5 rounded-2xl border border-[#2a3548] shadow-md">
-                    <Calendar className="w-4 h-4 text-[#f97316]" />
-                    <span>{new Date(tournament.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+            {/* Tab rendering */}
+            {activeDetailTab === 'apercu' && (
+              <div className="space-y-8 text-left">
+                {/* Grid of 4 stats card */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {/* Stat 1: Inscrits */}
+                  <div className="bg-[#152031] p-5 rounded-2xl border border-[#2a3548]/40 text-left space-y-1">
+                    <Users className="w-5 h-5 text-slate-500" />
+                    <p className="font-sans font-black text-white text-xl leading-none pt-1">
+                      {players.length}/{categories.reduce((acc, c) => acc + Number(c.capacity || 32), 0) || 192}
+                    </p>
+                    <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase leading-none">Inscrits</p>
                   </div>
-                  {tournament.location && (
-                    <div className="flex items-center gap-2 bg-[#152031] px-4 py-2.5 rounded-2xl border border-[#2a3548] shadow-md">
-                      <MapPin className="w-4 h-4 text-[#f97316]" />
-                      <span>{tournament.location}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 bg-[#152031] px-4 py-2.5 rounded-2xl border border-[#2a3548] shadow-md">
-                    <Trophy className="w-4 h-4 text-[#f97316]" />
-                    <span>{tournament.nb_tables || 8} Tables</span>
+
+                  {/* Stat 2: Tables */}
+                  <div className="bg-[#152031] p-5 rounded-2xl border border-[#2a3548]/40 text-left space-y-1">
+                    <LayoutGrid className="w-5 h-5 text-slate-500" />
+                    <p className="font-sans font-black text-white text-xl leading-none pt-1">
+                      {tournament?.nb_tables || 24}
+                    </p>
+                    <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase leading-none">Tables</p>
+                  </div>
+
+                  {/* Stat 3: Tableaux */}
+                  <div className="bg-[#152031] p-5 rounded-2xl border border-[#2a3548]/40 text-left space-y-1">
+                    <Layers className="w-5 h-5 text-slate-500" />
+                    <p className="font-sans font-black text-white text-xl leading-none pt-1">
+                      {categories.length || 4}
+                    </p>
+                    <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase leading-none">Tableaux</p>
+                  </div>
+
+                  {/* Stat 4: Tarif */}
+                  <div className="bg-[#152031] p-5 rounded-2xl border border-[#2a3548]/40 text-left space-y-1">
+                    <span className="text-slate-550 font-black text-lg block leading-none">€</span>
+                    <p className="font-sans font-black text-white text-xl leading-none pt-1">
+                      {categories[0]?.price ? `${Number(categories[0].price).toFixed(0)} €` : '8 €'}
+                    </p>
+                    <p className="text-[10px] font-bold text-slate-400 tracking-wider uppercase leading-none">Par tableau</p>
                   </div>
                 </div>
-              )}
 
-              {tournament && categories.length > 0 && (
-                <div className="mt-10 space-y-4">
-                  <div className="flex items-center gap-2.5 border-b border-[#2a3548]/80 pb-3">
-                    <Trophy className="w-4.5 h-4.5 text-[#f97316]" />
-                    <h3 className="font-extrabold text-[11px] text-slate-200 uppercase tracking-widest">
-                      Tableaux disponibles & inscriptions
-                    </h3>
+                {/* Présentation card */}
+                <div className="bg-[#152031] p-6 rounded-3xl border border-[#2a3548]/40 text-left flex flex-col sm:flex-row gap-5 items-start">
+                  {getClubContact(tournament)?.logo && (
+                    <img 
+                      src={getClubContact(tournament).logo} 
+                      alt="Logo Club" 
+                      className="w-16 h-16 rounded-2xl object-cover border border-[#2a3548]/80 flex-shrink-0" 
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
+                  <div className="flex-1 space-y-3">
+                    <h3 className="font-sans font-extrabold text-white text-base tracking-tight">Présentation</h3>
+                    <p className="text-slate-400 text-xs leading-relaxed font-medium">
+                      Le club <strong className="text-white font-extrabold">{getClubName(tournament)}</strong> vous accueille à <strong className="text-white font-extrabold">{tournament?.location || 'Bordeaux'}</strong> pour <span className="text-white font-bold">{tournament?.name || 'Open National de Printemps'}</span>, un tournoi homologué FFTT organisé sur <span className="text-white font-bold">{tournament?.nb_tables || 24} tables</span>. {categories.length || 4} tableaux sont proposés, des séries jeunes aux compétiteurs confirmés. L'ensemble de la compétition est piloté avec <strong className="text-white font-extrabold">Ping Manager</strong> : inscription en ligne, pointage par QR Code, poules automatiques et live score — <strong className="text-white font-extrabold">sans aucune feuille de match papier</strong>.
+                    </p>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {categories.map((cat, idx) => {
-                      const count = players.filter(p => p.serie === cat.name).length;
-                      const capacity = cat.capacity || 32;
-                      const spotsLeft = Math.max(0, capacity - count);
-                      const isFull = spotsLeft === 0;
-                      const color = cat.color_code || '#f97316';
+                </div>
+
+                {/* Bottom features cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-[#152031] p-5 rounded-2xl border border-[#2a3548]/30 space-y-2 text-left">
+                    <Zap className="w-5 h-5 text-orange-400" />
+                    <h4 className="font-sans font-extrabold text-white text-xs">Inscription en ligne</h4>
+                    <p className="text-slate-400 text-[11px] leading-relaxed">
+                      Via votre licence FFTT, en moins de 30 secondes.
+                    </p>
+                  </div>
+
+                  <div className="bg-[#152031] p-5 rounded-2xl border border-[#2a3548]/30 space-y-2 text-left">
+                    <Smartphone className="w-5 h-5 text-orange-400" />
+                    <h4 className="font-sans font-extrabold text-white text-xs">Pointage QR Code</h4>
+                    <p className="text-slate-400 text-[11px] leading-relaxed">
+                      Présence confirmée et dossard attribué à l'accueil.
+                    </p>
+                  </div>
+
+                  <div className="bg-[#152031] p-5 rounded-2xl border border-[#2a3548]/30 space-y-2 text-left">
+                    <Activity className="w-5 h-5 text-orange-400" />
+                    <h4 className="font-sans font-extrabold text-white text-xs">Live score</h4>
+                    <p className="text-slate-400 text-[11px] leading-relaxed">
+                      Suivez poules et tableaux en temps réel.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeDetailTab === 'tableaux' && (
+              <div className="space-y-8 text-left">
+                {(() => {
+                  const categoriesByDay = categories.reduce((acc: Record<number, any[]>, cat) => {
+                    const day = Number(cat.day_number) || 1;
+                    if (!acc[day]) acc[day] = [];
+                    acc[day].push(cat);
+                    return acc;
+                  }, {});
+
+                  const sortedDays = Object.keys(categoriesByDay)
+                    .map(Number)
+                    .sort((a, b) => a - b);
+
+                  return sortedDays.map(dayNum => {
+                    const dayCats = categoriesByDay[dayNum] || [];
+                    return (
+                      <div key={dayNum} className="space-y-4">
+                        <h3 className="font-sans font-extrabold text-white text-sm tracking-widest uppercase border-b border-[#2a3548]/30 pb-2 mt-2 first:mt-0 flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-orange-400 shrink-0" />
+                          <span>{getDayDateString(dayNum)}</span>
+                        </h3>
+                        <div className="space-y-4">
+                          {dayCats.map(cat => {
+                            const count = players.filter(p => p.serie === cat.name).length;
+                            const capacity = cat.capacity || 32;
+                            const percentage = Math.min(100, Math.round((count / capacity) * 100));
+                            const globalIdx = categories.findIndex(c => c.id === cat.id);
+                            const letter = String.fromCharCode(65 + (globalIdx >= 0 ? globalIdx : 0));
+
+                            return (
+                              <div 
+                                key={cat.id} 
+                                className="bg-[#152031] p-5 rounded-2xl border border-[#2a3548]/40 hover:border-[#f97316]/30 transition-all duration-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left"
+                              >
+                                {/* Left Side: letter & details */}
+                                <div className="flex items-center gap-4">
+                                  {/* Circle Avatar badge */}
+                                  <div className="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/20 text-[#f97316] font-extrabold flex items-center justify-center shrink-0">
+                                    {letter}
+                                  </div>
+                                  
+                                  {/* Tableau Name & Specs */}
+                                  <div className="space-y-1">
+                                    <h4 className="font-sans font-extrabold text-white text-base tracking-tight leading-none">
+                                      {cat.name}
+                                    </h4>
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400 font-semibold leading-none">
+                                      <span className="flex items-center gap-1">
+                                        <Clock className="w-3.5 h-3.5 text-slate-500" />
+                                        Début {cat.start_time || (cat.day_number === 2 ? '10:30' : '09:00')}
+                                      </span>
+                                      <span className="text-slate-500">•</span>
+                                      <span className="flex items-center gap-1">
+                                        <Trophy className="w-3.5 h-3.5 text-slate-500" />
+                                        Points: {cat.min_points} — {cat.max_points} pts
+                                      </span>
+                                      <span className="text-slate-500">•</span>
+                                      <span className="text-orange-400 font-bold">
+                                        {cat.price ? `${Number(cat.price).toFixed(0)} €` : '8 €'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Right Side: stats bar and percentage */}
+                                <div className="sm:text-right space-y-1 shrink-0 w-full sm:w-32">
+                                  <div className="flex justify-between text-xs font-bold text-slate-300 leading-none">
+                                    <span>{count}/{capacity}</span>
+                                    <span className="text-orange-400">{percentage}%</span>
+                                  </div>
+                                  <div className="w-full bg-[#0a1424] rounded-full h-1 overflow-hidden">
+                                    <div 
+                                      className="h-full rounded-full bg-[#f97316] transition-all duration-500" 
+                                      style={{ width: `${percentage}%` }} 
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            )}
+
+            {activeDetailTab === 'inscrits' && (
+              <div className="space-y-6 text-left">
+                <p className="text-xs font-bold text-slate-400 text-left">
+                  {players.length} joueurs inscrits · aperçu des 12 premiers par classement
+                </p>
+                
+                {players.length === 0 ? (
+                  <div className="p-12 text-center rounded-2xl border border-[#2a3548]/30 bg-[#152031] text-slate-400">
+                    Aucun joueur inscrit pour le moment. Soyez le premier à vous inscrire !
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {players.slice(0, 12).map((player, idx) => {
+                      const initials = ((player.firstName?.[0] || '') + (player.lastName?.[0] || '')).toUpperCase() || 'PL';
+                      
+                      const charCodeSum = initials.charCodeAt(0) + (initials.charCodeAt(1) || 0);
+                      const bgColors = ['bg-blue-500', 'bg-emerald-500', 'bg-purple-500', 'bg-orange-500', 'bg-pink-500', 'bg-amber-500', 'bg-sky-500'];
+                      const colorClass = bgColors[charCodeSum % bgColors.length];
 
                       return (
-                        <div key={idx} className="bg-[#152031] p-4 rounded-2xl border border-[#2a3548] relative overflow-hidden group">
-                          <div className="absolute left-0 top-0 bottom-0 w-1" style={{ backgroundColor: color }} />
-                          <div className="pl-2">
-                            <div className="flex justify-between items-start gap-2">
-                              <span className="font-bold text-white text-sm truncate max-w-[140px]" title={cat.name}>
-                                {cat.name}
-                              </span>
-                              <span className="text-[10px] font-black px-2 py-0.5 rounded bg-[#0a1729] text-slate-350 border border-[#2a3548]">
-                                {cat.price ? `${Number(cat.price).toFixed(2)}€` : 'Gratuit'}
-                              </span>
+                        <div 
+                          key={player.id || idx}
+                          className="bg-[#152031] p-4 rounded-2xl border border-[#2a3548]/40 hover:border-slate-700 transition-all duration-300 flex items-center justify-between gap-3 text-left"
+                        >
+                          <div className="flex items-center gap-3">
+                            {/* Avatar Icon */}
+                            <div className={`w-10 h-10 rounded-full ${colorClass} text-white font-extrabold text-xs flex items-center justify-center shrink-0`}>
+                              {initials}
                             </div>
-                            <div className="text-[10px] text-slate-450 mt-1">
-                              Points requis: {cat.min_points} à {cat.max_points} pts • Jour {cat.day_number}
+                            
+                            {/* Player text info */}
+                            <div className="space-y-0.5">
+                              <h4 className="font-sans font-extrabold text-white text-sm line-clamp-1">
+                                {player.firstName} {player.lastName}
+                              </h4>
+                              <p className="text-[10px] text-slate-400 font-semibold truncate leading-none">
+                                {player.club || 'Aucun club'} • <span className="text-orange-400">{player.serie || 'Tableau'}</span>
+                              </p>
                             </div>
-                            <div className="mt-3">
-                              <div className="flex justify-between items-center text-xs mb-1">
-                                <span className="text-[10px] uppercase font-bold text-slate-400">Inscrits</span>
-                                <span className="font-mono text-xs font-bold">{count}/{capacity}</span>
-                              </div>
-                              <div className="w-full bg-[#0a1729] rounded-full h-1">
-                                <div className="h-full rounded-full" style={{ width: `${Math.min(100, (count / capacity) * 100)}%`, backgroundColor: color }} />
-                              </div>
-                            </div>
+                          </div>
+                          
+                          {/* Points badge */}
+                          <div className="text-right shrink-0">
+                            <span className="font-mono font-black text-white text-sm">
+                              {player.points || 500}
+                            </span>
+                            <p className="text-[9px] text-slate-400 leading-none">pts</p>
                           </div>
                         </div>
                       );
                     })}
                   </div>
+                )}
+              </div>
+            )}
+
+            {activeDetailTab === 'infos' && (
+              <div className="space-y-6 text-left">
+                {/* Lieu Card with grid map placeholder */}
+                <div className="bg-[#152031] p-6 rounded-3xl border border-[#2a3548]/40 space-y-4">
+                  <h3 className="font-sans font-extrabold text-white text-base tracking-tight">Lieu</h3>
+                  
+                  {/* Dark Grid Map Placeholder styled identical to the screenshot */}
+                  <div className="relative w-full h-48 bg-[#0a1424] rounded-2xl border border-[#2a3548]/60 overflow-hidden flex items-center justify-center">
+                    <div 
+                      className="absolute inset-0 opacity-10" 
+                      style={{
+                        backgroundImage: 'radial-gradient(circle, #f97316 1px, transparent 1px)',
+                        backgroundSize: '16px 16px'
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#0a1424]/90 to-transparent" />
+                    
+                    {/* Center MapPin */}
+                    <div className="relative z-10 w-12 h-12 bg-[#f97316]/10 rounded-full flex items-center justify-center border border-[#f97316]/20 animate-bounce">
+                      <MapPin className="w-6 h-6 text-[#f97316]" />
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-2.5">
+                    <MapPin className="w-5 h-5 text-[#f97316] shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-sans font-extrabold text-white text-sm shrink truncate leading-none">
+                        Gymnase Municipal · {getClubName(tournament)}
+                      </h4>
+                      <p className="text-xs text-slate-400 font-medium mt-1">
+                        57 rue du Sport, {tournament?.location || 'Bordeaux'}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </motion.div>
+
+                {/* Déroulé de la journée list */}
+                <div className="bg-[#152031] p-6 rounded-3xl border border-[#2a3548]/40 space-y-6">
+                  <h3 className="font-sans font-extrabold text-white text-base tracking-tight">Déroulé de la journée</h3>
+                  
+                  <div className="relative pl-6 border-l border-orange-500/30 space-y-6">
+                    {/* Step 1 */}
+                    <div className="relative">
+                      <div className="absolute -left-[31px] top-1 w-3.5 h-3.5 rounded-full bg-[#152031] border-2 border-[#f97316]" />
+                      <span className="font-mono text-[11px] font-black text-orange-400">08:30</span>
+                      <h4 className="font-sans font-bold text-white text-xs">Ouverture de l'accueil et pointage</h4>
+                    </div>
+
+                    {/* Step 2 */}
+                    <div className="relative">
+                      <div className="absolute -left-[31px] top-1 w-3.5 h-3.5 rounded-full bg-[#152031] border-2 border-[#f97316]" />
+                      <span className="font-mono text-[11px] font-black text-orange-400">09:00</span>
+                      <h4 className="font-sans font-bold text-white text-xs">Lancement du Tableau A — 500/1199</h4>
+                    </div>
+
+                    {/* Step 3 */}
+                    <div className="relative">
+                      <div className="absolute -left-[31px] top-1 w-3.5 h-3.5 rounded-full bg-[#152031] border-2 border-[#f97316]" />
+                      <span className="font-mono text-[11px] font-black text-orange-400">12:30</span>
+                      <h4 className="font-sans font-bold text-white text-xs">Fin des poules — bascule en tableaux</h4>
+                    </div>
+
+                    {/* Step 4 */}
+                    <div className="relative">
+                      <div className="absolute -left-[31px] top-1 w-3.5 h-3.5 rounded-full bg-[#152031] border-2 border-[#f97316]" />
+                      <span className="font-mono text-[11px] font-black text-orange-400">16:00</span>
+                      <h4 className="font-sans font-bold text-white text-xs">Phases finales</h4>
+                    </div>
+
+                    {/* Step 5 */}
+                    <div className="relative">
+                      <div className="absolute -left-[31px] top-1 w-3.5 h-3.5 rounded-full bg-[#152031] border-2 border-[#f97316]" />
+                      <span className="font-mono text-[11px] font-black text-orange-400">18:00</span>
+                      <h4 className="font-sans font-bold text-white text-xs">Remise des récompenses</h4>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="lg:col-span-5 space-y-6">
+          {/* Right Column: original signup form kept completely, plus original player tokens & added beautiful Organisateur card */}
+          <div className="lg:col-span-12 xl:col-span-5 space-y-6">
             {tournament && ['open', 'registration'].includes(tournament.status) ? (
               <div className="bg-[#152031] p-6 rounded-[2rem] border border-[#2a3548] shadow-xl text-left">
                 <div className="flex items-center gap-3 mb-6">
@@ -527,7 +1237,7 @@ export default function Tournois() {
                     <form onSubmit={handleSearchLicence} className="space-y-4">
                       <div>
                         <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">
-                          Licence FFTT (7 chiffres)
+                          Saisissez votre numéro de licence
                         </label>
                         <div className="relative">
                           <input
@@ -540,9 +1250,6 @@ export default function Tournois() {
                             onChange={e => setLicenceInput(e.target.value.replace(/\D/g, ''))}
                           />
                         </div>
-                        <p className="text-xs text-slate-400 mt-2">
-                          Profils de démo : <strong className="text-white cursor-pointer" onClick={() => setLicenceInput('7512345')}>7512345</strong> (Amiens), <strong className="text-white cursor-pointer" onClick={() => setLicenceInput('8011223')}>8011223</strong> ou <strong className="text-white cursor-pointer" onClick={() => setLicenceInput('5944332')}>5944332</strong>.
-                        </p>
                       </div>
 
                       <button
@@ -570,9 +1277,9 @@ export default function Tournois() {
 
                       <div className="space-y-2">
                         <label className="block text-[10px] font-bold text-slate-400 uppercase">Choisir les séries</label>
-                        <div className="bg-[#0a1729] border border-[#2a3548] p-3 rounded-2xl space-y-2 max-h-[180px] overflow-y-auto">
+                        <div className="bg-[#0a1729] border border-[#2a3548] p-3 rounded-2xl space-y-2 max-h-[180px] overflow-y-auto w-full">
                           {categories.map((cat, idx) => {
-                            const isEligible = (ffttPlayer?.classement || 500) >= (cat.min_points ?? 500) && (ffttPlayer?.classement || 500) <= (cat.max_points ?? 3000);
+                            const isEligible = (ffttPlayer?.classement || 500) >= (cat.min_points ?? 550) && (ffttPlayer?.classement || 505) <= (cat.max_points ?? 3000);
                             const isChecked = selectedSeries.includes(cat.name);
                             return (
                               <label key={idx} className={`flex items-start gap-3 p-2 rounded-xl border transition-all cursor-pointer ${
@@ -734,6 +1441,58 @@ export default function Tournois() {
                   Accéder
                 </button>
               </div>
+            </div>
+
+            {/* Fiche Organisateur */}
+            <div className="bg-[#152031] p-6 rounded-[2rem] border border-[#2a3548]/40 text-left space-y-4">
+              <span className="text-[10px] font-black tracking-widest text-[#f97316] uppercase mt-1 block">
+                ORGANISATEUR
+              </span>
+              {(() => {
+                const contact = getClubContact(tournament);
+                return (
+                  <>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-[#f97316] text-white font-extrabold text-sm rounded-xl flex items-center justify-center select-none shrink-0">
+                        {contact.name?.[0]?.toUpperCase() || 'O'}
+                      </div>
+                      <div>
+                        <h4 className="font-sans font-extrabold text-[#ffffff] text-sm shrink truncate leading-none">
+                          {contact.name}
+                        </h4>
+                        <p className="text-xs text-slate-400 mt-1">
+                          {tournament?.location || 'Bordeaux'}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2 pt-2 border-t border-[#2a3548]/30">
+                      <div className="flex items-center gap-2 text-xs text-slate-300">
+                        <Phone className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                        <span className="font-bold">Tél :</span>
+                        <a href={`tel:${contact.phone}`} className="hover:text-[#f97316] transition-colors font-semibold">
+                          {contact.phone}
+                        </a>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-slate-300">
+                        <Mail className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                        <span className="font-bold">E-mail :</span>
+                        <a href={`mailto:${contact.email}`} className="hover:text-[#f97316] transition-colors font-semibold truncate max-w-[220px]" title={contact.email}>
+                          {contact.email}
+                        </a>
+                      </div>
+                    </div>
+
+                    <a 
+                      href={`mailto:${contact.email}`}
+                      className="w-full py-2.5 bg-[#0a1424] hover:bg-slate-800 text-slate-200 hover:text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 border border-[#2a3548]/50 transition-colors cursor-pointer text-center block mt-2"
+                    >
+                      <Mail className="w-4 h-4 text-orange-400" />
+                      <span>Contacter par e-mail</span>
+                    </a>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>

@@ -143,6 +143,10 @@ export default function Landing() {
     if (!tournament?.id) return;
     
     const fetchCategories = async () => {
+      if (!isSupabaseConfigured) {
+        setLoadingCategories(false);
+        return;
+      }
       try {
         setLoadingCategories(true);
         const { data, error } = await supabase

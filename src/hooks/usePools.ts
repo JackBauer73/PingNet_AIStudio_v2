@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../supabase';
+import { supabase, isSupabaseConfigured } from '../supabase';
 import { Pool, Match, PoolStanding } from '../types';
 import toast from 'react-hot-toast';
 
@@ -10,6 +10,13 @@ export function usePools(tournamentId?: string) {
   const [loading, setLoading] = useState(true);
 
   const fetchPoolsData = async (silent = false) => {
+    if (!isSupabaseConfigured) {
+      setPools([]);
+      setMatches([]);
+      setStandings([]);
+      setLoading(false);
+      return;
+    }
     if (!tournamentId) {
       setPools([]);
       setMatches([]);
@@ -271,7 +278,7 @@ export function usePools(tournamentId?: string) {
   useEffect(() => {
     fetchPoolsData();
 
-    if (!tournamentId) return;
+    if (!isSupabaseConfigured || !tournamentId) return;
 
     const randomSuffix = Math.random().toString(36).substring(2, 10);
     const channel = supabase

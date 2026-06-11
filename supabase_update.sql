@@ -351,8 +351,54 @@ ALTER TABLE public.tournament_archives
   ADD COLUMN IF NOT EXISTS date_fin DATE;
 
 
+-- =========================================================================
+-- 9. CRÉATION ET MISE À JOUR DE LA TABLE DES PROFILS DE CLUB (CLUB_PROFILES)
+-- =========================================================================
+CREATE TABLE IF NOT EXISTS public.club_profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    club_name TEXT,
+    club_city TEXT,
+    club_address TEXT,
+    club_phone TEXT,
+    club_website TEXT,
+    president_name TEXT,
+    club_color TEXT DEFAULT 'indigo',
+    club_logo TEXT, -- Contient le logo compressé au format vignette Base64
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
+-- Assurer que toutes les colonnes existent au cas où la table pré-existait sans elles
+ALTER TABLE public.club_profiles ADD COLUMN IF NOT EXISTS club_name TEXT;
+ALTER TABLE public.club_profiles ADD COLUMN IF NOT EXISTS club_city TEXT;
+ALTER TABLE public.club_profiles ADD COLUMN IF NOT EXISTS club_address TEXT;
+ALTER TABLE public.club_profiles ADD COLUMN IF NOT EXISTS club_phone TEXT;
+ALTER TABLE public.club_profiles ADD COLUMN IF NOT EXISTS club_website TEXT;
+ALTER TABLE public.club_profiles ADD COLUMN IF NOT EXISTS president_name TEXT;
+ALTER TABLE public.club_profiles ADD COLUMN IF NOT EXISTS club_color TEXT DEFAULT 'indigo';
+ALTER TABLE public.club_profiles ADD COLUMN IF NOT EXISTS club_logo TEXT;
+ALTER TABLE public.club_profiles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
+-- Activation de la Row Level Security (RLS)
+ALTER TABLE public.club_profiles ENABLE ROW LEVEL SECURITY;
+
+-- Politique de lecture publique : n'importe qui peut visualiser le profil d'un club
+DROP POLICY IF EXISTS "Lecture publique des profils de club" ON public.club_profiles;
+CREATE POLICY "Lecture publique des profils de club" 
+ON public.club_profiles 
+FOR SELECT 
+USING (true);
+
+-- Politique d'écriture pour l'utilisateur connecté sur son propre profil uniquement
+DROP POLICY IF EXISTS "Modification par le propriétaire" ON public.club_profiles;
+CREATE POLICY "Modification par le propriétaire" 
+ON public.club_profiles 
+FOR ALL 
+USING (auth.uid() = id) 
+WITH CHECK (auth.uid() = id);
+
+-- Forcer le rechargement du cache des schémas Supabase
+NOTIFY pgrst, 'reload schema';
 
 
 

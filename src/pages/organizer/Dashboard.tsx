@@ -107,6 +107,7 @@ export default function Dashboard() {
   const [showArchiveConfirm, setShowArchiveConfirm] = useState(false);
   const [showEmergencyConfirm, setShowEmergencyConfirm] = useState(false);
   const [showEmergencyDeleteConfirm, setShowEmergencyDeleteConfirm] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [timeLeft, setTimeLeft] = useState('');
 
   const [activeCategories, setActiveCategories] = useState<any[]>([]);
@@ -280,6 +281,8 @@ export default function Dashboard() {
   const handleEmergencyDelete = async () => {
     if (!tournament) return;
     setShowEmergencyDeleteConfirm(false);
+    setShowEmergencyConfirm(false);
+    setConfirmDelete(false);
     setArchiving(true);
     const toastId = toast.loading('Suppression définitive en cours...');
     try {
@@ -805,7 +808,7 @@ export default function Dashboard() {
               <form onSubmit={isEditing ? handleEditTournamentSubmit : handleCreateTournament} className="flex flex-col flex-1 min-h-0 space-y-6">
                 
                 {/* Corps défilant */}
-                <div className="flex-1 overflow-y-auto pr-3 space-y-6 scrollbar-thin scrollbar-thumb-slate-200">
+                <div className="flex-1 overflow-y-auto pl-3 pr-3 py-1 space-y-6 scrollbar-thin scrollbar-thumb-slate-200">
                   
                   {/* Section 1 : Informations Générales */}
                   <div className="space-y-4">
@@ -814,49 +817,49 @@ export default function Dashboard() {
                   </h3>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="md:col-span-2">
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-1">Nom de l'événement</label>
-                      <input 
-                        required 
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-semibold text-sm transition-all"
-                        value={newTournament.name}
-                        placeholder="Ex: Tournoi National de Printemps d'Amiens"
-                        onChange={e => setNewTournament({...newTournament, name: e.target.value})}
-                      />
-                    </div>
-
                     <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-1">Date de début</label>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-3">Nom de l'événement</label>
                       <input 
-                        type="date"
-                        required 
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none text-sm transition-all font-semibold text-slate-800"
-                        value={newTournament.date}
-                        onChange={e => setNewTournament({...newTournament, date: e.target.value})}
-                      />
-                    </div>
+                         required 
+                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-semibold text-sm transition-all text-slate-800"
+                         value={newTournament.name}
+                         placeholder="Ex: Tournoi National de Printemps d'Amiens"
+                         onChange={e => setNewTournament({...newTournament, name: e.target.value})}
+                       />
+                     </div>
 
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-1">Date de fin</label>
-                      <input 
-                        type="date"
-                        required 
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none text-sm transition-all font-semibold text-slate-800"
-                        value={newTournament.end_date}
-                        onChange={e => setNewTournament({...newTournament, end_date: e.target.value})}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-1">Lieu / Gymnase</label>
-                      <input 
-                        required
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none text-sm transition-all font-semibold"
-                        value={newTournament.location}
+                     <div>
+                       <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-3">Lieu / Gymnase</label>
+                       <input 
+                         required
+                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none text-sm transition-all font-semibold text-slate-800"
+                         value={newTournament.location}
                         placeholder="Ex: Gymnase des Quatre chênes, Amiens"
                         onChange={e => setNewTournament({...newTournament, location: e.target.value})}
                       />
-                    </div>
+                     </div>
+
+                     <div>
+                       <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-3">Date de début</label>
+                       <input 
+                         type="date"
+                         required 
+                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none text-sm transition-all font-semibold text-slate-800"
+                         value={newTournament.date}
+                         onChange={e => setNewTournament({...newTournament, date: e.target.value})}
+                       />
+                     </div>
+
+                     <div>
+                       <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-3">Date de fin</label>
+                       <input 
+                         type="date"
+                         required 
+                         className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none text-sm transition-all font-semibold text-slate-800"
+                         value={newTournament.end_date}
+                         onChange={e => setNewTournament({...newTournament, end_date: e.target.value})}
+                       />
+                     </div>
 
                     {/* Heure de début officiel supprimée, remplacée par les dates de début et fin d'inscription en ligne par jour */}
                     <div className="md:col-span-2 space-y-4 bg-slate-50/70 p-5 rounded-3xl border border-slate-150">
@@ -938,10 +941,10 @@ export default function Dashboard() {
                     </div>
 
                     <div className="md:col-span-2">
-                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-1">Description / Règlement publique</label>
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-3 font-sans">Description / Règlement publique</label>
                       <textarea 
                         rows={2}
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none text-sm transition-all font-medium placeholder:text-slate-300"
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none text-sm transition-all font-medium placeholder:text-slate-300 text-slate-800"
                         value={newTournament.description}
                         placeholder="Règles générales, dotations globales, recommandations sanitaires..."
                         onChange={e => setNewTournament({...newTournament, description: e.target.value})}
@@ -1039,7 +1042,7 @@ export default function Dashboard() {
                         required 
                         min="1"
                         max="64"
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-semibold text-sm"
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-semibold text-sm text-slate-800"
                         value={isNaN(newTournament.nb_tables) ? '' : newTournament.nb_tables}
                         onChange={e => setNewTournament({...newTournament, nb_tables: parseInt(e.target.value) || 0})}
                       />
@@ -1048,7 +1051,7 @@ export default function Dashboard() {
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-1">Sets gagnants</label>
                       <select 
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-semibold text-sm text-slate-700"
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-semibold text-sm text-slate-800"
                         value={newTournament.sets_to_win}
                         onChange={e => setNewTournament({...newTournament, sets_to_win: parseInt(e.target.value) || 2})}
                       >
@@ -1061,7 +1064,7 @@ export default function Dashboard() {
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-1">Points par set</label>
                       <select 
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-semibold text-sm text-slate-700"
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-semibold text-sm text-slate-800"
                         value={newTournament.points_per_set}
                         onChange={e => setNewTournament({...newTournament, points_per_set: parseInt(e.target.value) || 11})}
                       >
@@ -1073,7 +1076,7 @@ export default function Dashboard() {
                     <div>
                       <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-1">Saisie des scores</label>
                       <select 
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-semibold text-sm text-slate-700"
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-semibold text-sm text-slate-800"
                         value={newTournament.mode}
                         onChange={e => setNewTournament({...newTournament, mode: e.target.value as any})}
                       >
@@ -1085,15 +1088,14 @@ export default function Dashboard() {
                     <div>
                       <label id="label-max-categories-per-day" className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 ml-1">Tableau / jour Max</label>
                       <select 
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-semibold text-sm text-slate-700 font-extrabold"
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-semibold text-sm text-slate-800 font-extrabold"
                         value={newTournament.max_categories_per_day}
                         onChange={e => setNewTournament({...newTournament, max_categories_per_day: parseInt(e.target.value) || 1})}
                       >
-                        <option value={1}>1 tableau max / joueur</option>
-                        <option value={2}>2 tableaux max / joueur</option>
-                        <option value={3}>3 tableaux max / joueur</option>
-                        <option value={4}>4 tableaux max / joueur</option>
-                        <option value={100}>Illimité 👥</option>
+                        <option value={1}>1</option>
+                        <option value={2}>2</option>
+                        <option value={3}>3</option>
+                        <option value={4}>4</option>
                       </select>
                     </div>
 
@@ -1265,7 +1267,7 @@ export default function Dashboard() {
                   <input
                     required
                     type="text"
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-bold text-xs"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-bold text-xs text-slate-800"
                     placeholder="Ex: Tableau B - Moins de 1200 pts"
                     value={newCategory.name}
                     onChange={e => setNewCategory({ ...newCategory, name: e.target.value })}
@@ -1280,7 +1282,7 @@ export default function Dashboard() {
                       type="number"
                       min="500"
                       max="3500"
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-bold text-xs"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-bold text-xs text-slate-800"
                       value={newCategory.min_points}
                       onChange={e => setNewCategory({ ...newCategory, min_points: parseInt(e.target.value) || 500 })}
                     />
@@ -1292,7 +1294,7 @@ export default function Dashboard() {
                       type="number"
                       min="500"
                       max="3500"
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-bold text-xs"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-bold text-xs text-slate-800"
                       value={newCategory.max_points}
                       onChange={e => setNewCategory({ ...newCategory, max_points: parseInt(e.target.value) || 3000 })}
                     />
@@ -1307,7 +1309,7 @@ export default function Dashboard() {
                       type="number"
                       min="0"
                       step="0.5"
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-bold text-xs"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-bold text-xs text-slate-800"
                       value={newCategory.price}
                       onChange={e => setNewCategory({ ...newCategory, price: parseFloat(e.target.value) || 0 })}
                     />
@@ -1319,7 +1321,7 @@ export default function Dashboard() {
                       type="number"
                       min="2"
                       max="512"
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-bold text-xs"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-bold text-xs text-slate-800"
                       value={newCategory.capacity}
                       onChange={e => setNewCategory({ ...newCategory, capacity: parseInt(e.target.value) || 32 })}
                     />
@@ -1332,7 +1334,7 @@ export default function Dashboard() {
                     <input
                       required
                       type="time"
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-bold text-xs"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-bold text-xs text-slate-800"
                       value={newCategory.start_time}
                       onChange={e => setNewCategory({ ...newCategory, start_time: e.target.value })}
                     />
@@ -1341,7 +1343,7 @@ export default function Dashboard() {
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 pl-1">Jour du tournoi</label>
                     <select
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-bold text-xs"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-bold text-xs text-slate-800"
                       value={newCategory.day_number}
                       onChange={e => setNewCategory({ ...newCategory, day_number: parseInt(e.target.value) || 1 })}
                     >
@@ -1356,7 +1358,7 @@ export default function Dashboard() {
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1 pl-1">Restrictions Genre</label>
                     <select
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-bold text-xs"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-bold text-xs text-slate-800"
                       value={newCategory.gender_restriction}
                       onChange={e => setNewCategory({ ...newCategory, gender_restriction: e.target.value as any })}
                     >
@@ -1453,7 +1455,7 @@ export default function Dashboard() {
                     />
                     <input
                       type="text"
-                      className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-bold text-xs"
+                      className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:bg-white outline-none font-bold text-xs text-slate-800"
                       value={newCategory.color_code}
                       onChange={e => setNewCategory({ ...newCategory, color_code: e.target.value })}
                     />
@@ -1585,42 +1587,125 @@ export default function Dashboard() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="fixed inset-0 bg-[#0f1f3d]/60 backdrop-blur-sm"
-              onClick={() => setShowEmergencyConfirm(false)}
+              onClick={() => {
+                setShowEmergencyConfirm(false);
+                setConfirmDelete(false);
+              }}
             />
 
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              className="bg-white dark:bg-[#0a1729] rounded-[2rem] p-6 md:p-8 max-w-md w-full border border-slate-200 dark:border-white/10 shadow-2xl relative z-10"
+              className="bg-white dark:bg-[#0a1729] rounded-[2rem] p-6 md:p-8 max-w-xl w-full border border-slate-200 dark:border-white/10 shadow-2xl relative z-10"
             >
-              <div className="h-12 w-12 bg-red-500/10 rounded-2xl flex items-center justify-center text-red-500 mb-5">
-                <AlertTriangle className="w-6 h-6 animate-pulse" />
+              <div className="flex items-center gap-3.5 mb-6">
+                <div className="h-12 w-12 bg-[#f97316]/10 rounded-2xl flex items-center justify-center text-[#f97316]">
+                  <AlertTriangle className="w-6 h-6 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="font-display text-xl md:text-2xl font-black tracking-tight text-[#0f1f3d] dark:text-white">
+                    Gestion de l'événement
+                  </h3>
+                  <p className="text-slate-400 text-xs text-left">
+                    Archivage sécurisé ou suppression définitive du tournoi
+                  </p>
+                </div>
               </div>
-              
-              <h3 className="font-display text-xl md:text-2xl font-bold tracking-tight text-[#0f1f3d] dark:text-white mb-2">
-                Archiver de force ?
-              </h3>
-              
-              <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-6 font-semibold">
-                ⚠️ Voulez-vous archiver ou réinitialiser de force ce tournoi ?
-                <br /><br />
-                Cela vous permettra de commencer un tout nouveau tournoi immédiatement, même si celui-ci n'a pas été entièrement joué ou s'il y a 0 donnée.
-              </p>
 
-              <div className="flex gap-3">
+              <div className="space-y-4">
+                {/* Section Archivage */}
+                <div className="p-5 rounded-2xl border border-slate-150 dark:border-white/5 bg-slate-50/50 dark:bg-white/[0.02] text-left">
+                  <div className="flex justify-between items-start mb-2 gap-2">
+                    <h4 className="font-bold text-sm text-[#0f1f3d] dark:text-white">1. Archiver le tournoi</h4>
+                    <span className={`text-[10px] uppercase font-black tracking-wider px-2 py-0.5 rounded-full ${
+                      (stats.matchesTotal > 0 && stats.matchesDone === stats.matchesTotal) || ['finished', 'closed'].includes(tournament?.status || '')
+                        ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                        : 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                    }`}>
+                      {(stats.matchesTotal > 0 && stats.matchesDone === stats.matchesTotal) || ['finished', 'closed'].includes(tournament?.status || '') ? 'Prêt à archiver' : 'En cours'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
+                    Archive les résultats de manière définitive, fige les classements et de beaux podiums et libère vos tables. Les statistiques de l'événement seront accessibles publiquement.
+                  </p>
+                  
+                  {((stats.matchesTotal > 0 && stats.matchesDone === stats.matchesTotal) || ['finished', 'closed'].includes(tournament?.status || '')) ? (
+                    <button
+                      type="button"
+                      onClick={handleEmergencyArchive}
+                      disabled={archiving}
+                      className="w-full h-11 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition-all shadow-md text-sm active:scale-95 flex items-center justify-center gap-2 cursor-pointer border-0"
+                    >
+                      <span>Archiver le tournoi</span>
+                    </button>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="text-xs text-red-500 font-semibold bg-red-500/5 p-3 rounded-xl border border-red-500/10">
+                        ⚠️ L'archivage n'est pas possible car le tournoi n'est pas terminé. Tous les matchs doivent être joués ou clôturés (Progression : {stats.matchesDone}/{stats.matchesTotal}).
+                      </div>
+                      <button
+                        type="button"
+                        disabled
+                        className="w-full h-11 px-4 rounded-xl bg-slate-250 dark:bg-white/5 text-slate-400 dark:text-slate-600 font-bold text-sm cursor-not-allowed opacity-60 border-0"
+                      >
+                        Archiver indisponible
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Section Suppression */}
+                <div className="p-5 rounded-2xl border border-red-100 dark:border-red-500/10 bg-red-50/20 dark:bg-red-500/[0.01] text-left">
+                  <h4 className="font-bold text-sm text-red-600 dark:text-red-400 mb-2">2. Supprimer définitivement</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-4">
+                    ⚠️ Supprime instantanément TOUTES les données de ce tournoi (joueurs, tableaux, poules, matchs et historique) de façon définitive et irréversible.
+                  </p>
+
+                  {confirmDelete ? (
+                    <div className="space-y-3">
+                      <div className="text-xs text-red-600 dark:text-red-400 font-black bg-red-500/10 p-3 rounded-xl border border-red-500/20 animate-pulse">
+                        ⚠️ Êtes-vous ABSOLUMENT sûr ? Cette action effacera définitivement tout l'historique de l'événement et ne peut pas être annulée.
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDelete(false)}
+                          className="w-1/2 h-11 px-4 rounded-xl border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 font-bold bg-white dark:bg-[#0a1729] hover:bg-slate-50 dark:hover:bg-white/5 transition-all text-xs cursor-pointer"
+                        >
+                          Annuler
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleEmergencyDelete}
+                          disabled={archiving}
+                          className="w-1/2 h-11 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold transition-all shadow-md text-xs active:scale-95 cursor-pointer border-0"
+                        >
+                          Oui, supprimer tout
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDelete(true)}
+                      className="w-full h-11 px-4 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 dark:bg-red-500/10 dark:hover:bg-red-500/20 dark:text-red-400 border border-red-200/20 font-bold transition-all text-sm active:scale-95 cursor-pointer text-center"
+                    >
+                      Supprimer le tournoi
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-6 flex justify-end">
                 <button
                   type="button"
-                  onClick={() => setShowEmergencyConfirm(false)}
-                  className="w-1/2 h-12 px-4 rounded-xl border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-all text-sm cursor-pointer"
+                  onClick={() => {
+                    setShowEmergencyConfirm(false);
+                    setConfirmDelete(false);
+                  }}
+                  className="px-5 h-11 rounded-xl border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 font-bold hover:bg-slate-50 dark:hover:bg-white/5 transition-all text-xs cursor-pointer bg-transparent"
                 >
-                  Annuler
-                </button>
-                <button
-                  type="button"
-                  onClick={handleEmergencyArchive}
-                  className="w-1/2 h-12 px-4 rounded-xl bg-[#f97316] hover:bg-[#ea6a0a] text-white font-extrabold transition-all shadow-md text-sm active:scale-95 cursor-pointer"
-                >
-                  Archiver de force
+                  Fermer la fenêtre
                 </button>
               </div>
             </motion.div>
@@ -2052,65 +2137,92 @@ export default function Dashboard() {
 
       {/* Tableaux de Compétition Actifs */}
       {activeCategories.length > 0 && (
-        <div className="mb-5 bg-[#152031] p-5 rounded-2xl border border-[#2a3548] shadow-sm" id="active-tournament-categories">
-          <h2 className="text-xl font-extrabold text-white flex items-center gap-2 mb-1.5">
-            <Trophy className="w-5 h-5 text-[#f97316]" />
-            Tableaux de Compétition Actifs
-          </h2>
-          <p className="text-slate-400 text-xs mb-6 font-medium">Liste des catégories sportives configurées pour cet événement avec leur jauge d'inscription.</p>
+        <div className="mb-5 bg-[#152031] p-5 rounded-2xl border border-[#2a3548] shadow-sm space-y-6" id="active-tournament-categories">
+          <div>
+            <h2 className="text-xl font-extrabold text-white flex items-center gap-2 mb-1.5">
+              <Trophy className="w-5 h-5 text-[#f97316]" />
+              Tableaux de Compétition Actifs
+            </h2>
+            <p className="text-slate-400 text-xs font-medium">Liste des catégories sportives configurées pour cet événement avec leur jauge d'inscription, classées par journée.</p>
+          </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {activeCategories.map(cat => (
-              <div key={cat.id} className="p-5 bg-[#1f2a3c]/60 border border-[#2a3548] rounded-2xl flex flex-col justify-between hover:border-slate-500 transition-all">
-                <div>
-                  <div className="flex justify-between items-start mb-3">
-                    <span 
-                      className="px-2.5 py-1 text-[10px] font-black uppercase text-white rounded-md tracking-wider shrink-0" 
-                      style={{ backgroundColor: cat.color_code }}
-                    >
-                      {cat.name}
-                    </span>
-                    <span className="text-xs font-bold text-[#f97316] bg-orange-950/30 px-2.5 py-0.5 rounded-full border border-orange-500/20">
-                      Jour {cat.day_number}
-                    </span>
-                  </div>
+          <div className="space-y-6">
+            {(() => {
+              const categoriesByDay = activeCategories.reduce((acc: Record<number, any[]>, cat) => {
+                const day = Number(cat.day_number) || 1;
+                if (!acc[day]) acc[day] = [];
+                acc[day].push(cat);
+                return acc;
+              }, {});
 
-                  <div className="text-xs font-bold text-slate-300 space-y-2 mt-3.5">
-                    <div className="flex justify-between">
-                      <span className="text-slate-400 font-medium">Points requis :</span>
-                      <span>📊 {cat.min_points} - {cat.max_points} pts</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-400 font-medium">Heure de début :</span>
-                      <span>🕒 {cat.start_time || '—'}</span>
-                    </div>
-                    {cat.gender_restriction !== 'ALL' && (
-                      <div className="flex justify-between">
-                        <span className="text-slate-400 font-medium">Catégorie :</span>
-                        <span className="uppercase text-amber-400 font-extrabold">{cat.gender_restriction === 'M' ? 'Messieurs' : 'Dames'}</span>
-                      </div>
-                    )}
-                    {cat.age_categories && (
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-400 font-medium">Âges admis :</span>
-                        <span className="font-extrabold text-[#d8e3fb] bg-[#0f1f3d] px-2.5 py-0.5 rounded-full border border-[#1a3056] uppercase text-[9px] tracking-wider shrink-0">
-                          {formatAgeCategories(cat.age_categories)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
+              const sortedDays = Object.keys(categoriesByDay)
+                .map(Number)
+                .sort((a, b) => a - b);
 
-                <div className="mt-5 pt-3 border-t border-[#2a3548] flex justify-between items-center">
-                  <span className="text-xs font-black text-[#f97316]">
-                    💰 {cat.price} €
-                  </span>
-                  <span className="text-[10px] font-bold text-slate-350 bg-[#0f1f3d] px-2 py-0.5 rounded border border-[#1a3056]">
-                    👥 Joueurs: max {cat.capacity}
-                  </span>
-                </div>
-              </div>
-            ))}
+              return sortedDays.map(dayNum => {
+                const dayCats = categoriesByDay[dayNum] || [];
+                return (
+                  <div key={dayNum} className="space-y-3">
+                    <div className="flex items-center gap-2 border-b border-[#2a3548]/30 pb-1.5">
+                      <span className="text-xs font-black text-[#f97316] bg-orange-950/30 px-3 py-1 rounded-full border border-orange-500/20 font-sans tracking-wide">
+                        Journée {dayNum}
+                      </span>
+                      <span className="text-xs text-slate-400 font-semibold font-mono">({dayCats.length} tableau{dayCats.length > 1 ? 'x' : ''})</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {dayCats.map(cat => (
+                        <div key={cat.id} className="p-5 bg-[#1f2a3c]/60 border border-[#2a3548] rounded-2xl flex flex-col justify-between hover:border-slate-500 transition-all">
+                          <div>
+                            <div className="flex justify-between items-start mb-3">
+                              <span 
+                                className="px-2.5 py-1 text-[10px] font-black uppercase text-white rounded-md tracking-wider shrink-0" 
+                                style={{ backgroundColor: cat.color_code }}
+                              >
+                                {cat.name}
+                              </span>
+                            </div>
+
+                            <div className="text-xs font-bold text-slate-300 space-y-2 mt-3.5">
+                              <div className="flex justify-between">
+                                <span className="text-slate-400 font-medium">Points requis :</span>
+                                <span>📊 {cat.min_points} - {cat.max_points} pts</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-slate-400 font-medium">Heure de début :</span>
+                                <span>🕒 {cat.start_time || '—'}</span>
+                              </div>
+                              {cat.gender_restriction !== 'ALL' && (
+                                <div className="flex justify-between">
+                                  <span className="text-slate-400 font-medium">Catégorie :</span>
+                                  <span className="uppercase text-amber-400 font-extrabold">{cat.gender_restriction === 'M' ? 'Messieurs' : 'Dames'}</span>
+                                </div>
+                              )}
+                              {cat.age_categories && (
+                                <div className="flex justify-between items-center">
+                                  <span className="text-slate-400 font-medium">Âges admis :</span>
+                                  <span className="font-extrabold text-[#d8e3fb] bg-[#0f1f3d] px-2.5 py-0.5 rounded-full border border-[#1a3056] uppercase text-[9px] tracking-wider shrink-0">
+                                    {formatAgeCategories(cat.age_categories)}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="mt-5 pt-3 border-t border-[#2a3548] flex justify-between items-center">
+                            <span className="text-xs font-black text-[#f97316]">
+                              💰 {cat.price} €
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-350 bg-[#0f1f3d] px-2 py-0.5 rounded border border-[#1a3056]">
+                              👥 Joueurs: max {cat.capacity}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              });
+            })()}
           </div>
         </div>
       )}
