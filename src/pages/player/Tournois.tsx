@@ -1544,7 +1544,7 @@ export default function Tournois() {
           <p className="text-xs">© 2026 Ping Manager. Conçu pour simplifier l'arbitrage et le suivi de tournoi.</p>
           <div className="flex gap-6 text-xs font-bold">
             <span className="text-[#f97316] hover:text-orange-400">Français</span>
-            <span className="text-slate-400">v0.19.28</span>
+            <span className="text-slate-400">v0.20.0</span>
           </div>
         </div>
       </footer>

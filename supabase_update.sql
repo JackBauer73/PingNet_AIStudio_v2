@@ -397,6 +397,78 @@ FOR ALL
 USING (auth.uid() = id) 
 WITH CHECK (auth.uid() = id);
 
+
+-- =========================================================================
+-- 10. CRÉATION DU MODULE DE RETOURS UTILISATEURS / SIGNALEMENT DE BUGS (v0.20.0)
+-- =========================================================================
+CREATE TABLE IF NOT EXISTS public.feedback (
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  type          TEXT NOT NULL CHECK (type IN ('bug','suggestion','avis')),
+  message       TEXT NOT NULL,
+  rating        SMALLINT CHECK (rating BETWEEN 1 AND 5),       -- uniquement pour 'avis'
+  page_url      TEXT,
+  user_agent    TEXT,
+  app_version   TEXT,
+  tournament_id UUID REFERENCES public.tournaments(id) ON DELETE SET NULL,
+  player_token  TEXT,                                          -- contexte, jamais affiché publiquement
+  screenshot_path TEXT,                                        -- chemin dans le bucket privé
+  status        TEXT NOT NULL DEFAULT 'nouveau' CHECK (status IN ('nouveau','en_cours','resolu','rejete')),
+  resolved_at   TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS feedback_status_idx  ON public.feedback (status);
+CREATE INDEX IF NOT EXISTS feedback_created_idx ON public.feedback (created_at DESC);
+
+ALTER TABLE public.feedback ENABLE ROW LEVEL SECURITY;
+
+-- Autoriser tout le monde (connecté ou non) à soumettre des retours
+DROP POLICY IF EXISTS "Public Insert Feedback" ON public.feedback;
+CREATE POLICY "Public Insert Feedback" ON public.feedback
+  FOR INSERT TO anon, authenticated WITH CHECK (true);
+
+-- Lecture, modification et suppression réservées exclusivement aux organisateurs authentifiés
+DROP POLICY IF EXISTS "Auth Read Feedback" ON public.feedback;
+CREATE POLICY "Auth Read Feedback" ON public.feedback
+  FOR SELECT TO authenticated USING (true);
+
+DROP POLICY IF EXISTS "Auth Update Feedback" ON public.feedback;
+CREATE POLICY "Auth Update Feedback" ON public.feedback
+  FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Auth Delete Feedback" ON public.feedback;
+CREATE POLICY "Auth Delete Feedback" ON public.feedback
+  FOR DELETE TO authenticated USING (true);
+
+-- Ajout à la publication temps réel Supabase
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'feedback'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.feedback;
+  END IF;
+EXCEPTION
+  WHEN OTHERS THEN
+    NULL;
+END $$;
+
+-- Bucket privé pour les captures d'écran
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('feedback-screenshots', 'feedback-screenshots', false)
+ON CONFLICT (id) DO NOTHING;
+
+-- Politiques du bucket storage
+DROP POLICY IF EXISTS "Anon Upload Feedback Shots" ON storage.objects;
+CREATE POLICY "Anon Upload Feedback Shots" ON storage.objects
+  FOR INSERT TO anon, authenticated WITH CHECK (bucket_id = 'feedback-screenshots');
+
+DROP POLICY IF EXISTS "Auth Read Feedback Shots" ON storage.objects;
+CREATE POLICY "Auth Read Feedback Shots" ON storage.objects
+  FOR SELECT TO authenticated USING (bucket_id = 'feedback-screenshots');
+
+
 -- Forcer le rechargement du cache des schémas Supabase
 NOTIFY pgrst, 'reload schema';
 

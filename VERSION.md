@@ -3,15 +3,24 @@
  This document keeps track of all released versions and updates of Ping Manager, adhering strictly to **Semantic Versioning (SemVer)**: `MAJOR.MINOR.PATCH`.
  
  ## Configuration active
-- **Version actuelle :** `0.19.28`
-- **Statut :** Refonte complète du moteur de compilation d'archivage des tournois avec gestion multi-tableaux et respect RGPD de la vie privée des joueurs.
-- **Date :** 2026-06-07
+- **Version actuelle :** `0.20.0`
+- **Statut :** Widget de retour d'expérience / signalement de bug (capture html2canvas, notes sur avis, page organisateur de tri Realtime)
+- **Date :** 2026-06-11
 
 ---
  
  ## Historique des versions
  
-### v0.19.28 (2026-06-07) - *Version Actuelle*
+### v0.20.0 (2026-06-11) - *Version Actuelle*
+- **Widget de retour d'expérience et signalement de bug global :**
+  - **Bouton flottant widget (FAB) :** Ajout d'un bouton flottant accessible sur tout le site (au-dessus du menu de navigation mobile), permettant de notifier l'assistance instantanément.
+  - **Sélection multiple feedback :** Choix typologique granulaire "Bug", "Suggestion", ou "Avis" pour cataloguer les retours.
+  - **Note en étoiles dynamique :** Affichage d'un sélecteur de note de 1 à 5 étoiles s'activant exclusivement lorsque le type est "Avis".
+  - **Capture d'écran automatique :** Intégration de `html2canvas` pour capturer l'état visuel exact de l'écran (capturé avant l'ouverture du volet pour éviter la pollution de la modale).
+  - **Stockage d'images de capture sécurisé :** Téléversement optimisé vers un bucket d'assets Supabase sécurisé (`feedback-screenshots`) sans alourdir la base SQL.
+  - **Page de pilotage Realtime pour l'Organisateur :** Espace dédié d'assistance permettant de trier, d'activer le flux temps réel Supabase, et de visualiser les captures via signature temporaire sécurisée (URL signées).
+
+### v0.19.28 (2026-06-07)
 - **Refonte Complète du Service d'Archivage des Tournois :**
   - **Archivage Multi-Tableaux Distribué :** Ajout d'une boucle complète d'archivage sur l'intégralité des tableaux (catégories) du tournoi au lieu d'une unique entrée générique. Chaque catégorie compile désormais sa recette, son nombre d'inscrits, ses présents, son podium complet ainsi que le top 4 de son arbre final.
   - **Protection Strict RGPD :** Suppression intégrale des données sensibles (courriels, numéros de téléphone, jetons d'accès joueurs, sets de score de match détaillés) de la charge utile archivée.

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -10,20 +11,13 @@ import {
   LogOut,
   History,
   Calendar,
-  UserCheck
+  UserCheck,
+  MessageSquare,
+  Shield
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useTournament } from '../../hooks/useTournament';
 import Logo from './Logo';
-
-const navigation = [
-  { name: 'Dashboard', href: '/organizer', icon: LayoutDashboard },
-  { name: 'Tournoi en cours', href: '/organizer/pools', icon: Trophy },
-  { name: 'Gestion des Tables', href: '/organizer/tables', icon: Table },
-  { name: 'Live Score', href: '/organizer/scores', icon: QrCode },
-  { name: 'Historique', href: '/organizer/archives', icon: History },
-  { name: 'Paramètres', href: '/organizer/settings', icon: Settings },
-];
 
 import { supabase } from '../../supabase';
 
@@ -31,6 +25,28 @@ export default function Sidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { tournament } = useTournament();
+  const [isSuperadmin, setIsSuperadmin] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user && user.email === 'vandamme.vince73@gmail.com') {
+        setIsSuperadmin(true);
+      }
+    });
+  }, []);
+
+  const navigation = [
+    { name: 'Dashboard', href: '/organizer', icon: LayoutDashboard },
+    { name: 'Tournoi en cours', href: '/organizer/pools', icon: Trophy },
+    { name: 'Gestion des Tables', href: '/organizer/tables', icon: Table },
+    { name: 'Live Score', href: '/organizer/scores', icon: QrCode },
+    { name: 'Historique', href: '/organizer/archives', icon: History },
+    ...(isSuperadmin ? [
+      { name: 'Administration', href: '/superadmin', icon: Shield },
+      { name: 'Retours / Bugs', href: '/organizer/feedback', icon: MessageSquare }
+    ] : []),
+    { name: 'Paramètres', href: '/organizer/settings', icon: Settings },
+  ];
 
   const handleLogout = async () => {
     // Naviguer d'abord pour sortir des routes protégées AVANT signOut(),
@@ -99,7 +115,7 @@ export default function Sidebar() {
           Déconnexion
         </button>
         <div className="mt-3 text-center text-[10px] font-mono text-slate-500 select-none">
-          v0.19.28
+          v0.20.0
         </div>
       </div>
     </div>

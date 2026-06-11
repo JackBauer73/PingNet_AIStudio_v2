@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -14,7 +14,8 @@ import {
   X,
   User,
   Calendar,
-  UserCheck
+  UserCheck,
+  Shield
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../../supabase';
@@ -31,6 +32,15 @@ export default function BottomNav() {
   const navigate = useNavigate();
   const { tournament } = useTournament();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isSuperadmin, setIsSuperadmin] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user && user.email === 'vandamme.vince73@gmail.com') {
+        setIsSuperadmin(true);
+      }
+    });
+  }, []);
 
   const handleLogout = async () => {
     setIsMenuOpen(false);
@@ -49,6 +59,9 @@ export default function BottomNav() {
     { name: 'Live Score', href: '/organizer/scores', icon: QrCode, description: 'Saisie des scores et tables' },
     { name: 'Historique des tournois', href: '/organizer/archives', icon: History, description: 'Rapports et anciens tournois' },
     { name: 'Paramètres', href: '/organizer/settings', icon: Settings, description: 'Gestion des séries de jeu' },
+    ...(isSuperadmin ? [
+      { name: 'Super-Administration', href: '/superadmin', icon: Shield, description: 'Pilote complet de Ping Manager' }
+    ] : []),
   ];
 
   return (

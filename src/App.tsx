@@ -8,6 +8,7 @@ import Scores from './pages/organizer/Scores';
 import Archives from './pages/organizer/Archives';
 import PrintQR from './pages/organizer/PrintQR';
 import CheckInScan from './pages/organizer/CheckInScan';
+import Feedback from './pages/organizer/Feedback';
 import TableView from './pages/player/TableView';
 import Accueil from './pages/player/Accueil';
 import Tournois from './pages/player/Tournois';
@@ -19,6 +20,8 @@ import PlayerValidation from './pages/player/PlayerValidation';
 import PoolStandingsPage from './pages/player/PoolStandingsPage';
 import OrganizerLayout from './components/layout/OrganizerLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import FeedbackWidget from './components/feedback/FeedbackWidget';
+import SuperadminDashboard from './pages/superadmin/SuperadminDashboard';
 
 // Temporary placeholders
 import Settings from './pages/organizer/Settings';
@@ -47,6 +50,16 @@ export default function App() {
             </ProtectedRoute>
           } 
         />
+
+        {/* Superadmin Route (standalone) */}
+        <Route 
+          path="/superadmin" 
+          element={
+            <ProtectedRoute>
+              <SuperadminDashboard />
+            </ProtectedRoute>
+          } 
+        />
         
         {/* Organizer Routes Protected */}
         <Route 
@@ -66,6 +79,7 @@ export default function App() {
           <Route path="bracket" element={<Operations />} />
           <Route path="scores" element={<Scores />} />
           <Route path="archives" element={<Archives />} />
+          <Route path="feedback" element={<Feedback />} />
           <Route path="settings" element={<Settings />} />
           <Route path="checkin-scan/:dayNumber" element={<CheckInScan />} />
         </Route>
@@ -81,6 +95,7 @@ export default function App() {
         <Route path="/tutoriel" element={<Tutoriel />} />
         <Route path="/live-scores" element={<LiveScores />} />
       </Routes>
+      <FeedbackWidget />
     </BrowserRouter>
     </>
   );
