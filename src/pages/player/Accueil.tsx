@@ -1,12 +1,20 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Trophy, Calendar, Users, Activity, Smartphone, Layers, Zap, CheckCircle2, ArrowRight, BookOpen } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import PublicHeader from '../../components/layout/PublicHeader';
 import { useTournament } from '../../hooks/useTournament';
+import { supabase } from '../../supabase';
 
 export default function Accueil() {
   const navigate = useNavigate();
   const { allTournaments } = useTournament({ forcePublic: true });
+  const [showAdminLink, setShowAdminLink] = useState(true);
+
+  useEffect(() => {
+    // Keep Admin link visible
+    setShowAdminLink(true);
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#0a1729] text-slate-100 font-sans selection:bg-[#f97316] selection:text-white flex flex-col justify-between">
@@ -328,9 +336,12 @@ export default function Accueil() {
       <footer className="bg-[#0f1f3d] text-slate-400 py-12 border-t border-[#2a3548]/50 shrink-0">
         <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-xs text-left">© 2026 Ping Manager. Conçu pour simplifier l'arbitrage et le suivi des tournois.</p>
-          <div className="flex gap-6 text-xs font-bold">
+          <div className="flex gap-6 text-xs font-bold items-center">
             <span className="text-[#f97316] hover:text-orange-400 cursor-pointer">Français</span>
             <span className="text-slate-400">v0.20.0</span>
+            {showAdminLink && (
+              <Link to="?login=admin" className="text-slate-400 hover:text-white transition-colors cursor-pointer border-l border-[#2a3548]/80 pl-4">Admin</Link>
+            )}
           </div>
         </div>
       </footer>

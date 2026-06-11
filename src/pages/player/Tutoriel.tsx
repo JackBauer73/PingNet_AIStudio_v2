@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
+import { supabase } from '../../supabase';
 import { 
   BookOpen, Users, Trophy, QrCode, 
   HelpCircle, Settings, Clipboard, Award, 
@@ -9,6 +11,12 @@ import PublicHeader from '../../components/layout/PublicHeader';
 
 export default function Tutoriel() {
   const [activeTab, setActiveTab] = useState<'joueur' | 'organisateur'>('joueur');
+  const [showAdminLink, setShowAdminLink] = useState(true);
+
+  useEffect(() => {
+    // Keep Admin link visible
+    setShowAdminLink(true);
+  }, []);
 
   const faqItems = [
     {
@@ -264,9 +272,12 @@ export default function Tutoriel() {
       <footer className="bg-[#0f1f3d] text-slate-400 py-12 border-t border-[#2a3548]/50 shrink-0">
         <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-xs text-left">© 2026 Ping Manager. Conçu pour simplifier l'arbitrage et le suivi des tournois.</p>
-          <div className="flex gap-6 text-xs font-bold">
+          <div className="flex gap-6 text-xs font-bold items-center">
             <span className="text-[#f97316] hover:text-orange-400 cursor-pointer">Français</span>
             <span className="text-slate-400">v0.20.0</span>
+            {showAdminLink && (
+              <Link to="?login=admin" className="text-slate-400 hover:text-white transition-colors cursor-pointer border-l border-[#2a3548]/80 pl-4">Admin</Link>
+            )}
           </div>
         </div>
       </footer>

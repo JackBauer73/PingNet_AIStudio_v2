@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useTournament } from '../../hooks/useTournament';
 import { usePlayers } from '../../hooks/usePlayers';
 import { supabase, isSupabaseConfigured } from '../../supabase';
@@ -11,6 +11,7 @@ import { motion } from 'motion/react';
 import { QRCodeSVG } from 'qrcode.react';
 import toast from 'react-hot-toast';
 import AuthModal from '../../components/auth/AuthModal';
+import AdminAuthModal from '../../components/auth/AdminAuthModal';
 
 export default function Landing() {
   const { tournament, stats, loading, allTournaments, selectTournament, refresh } = useTournament({ forcePublic: true });
@@ -65,11 +66,22 @@ export default function Landing() {
   });
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isAdminAuthModalOpen, setIsAdminAuthModalOpen] = useState(false);
+  const [showAdminLink, setShowAdminLink] = useState(true);
+
+  useEffect(() => {
+    // Keep Admin link visible
+    setShowAdminLink(true);
+  }, []);
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    if (params.get('login') === 'true') {
+    const loginType = params.get('login');
+    if (loginType === 'true') {
       setIsAuthModalOpen(true);
+      navigate('/', { replace: true });
+    } else if (loginType === 'admin') {
+      setIsAdminAuthModalOpen(true);
       navigate('/', { replace: true });
     }
   }, [location, navigate]);
@@ -100,7 +112,11 @@ export default function Landing() {
   const handleOrganizerClick = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
-      navigate('/organizer');
+      if (session.user?.email === 'vandamme.vince73@gmail.com') {
+        navigate('/superadmin');
+      } else {
+        navigate('/organizer');
+      }
     } else {
       setIsAuthModalOpen(true);
     }
@@ -1519,9 +1535,12 @@ export default function Landing() {
       <footer className="bg-[#0f1f3d] text-slate-450 py-12 mt-24 border-t border-[#2a3548]/50">
         <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-xs">© 2026 Ping Manager. Conçu pour simplifier l'arbitrage et le suivi des tournois.</p>
-          <div className="flex gap-6 text-xs font-bold">
+          <div className="flex gap-6 text-xs font-bold items-center">
             <span className="text-[#f97316] hover:text-orange-400 cursor-pointer">Français</span>
             <span className="text-slate-400">v0.20.0</span>
+            {showAdminLink && (
+              <Link to="?login=admin" className="text-slate-400 hover:text-white transition-colors cursor-pointer border-l border-[#2a3548]/80 pl-4">Admin</Link>
+            )}
           </div>
         </div>
       </footer>
@@ -1657,6 +1676,7 @@ export default function Landing() {
       )}
 
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+      <AdminAuthModal isOpen={isAdminAuthModalOpen} onClose={() => setIsAdminAuthModalOpen(false)} />
     </div>
   );
 }

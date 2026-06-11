@@ -23,7 +23,8 @@ import {
   Check,
   AlertTriangle,
   Clock,
-  Play
+  Play,
+  LogOut
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import toast from 'react-hot-toast';
@@ -112,6 +113,16 @@ export default function SuperadminDashboard() {
     });
   }, []);
 
+  const handleLogout = async () => {
+    try {
+      window.location.href = '/';
+      await supabase.auth.signOut();
+      toast.success('Déconnexion réussie !');
+    } catch (e) {
+      toast.error('Erreur lors de la déconnexion');
+    }
+  };
+
   // 2. Fetch data
   const fetchData = async (quiet = false) => {
     if (!quiet) setLoading(true);
@@ -129,10 +140,22 @@ export default function SuperadminDashboard() {
       setFeedbacks(fList);
 
       // Fetch Clubs
-      const { data: clubsData, error: clubsError } = await supabase
+      let clubsData = null;
+      let { data: clubsFirstAttempt, error: clubsError } = await supabase
         .from('club_profiles')
         .select('*')
         .order('created_at', { ascending: false });
+      
+      if (clubsError && clubsError.code === '42703') {
+        const { data: clubsSecondAttempt, error: clubsRetryError } = await supabase
+          .from('club_profiles')
+          .select('*')
+          .order('updated_at', { ascending: false });
+        clubsError = clubsRetryError;
+        clubsData = clubsSecondAttempt;
+      } else {
+        clubsData = clubsFirstAttempt;
+      }
       
       if (clubsError) {
         console.warn('Could not load club profiles; perhaps table does not exist or has RLS restrictions:', clubsError);
@@ -329,16 +352,27 @@ export default function SuperadminDashboard() {
           </p>
         </div>
         
-        <div className="flex items-center gap-3 w-full md:w-auto">
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <button
-            onClick={() => window.location.href = '/organizer'}
-            className="flex items-center gap-2 px-3.5 py-2 bg-slate-900 border border-slate-700/60 text-xs font-bold rounded-lg hover:bg-slate-800 transition-all cursor-pointer"
+            id="superadmin-back-home"
+            onClick={() => window.location.href = '/'}
+            className="flex items-center gap-2 px-3.5 py-2 bg-slate-900 border border-slate-705/60 text-xs font-bold rounded-lg hover:bg-slate-800 transition-all cursor-pointer text-slate-300 hover:text-white"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            Quitter l'administration
+            Retour à l'accueil
+          </button>
+
+          <button
+            id="superadmin-logout"
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-3.5 py-2 bg-red-500/10 border border-red-500/20 hover:bg-red-600 hover:text-white text-red-450 hover:border-transparent text-xs font-bold rounded-lg transition-all cursor-pointer"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            Se déconnecter
           </button>
           
           <button
+            id="superadmin-refresh"
             onClick={() => fetchData(false)}
             disabled={loading || refreshing}
             className="flex items-center gap-2 px-3.5 py-2 bg-[#152031] border border-[#2a3548] text-xs font-bold rounded-lg hover:border-slate-500 transition-all cursor-pointer disabled:opacity-50"
@@ -716,11 +750,12 @@ export default function SuperadminDashboard() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredClubs.map((club) => {
-              const registerDateStr = new Date(club.created_at).toLocaleDateString('fr-FR', {
+              const registerDate = club.created_at || club.updated_at;
+              const registerDateStr = registerDate ? new Date(registerDate).toLocaleDateString('fr-FR', {
                 day: 'numeric',
                 month: 'short',
                 year: 'numeric'
-              });
+              }) : 'Inconnue';
 
               return (
                 <motion.div
@@ -951,9 +986,11 @@ export default function SuperadminDashboard() {
 }
 
 // Icon loader helpers
-const Loader2 = ({ className }: { className?: string }) => (
-  <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-  </svg>
-);
+function Loader2({ className }: { className?: string }) {
+  return (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+  );
+}

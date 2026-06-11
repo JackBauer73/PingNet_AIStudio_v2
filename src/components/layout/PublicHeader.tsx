@@ -2,18 +2,36 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LogIn, Trophy, HelpCircle, Home, Calendar } from 'lucide-react';
 import Logo from './Logo';
 import { supabase } from '../../supabase';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AuthModal from '../auth/AuthModal';
+import AdminAuthModal from '../auth/AdminAuthModal';
 
 export default function PublicHeader() {
   const location = useLocation();
   const navigate = useNavigate();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isAdminAuthModalOpen, setIsAdminAuthModalOpen] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const loginType = params.get('login');
+    if (loginType === 'true') {
+      setIsAuthModalOpen(true);
+      navigate(location.pathname, { replace: true });
+    } else if (loginType === 'admin') {
+      setIsAdminAuthModalOpen(true);
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location, navigate]);
 
   const handleOrganizerClick = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
-      navigate('/organizer');
+      if (session.user?.email === 'vandamme.vince73@gmail.com') {
+        navigate('/superadmin');
+      } else {
+        navigate('/organizer');
+      }
     } else {
       setIsAuthModalOpen(true);
     }
@@ -91,6 +109,7 @@ export default function PublicHeader() {
       </header>
 
       <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
+      <AdminAuthModal isOpen={isAdminAuthModalOpen} onClose={() => setIsAdminAuthModalOpen(false)} />
     </>
   );
 }

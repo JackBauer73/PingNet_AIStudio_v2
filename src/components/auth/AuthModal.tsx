@@ -19,16 +19,28 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [isSignUp, setIsSignUp] = useState(false);
   const navigate = useNavigate();
 
+  // Reset inputs and mode on open
+  React.useEffect(() => {
+    if (isOpen) {
+      setEmail('');
+      setPassword('');
+      setClubName('');
+      setIsSignUp(false);
+    }
+  }, [isOpen]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
       const trimmedEmail = email.trim();
+      
       if (isSignUp) {
         if (!clubName.trim()) {
           throw new Error('Veuillez renseigner le nom de votre club.');
         }
+
         const { error } = await supabase.auth.signUp({ 
           email: trimmedEmail, 
           password,
@@ -42,16 +54,23 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
         toast.success('Compte club créé ! Vous pouvez maintenant vous connecter ou vérifier vos emails.');
         setIsSignUp(false);
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password });
+        const { error, data } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password });
         if (error) {
           if (error.message === 'Invalid login credentials') {
-            throw new Error('Email ou mot de passe incorrect. Avez-vous créé votre compte ?');
+            throw new Error('Email ou mot de passe incorrect.');
           }
           throw error;
         }
+
         toast.success('Connexion réussie !');
         onClose();
-        navigate('/organizer');
+
+        const isSuperAdminUser = data.user?.email === 'vandamme.vince73@gmail.com';
+        if (isSuperAdminUser) {
+          navigate('/superadmin');
+        } else {
+          navigate('/organizer');
+        }
       }
     } catch (error: any) {
       toast.error(error.message || 'Erreur d’authentification');
@@ -63,9 +82,10 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div id="auth-modal-root" className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
           <motion.div
+            id="auth-modal-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -75,6 +95,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
           {/* Modal Container */}
           <motion.div
+            id="auth-modal-box"
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -83,6 +104,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
           >
             {/* Close Button */}
             <button
+              id="auth-modal-close"
               onClick={onClose}
               className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 transition-all cursor-pointer"
               aria-label="Fermer"
@@ -91,21 +113,21 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
             </button>
 
             {/* Header */}
-            <div className="text-center mb-8">
+            <div id="auth-modal-header" className="text-center mb-8">
               <Logo className="w-16 h-16 mx-auto mb-4 animate-in zoom-in-50 duration-300" />
               <h3 className="text-2xl font-black font-display text-slate-900 dark:text-white tracking-tight">
                 {isSignUp ? 'Créer un accès club' : 'Espace Club'}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 font-semibold max-w-[280px] mx-auto leading-relaxed">
-                {isSignUp 
-                  ? 'Inscrivez votre club et commencez à organiser vos tournois dès maintenant' 
+                {isSignUp
+                  ? 'Inscrivez votre club et commencez à organiser vos tournois dès maintenant'
                   : 'Connectez-vous pour piloter votre événement'
                 }
               </p>
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form id="auth-form" onSubmit={handleSubmit} className="space-y-4">
               {isSignUp && (
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-slate-400 dark:text-slate-400 uppercase tracking-widest pl-1.5">
@@ -116,8 +138,9 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                       <Sparkles className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                     </span>
                     <input
+                      id="club-name-input"
                       type="text"
-                      required={isSignUp}
+                      required
                       placeholder="Ex: TT Club Paris Nord"
                       value={clubName}
                       onChange={(e) => setClubName(e.target.value)}
@@ -133,9 +156,10 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 </label>
                 <div className="relative">
                   <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Mail className="w-4 h-4 text-slate-400 dark:text-slate-500" />
+                     <Mail className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                   </span>
                   <input
+                    id="email-input"
                     type="email"
                     required
                     placeholder="contact@monclub.com"
@@ -155,6 +179,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     <Lock className="w-4 h-4 text-slate-400 dark:text-slate-500" />
                   </span>
                   <input
+                    id="password-input"
                     type="password"
                     required
                     placeholder="••••••••"
@@ -166,6 +191,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
               </div>
 
               <button
+                id="login-submit"
                 type="submit"
                 disabled={loading}
                 className="w-full h-12 flex items-center justify-center gap-2.5 mt-6 py-3 px-4 bg-[#f97316] hover:bg-[#ea6a0a] text-white font-extrabold text-sm rounded-2xl shadow-lg shadow-[#f97316]/10 hover:shadow-[#f97316]/20 transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
@@ -175,29 +201,27 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
               </button>
             </form>
 
-            {/* Toggle Sign Up / Sign In */}
-            <div className="mt-5 text-center">
+            {/* Toggle Sign Up / Sign In for clubs only */}
+            <div id="auth-modal-toggle" className="mt-5 text-center">
               <button
                 type="button"
                 onClick={() => setIsSignUp(!isSignUp)}
-                className="text-xs font-bold text-indigo-600 dark:text-[#f97316] hover:text-indigo-700 dark:hover:text-orange-400 hover:underline transition-all uppercase tracking-widest"
+                className="text-xs font-bold text-indigo-600 dark:text-[#f97316] hover:text-indigo-700 dark:hover:text-orange-400 hover:underline transition-all uppercase tracking-widest cursor-pointer"
               >
                 {isSignUp ? 'Déjà inscrit ? Connectez-vous' : 'Pas de compte ? Créer un accès club'}
               </button>
             </div>
 
             {/* Helper info inside modal */}
-            {!isSignUp && (
-              <div className="mt-6 p-4.5 bg-slate-50/50 dark:bg-[#0c1524]/60 rounded-2.5xl border border-slate-200/50 dark:border-[#2a3548]/30 text-[11px] text-slate-500 dark:text-slate-400 space-y-2">
-                <p className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-indigo-500 dark:text-[#f97316] shrink-0" />
-                  Note de configuration
-                </p>
-                <p className="leading-relaxed">
-                  Chaque club gère <strong className="text-slate-700 dark:text-slate-200 font-bold">ses propres tournois, poules et tables</strong> de façon cloisonnée. Si le courriel de confirmation d'inscription ne vous parvient pas, demandez à l'administrateur de désactiver l'option <span className="text-indigo-500 dark:text-slate-300 font-mono font-semibold">"Confirm email"</span> dans Supabase Providers.
-                </p>
-              </div>
-            )}
+            <div id="auth-modal-note" className="mt-6 p-4.5 bg-slate-50/50 dark:bg-[#0c1524]/60 rounded-2.5xl border border-slate-200/50 dark:border-[#2a3548]/30 text-[11px] text-slate-500 dark:text-slate-400 space-y-2">
+              <p className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                <Shield className="w-4 h-4 text-indigo-500 dark:text-[#f97316] shrink-0" />
+                Note de configuration
+              </p>
+              <p className="leading-relaxed">
+                Chaque club gère ses propres tournois, poules et tables de façon cloisonnée.
+              </p>
+            </div>
           </motion.div>
         </div>
       )}

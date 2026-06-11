@@ -55,7 +55,7 @@ export default function App() {
         <Route 
           path="/superadmin" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute adminOnly>
               <SuperadminDashboard />
             </ProtectedRoute>
           } 

@@ -378,6 +378,7 @@ ALTER TABLE public.club_profiles ADD COLUMN IF NOT EXISTS president_name TEXT;
 ALTER TABLE public.club_profiles ADD COLUMN IF NOT EXISTS club_color TEXT DEFAULT 'indigo';
 ALTER TABLE public.club_profiles ADD COLUMN IF NOT EXISTS club_logo TEXT;
 ALTER TABLE public.club_profiles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE public.club_profiles ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
 
 -- Activation de la Row Level Security (RLS)
 ALTER TABLE public.club_profiles ENABLE ROW LEVEL SECURITY;

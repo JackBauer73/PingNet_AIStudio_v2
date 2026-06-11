@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useTournament } from '../../hooks/useTournament';
 import { usePlayers } from '../../hooks/usePlayers';
 import { supabase, isSupabaseConfigured } from '../../supabase';
@@ -15,6 +15,12 @@ export default function Tournois() {
   const { tournament, stats, loading, allTournaments, selectTournament, refresh } = useTournament({ forcePublic: true });
   const [activeTournamentId, setActiveTournamentId] = useState<string | null>(null);
   const [activeDetailTab, setActiveDetailTab] = useState<'apercu' | 'tableaux' | 'inscrits' | 'infos'>('apercu');
+  const [showAdminLink, setShowAdminLink] = useState(true);
+
+  useEffect(() => {
+    // Keep Admin link visible
+    setShowAdminLink(true);
+  }, []);
   
   // États de recherche et filtre basés sur l'image
   const [searchTerm, setSearchTerm] = useState('');
@@ -1542,9 +1548,12 @@ export default function Tournois() {
       <footer className="bg-[#0f1f3d] text-slate-450 py-12 border-t border-[#2a3548]/50 shrink-0 select-none">
         <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-xs">© 2026 Ping Manager. Conçu pour simplifier l'arbitrage et le suivi de tournoi.</p>
-          <div className="flex gap-6 text-xs font-bold">
+          <div className="flex gap-6 text-xs font-bold items-center">
             <span className="text-[#f97316] hover:text-orange-400">Français</span>
             <span className="text-slate-400">v0.20.0</span>
+            {showAdminLink && (
+              <Link to="?login=admin" className="text-slate-400 hover:text-white transition-colors cursor-pointer border-l border-[#2a3548]/80 pl-4">Admin</Link>
+            )}
           </div>
         </div>
       </footer>
