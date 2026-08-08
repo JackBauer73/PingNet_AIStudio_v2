@@ -65,6 +65,7 @@ export default function Feedback() {
   const [selectedScreenshotPath, setSelectedScreenshotPath] = useState<string | null>(null);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [loadingSignedUrl, setLoadingSignedUrl] = useState(false);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // Récupérer les retours utilisateur
   const fetchFeedbacks = async (quiet = false) => {
@@ -158,8 +159,6 @@ export default function Feedback() {
 
   // Suppression d'un feedback
   const handleDeleteFeedback = async (id: string, screenshotPath: string | null) => {
-    if (!window.confirm('Voulez-vous vraiment supprimer définitivement ce retour ?')) return;
-
     try {
       // 1. Supprimer l'image du Storage d'abord pour garder propre
       if (screenshotPath) {
@@ -182,7 +181,7 @@ export default function Feedback() {
         .eq('id', id);
 
       if (error) throw error;
-      toast.success('Le retour a été supprimé.');
+      toast.success('Le retour a été supprimé ✓');
       fetchFeedbacks(true);
     } catch (err: any) {
       console.error('Erreur lors de la suppression:', err);
@@ -478,13 +477,33 @@ export default function Feedback() {
                       )}
                     </div>
 
-                    <button
-                      onClick={() => handleDeleteFeedback(item.id, item.screenshot_path)}
-                      className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-all cursor-pointer"
-                      title="Supprimer définitivement"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {confirmDeleteId === item.id ? (
+                      <div className="flex items-center gap-1.5 shrink-0 animate-fade-in">
+                        <button
+                          onClick={async () => {
+                            await handleDeleteFeedback(item.id, item.screenshot_path);
+                            setConfirmDeleteId(null);
+                          }}
+                          className="px-2.5 py-1.5 bg-red-650 hover:bg-red-700 text-white rounded-lg text-[9px] font-black uppercase transition-all cursor-pointer shadow-sm animate-pulse flex items-center gap-1"
+                        >
+                          Confirmer 🗑️
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="px-2 py-1.5 bg-slate-800 text-slate-400 hover:text-white rounded-lg text-[9px] font-black uppercase transition-all cursor-pointer"
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDeleteId(item.id)}
+                        className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-950/30 rounded-lg transition-all cursor-pointer"
+                        title="Supprimer définitivement"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </motion.div>

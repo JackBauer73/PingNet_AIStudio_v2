@@ -20,6 +20,11 @@ import PlayerValidation from './pages/player/PlayerValidation';
 import PoolStandingsPage from './pages/player/PoolStandingsPage';
 import OrganizerLayout from './components/layout/OrganizerLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
+import AdminRoute from './components/auth/AdminRoute';
+import AdminLayout from './components/layout/AdminLayout';
+import AdminOverview from './pages/admin/AdminOverview';
+import AdminFeedback from './pages/admin/AdminFeedback';
+import AdminOrganizers from './pages/admin/AdminOrganizers';
 import FeedbackWidget from './components/feedback/FeedbackWidget';
 import SuperadminDashboard from './pages/superadmin/SuperadminDashboard';
 
@@ -60,6 +65,20 @@ export default function App() {
             </ProtectedRoute>
           } 
         />
+
+        {/* Espace Admin (Spec 0.21.0) */}
+        <Route 
+          path="/admin" 
+          element={
+            <AdminRoute>
+              <AdminLayout />
+            </AdminRoute>
+          }
+        >
+          <Route index element={<AdminOverview />} />
+          <Route path="feedback" element={<AdminFeedback />} />
+          <Route path="organizers" element={<AdminOrganizers />} />
+        </Route>
         
         {/* Organizer Routes Protected */}
         <Route 

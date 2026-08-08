@@ -274,7 +274,7 @@ export default function Tutoriel() {
           <p className="text-xs text-left">© 2026 Ping Manager. Conçu pour simplifier l'arbitrage et le suivi des tournois.</p>
           <div className="flex gap-6 text-xs font-bold items-center">
             <span className="text-[#f97316] hover:text-orange-400 cursor-pointer">Français</span>
-            <span className="text-slate-400">v0.20.0</span>
+            <span className="text-slate-400">v0.21.0</span>
             {showAdminLink && (
               <Link to="?login=admin" className="text-slate-400 hover:text-white transition-colors cursor-pointer border-l border-[#2a3548]/80 pl-4">Admin</Link>
             )}

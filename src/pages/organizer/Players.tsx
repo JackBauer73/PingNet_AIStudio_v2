@@ -85,6 +85,54 @@ export default function Players() {
     points: ''
   });
 
+  const [isSearchingLicence, setIsSearchingLicence] = useState(false);
+
+  const handleLookupLicence = async (forcedLicence?: string) => {
+    const lic = (forcedLicence || formData.licence_number)?.trim();
+    if (!lic) {
+      toast.error('Veuillez saisir un numéro de licence d’abord.');
+      return;
+    }
+    
+    setIsSearchingLicence(true);
+    const toastId = toast.loading("Interrogation de la base de données FFTT...");
+    try {
+      const ffttData = await fetchPlayerByLicence(lic);
+      if (ffttData) {
+        toast.success(`👤 Profil FFTT importé : ${ffttData.prenom} ${ffttData.nom} (${ffttData.classement || 500} pts)`, { id: toastId });
+        
+        let formattedPrenom = ffttData.prenom || '';
+        if (formattedPrenom && formattedPrenom === formattedPrenom.toUpperCase()) {
+          formattedPrenom = formattedPrenom.charAt(0) + formattedPrenom.slice(1).toLowerCase();
+        }
+
+        setFormData(prev => ({
+          ...prev,
+          first_name: formattedPrenom,
+          last_name: ffttData.nom || '',
+          club: ffttData.club || '',
+          points: (ffttData.classement || ffttData.mensuel || ffttData.initial || 500).toString(),
+        }));
+      } else {
+        toast.error("Aucune information trouvée pour ce numéro de licence.", { id: toastId });
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Licence introuvable ou service FFTT indisponible.", { id: toastId });
+      console.warn("Erreur auto-lookup licence:", err);
+    } finally {
+      setIsSearchingLicence(false);
+    }
+  };
+
+  React.useEffect(() => {
+    const lic = formData.licence_number?.trim();
+    if (lic && lic.length === 7 && /^\d+$/.test(lic) && !isSearchingLicence) {
+      if (!formData.first_name && !formData.last_name) {
+        handleLookupLicence(lic);
+      }
+    }
+  }, [formData.licence_number]);
+
   const fetchCategories = async () => {
     if (!tournament?.id) return;
     try {
@@ -618,90 +666,137 @@ export default function Players() {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden bg-[#152031] rounded-2xl border border-[#2a3548] my-4"
+            className="overflow-hidden bg-[#152031] rounded-2xl border border-[#2a3548] my-4 shadow-2xl"
           >
-            <form onSubmit={handleSubmit} className="p-6 grid grid-cols-1 md:grid-cols-3 gap-5">
-              <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Prénom *</label>
-                <input
-                  required
-                  className="w-full px-4 py-2 bg-[#081425] border border-[#1a3056] rounded-lg focus:border-[#f97316] outline-none text-white transition-all text-xs font-bold"
-                  value={formData.first_name}
-                  onChange={e => setFormData({ ...formData, first_name: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Nom *</label>
-                <input
-                  required
-                  className="w-full px-4 py-2 bg-[#081425] border border-[#1a3056] rounded-lg focus:border-[#f97316] outline-none text-white transition-all text-xs font-bold"
-                  value={formData.last_name}
-                  onChange={e => setFormData({ ...formData, last_name: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Série / Classement *</label>
-                <select
-                  className="w-full px-4 py-2 bg-[#081425] border border-[#1a3056] rounded-lg focus:border-[#f97316] outline-none text-white transition-all text-xs font-bold cursor-pointer"
-                  value={formData.serie}
-                  onChange={e => setFormData({ ...formData, serie: e.target.value })}
-                >
-                  {categories.length > 0 ? (
-                    categories.map(c => (
-                      <option key={c.id} value={c.name} className="bg-[#081425]">
-                        {c.name} (Jour {c.day_number})
-                      </option>
-                    ))
-                  ) : (
-                    SERIES.map(s => <option key={s} value={s} className="bg-[#081425]">{s}</option>)
-                  )}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Club / Association</label>
-                <input
-                  className="w-full px-4 py-2 bg-[#081425] border border-[#1a3056] rounded-lg focus:border-[#f97316] outline-none text-white transition-all text-xs font-bold"
-                  value={formData.club}
-                  onChange={e => setFormData({ ...formData, club: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Numéro de Téléphone (SMS de scores)</label>
-                <input
-                  type="tel"
-                  placeholder="Ex: 0612345678"
-                  className="w-full px-4 py-2 bg-[#081425] border border-[#1a3056] rounded-lg focus:border-[#f97316] outline-none text-white transition-all text-xs font-bold font-mono"
-                  value={formData.phone}
-                  onChange={e => setFormData({ ...formData, phone: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">N° de Licence FFTT (Optionnel)</label>
-                <input
-                  type="text"
-                  placeholder="Ex: 5912345"
-                  className="w-full px-4 py-2 bg-[#081425] border border-[#1a3056] rounded-lg focus:border-[#f97316] outline-none text-white transition-all text-xs font-bold font-mono"
-                  value={formData.licence_number}
-                  onChange={e => setFormData({ ...formData, licence_number: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Points (Calculé si licence renseignée)</label>
-                <input
-                  type="number"
-                  placeholder="Ex: 752"
-                  className="w-full px-4 py-2 bg-[#081425] border border-[#1a3056] rounded-lg focus:border-[#f97316] outline-none text-white transition-all text-xs font-bold font-mono"
-                  value={formData.points}
-                  onChange={e => setFormData({ ...formData, points: e.target.value })}
-                />
-              </div>
-              <div className="flex items-end md:col-span-2">
-                <button
-                  type="submit"
-                  className="w-full px-6 py-2.5 bg-[#f97316] hover:bg-orange-600 text-white rounded-lg font-bold transition-all shadow-md active:scale-[0.98] cursor-pointer text-xs uppercase"
-                >
-                  Valider l'Inscription du Joueur
-                </button>
+            <form onSubmit={handleSubmit} className="p-6">
+              {/* --- ULTRA SIMPLIFIED FFTT LICENCE FLOW --- */}
+              <div className="max-w-xl mx-auto space-y-5 py-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-bold text-slate-300 uppercase tracking-widest mb-2 flex justify-between items-center">
+                      <span>Numéro de Licence (7 chiffres)</span>
+                      <span className="text-[10px] text-[#f97316] font-extrabold lowercase flex items-center gap-1 animate-pulse">
+                        <span>détection auto</span> 🏓
+                      </span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        required
+                        placeholder="Ex: 5912345"
+                        maxLength={7}
+                        className="w-full px-4 py-2.5 bg-[#081425] border border-[#1a3056] rounded-xl focus:border-[#f97316] outline-none text-white transition-all text-xs font-mono font-black tracking-widest"
+                        value={formData.licence_number}
+                        onChange={e => {
+                          const val = e.target.value.replace(/\D/g, '').slice(0, 7);
+                          setFormData({ ...formData, licence_number: val });
+                        }}
+                      />
+                      {isSearchingLicence && (
+                        <div className="absolute right-3 top-3">
+                          <RefreshCw className="w-4 h-4 text-[#f97316] animate-spin" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleLookupLicence()}
+                    disabled={isSearchingLicence || !formData.licence_number}
+                    className="w-full py-2.5 bg-[#1f2a3c] hover:bg-[#2a3548] text-white border border-[#2a3548] rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 h-[38px] disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Search className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Rechercher</span>
+                  </button>
+                </div>
+
+                {/* FFTT Profile Preview Card */}
+                {formData.first_name && formData.last_name ? (
+                  <motion.div
+                    initial={{ scale: 0.95, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="p-4 bg-emerald-950/25 border-2 border-emerald-500/30 rounded-xl relative overflow-hidden"
+                  >
+                    <div className="absolute right-3 top-3 px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-400/30 text-[9px] font-black text-emerald-400 uppercase tracking-wider">
+                      Licencié FFTT ✓
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 bg-emerald-500/20 rounded-xl">
+                        <CheckCircle className="w-5 h-5 text-emerald-400" />
+                      </div>
+                      <div>
+                        <h4 className="font-extrabold text-sm text-white uppercase tracking-wide">
+                          {formData.first_name} {formData.last_name}
+                        </h4>
+                        <p className="text-xs text-slate-400 mt-0.5 font-medium">
+                          Club: <span className="text-white font-bold">{formData.club || "Indépendant"}</span>
+                          <span className="mx-2 text-slate-600">•</span>
+                          Points: <span className="text-[#f97316] font-extrabold">{formData.points || 500} pts</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 pt-3 border-t border-emerald-500/10 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10px] uppercase tracking-wider font-extrabold text-slate-400 mb-1">
+                          Téléphone (optionnel - alertes SMS de match)
+                        </label>
+                        <input
+                          type="tel"
+                          placeholder="Ex: 0612345678"
+                          className="w-full px-3 py-1.5 bg-[#081425] border border-emerald-500/10 rounded-lg focus:border-[#f97316] outline-none text-white text-xs font-mono"
+                          value={formData.phone}
+                          onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] uppercase tracking-wider font-extrabold text-slate-400 mb-1">
+                          Tableau / Série d'affectation *
+                        </label>
+                        <select
+                          className="w-full px-3 py-1.5 bg-[#081425] border border-emerald-500/10 rounded-lg focus:border-[#f97316] outline-none text-white text-xs font-bold cursor-pointer"
+                          value={formData.serie}
+                          onChange={e => setFormData({ ...formData, serie: e.target.value })}
+                        >
+                          {categories.length > 0 ? (
+                            categories.map(c => (
+                              <optgroup key={c.id} label={`Jour ${c.day_number}`} className="bg-[#081425] text-slate-400 text-[10px]">
+                                <option value={c.name} className="bg-[#081425] text-white text-xs font-bold">
+                                  {c.name}
+                                </option>
+                              </optgroup>
+                            ))
+                          ) : (
+                            SERIES.map(s => <option key={s} value={s} className="bg-[#081425]">{s}</option>)
+                          )}
+                        </select>
+                      </div>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <div className="p-6 bg-[#081425]/40 border border-[#1a3056]/40 rounded-xl text-center text-xs text-slate-400 flex flex-col items-center justify-center gap-2">
+                    <span className="text-xl">🏓</span>
+                    <p className="font-medium">Saisissez un numéro de licence valide ci-dessus.</p>
+                    <p className="text-[10px] text-slate-500">Les coordonnées, club et points officiels seront importés en 1 seconde et affichés sous forme de carte.</p>
+                  </div>
+                )}
+
+                {/* Validation du joueur FFTT */}
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={!formData.first_name || !formData.last_name}
+                    className={`w-full py-3 rounded-xl font-black transition-all shadow-md active:scale-[0.98] cursor-pointer text-xs uppercase flex items-center justify-center gap-2
+                      ${(formData.first_name && formData.last_name) 
+                        ? 'bg-[#f97316] hover:bg-orange-600 text-white animate-fade-in' 
+                        : 'bg-[#1a3056] text-slate-500 cursor-not-allowed border border-[#101b2c]'}`}
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>Valider l'Inscription du Joueur</span>
+                  </button>
+                </div>
               </div>
             </form>
           </motion.div>

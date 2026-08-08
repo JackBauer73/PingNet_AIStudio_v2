@@ -3,15 +3,22 @@
  This document keeps track of all released versions and updates of Ping Manager, adhering strictly to **Semantic Versioning (SemVer)**: `MAJOR.MINOR.PATCH`.
  
  ## Configuration active
-- **Version actuelle :** `0.20.0`
-- **Statut :** Widget de retour d'expérience / signalement de bug (capture html2canvas, notes sur avis, page organisateur de tri Realtime)
+- **Version actuelle :** `0.21.0`
+- **Statut :** Console d'administration robuste (rôles et profils utilisateurs, statistiques réelles Supabase, gestion de feedback, promot/rétrograd)
 - **Date :** 2026-06-11
 
 ---
  
  ## Historique des versions
  
-### v0.20.0 (2026-06-11) - *Version Actuelle*
+### v0.21.0 (2026-06-11) - *Version Actuelle*
+- **Espace d'Administration Dédié (Spec 0.21.0) :**
+  - **Système de Rôles et Profils Utilisateurs :** Vérification sécurisée du rôle utilisateur (`Profiles`) dans la base de données Supabase. Redirection automatique vers l'espace club si l'utilisateur n'est pas admin.
+  - **Page Vue d'Ensemble Réelle :** Remplacement d'indicateurs statiques par des statistiques réelles issues de vrais `COUNT` (tournois actifs, inscriptions, présence, matchs finis, retours non traités), sans données virtuelles.
+  - **Console Feedback Centralisée :** Relocalisation et enrichissement de la gestion des rapports d'erreurs (Bugs), suggestions d'idées et avis clients du site. URLs de captures signées et tri en temps réel.
+  - **Gestion de la Liste des Organisateurs :** Liste complète des comptes inscrits avec possibilité d'accorder/annuler les autorisations d'administration (`admin` vs `organizer`), protégée par un garde-fou anti-auto-rétrogradation de sécurité.
+
+### v0.20.0 (2026-06-11)
 - **Widget de retour d'expérience et signalement de bug global :**
   - **Bouton flottant widget (FAB) :** Ajout d'un bouton flottant accessible sur tout le site (au-dessus du menu de navigation mobile), permettant de notifier l'assistance instantanément.
   - **Sélection multiple feedback :** Choix typologique granulaire "Bug", "Suggestion", ou "Avis" pour cataloguer les retours.
